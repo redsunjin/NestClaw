@@ -153,9 +153,26 @@ uvicorn app.main:APP --reload --port 8000
 curl http://127.0.0.1:8000/health
 ```
 
+4. 비IT 사용자 CLI 실행
+```bash
+python3 app/cli.py
+```
+
 ## 12) Git 운영 기준
 - 워크플로우 문서: `GIT_WORKFLOW.md`
 - PR 템플릿: `.github/pull_request_template.md`
 - 기본 브랜치: `main`
 - 작업 브랜치: `codex/<topic>`
 - 릴리즈 태그: `vMAJOR.MINOR.PATCH`
+
+## 13) Codex 자동 순환
+- 운영 가이드: `CODEX_AUTOMATION_CYCLE.md`
+- 실행 스크립트: `scripts/run_dev_qa_cycle.sh`
+- 테스트:
+  - `tests/test_spec_contract.py`
+  - `tests/test_runtime_smoke.py`
+
+실행 예시:
+```bash
+bash scripts/run_dev_qa_cycle.sh 4
+```

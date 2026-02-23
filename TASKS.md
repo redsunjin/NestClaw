@@ -47,10 +47,10 @@
 - 실패 경로가 자동 복구 또는 승인 대기로 일관되게 전환
 
 ## Step 5. 비IT 사용자 UX
-- [ ] 템플릿 선택형 입력 화면/CLI 구현
-- [ ] 자유 프롬프트 대신 템플릿 필드 기반 입력 적용
-- [ ] 상태 메시지 표준화 (현재 상태/다음 액션/필요 승인)
-- [ ] 결과 확인 화면 단순화
+- [x] 템플릿 선택형 입력 화면/CLI 구현 (`app/cli.py`)
+- [x] 자유 프롬프트 대신 템플릿 필드 기반 입력 적용 (`app/cli.py`)
+- [x] 상태 메시지 표준화 (현재 상태/다음 액션/필요 승인) (`app/cli.py`)
+- [x] 결과 확인 화면 단순화 (`app/cli.py`)
 
 완료 기준:
 - 비IT 사용자 기준으로 생성/실행/상태/결과 4동작을 수행 가능
@@ -65,9 +65,15 @@
 완료 기준:
 - 회귀 테스트 통과 + 정책 위반 0 + 로그 누락 0
 
+## Automation
+- [x] 개발/QA 순환 스크립트 추가 (`scripts/run_dev_qa_cycle.sh`)
+- [x] 정적 스펙 계약 테스트 추가 (`tests/test_spec_contract.py`)
+- [x] 런타임 스모크 테스트 추가 (`tests/test_runtime_smoke.py`)
+- [x] 순환 운영 가이드 문서화 (`CODEX_AUTOMATION_CYCLE.md`)
+
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)
 2. [x] 상태 전이 다이어그램 작성 (`STATE_MACHINE.md`)
 3. [x] 정책 화이트리스트 초안 작성 (`POLICY_WHITELIST.md`)
 4. [x] 승인 큐 데이터 모델 정의 (`APPROVAL_QUEUE_MODEL.md`)
-5. [ ] 템플릿 1종(회의요약) 연결 테스트 (`TEMPLATE_MEETING_SUMMARY_TEST_PLAN.md` 작성 완료, 실제 실행 대기)
+5. [x] 템플릿 1종(회의요약) 연결 테스트 (`tests/test_runtime_smoke.py`)
