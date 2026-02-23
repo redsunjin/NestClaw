@@ -19,6 +19,25 @@ bash scripts/run_dev_qa_cycle.sh 4
 - Step 4까지 판정: `bash scripts/run_dev_qa_cycle.sh 4`
 - Step 6까지 판정: `bash scripts/run_dev_qa_cycle.sh 6`
 
+## 자동 반복 배치
+반복 실행 + 실패 시 수정 명령을 훅으로 연결하려면:
+
+```bash
+bash scripts/run_auto_cycle.sh 6 10 3 --fix-cmd "<your-fix-command>"
+```
+
+파라미터:
+- `target-stage`: 1~6
+- `max-rounds`: 최대 반복 횟수
+- `sleep-seconds`: 라운드 간 대기
+- `--fix-cmd`: 실패 라운드 뒤 실행할 수정 명령
+
+예시:
+```bash
+bash scripts/run_auto_cycle.sh 4
+bash scripts/run_auto_cycle.sh 6 5 2 --fix-cmd "python3 -m unittest tests.test_spec_contract"
+```
+
 ## 단계별 자동 게이트
 ### Stage 1
 - API 파일 문법 검증

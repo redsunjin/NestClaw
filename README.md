@@ -160,6 +160,7 @@ python3 app/cli.py
 
 ## 12) Git 운영 기준
 - 워크플로우 문서: `GIT_WORKFLOW.md`
+- 워크트리 가이드: `GIT_WORKTREE_GUIDE.md`
 - PR 템플릿: `.github/pull_request_template.md`
 - 기본 브랜치: `main`
 - 작업 브랜치: `codex/<topic>`
@@ -168,6 +169,7 @@ python3 app/cli.py
 ## 13) Codex 자동 순환
 - 운영 가이드: `CODEX_AUTOMATION_CYCLE.md`
 - 실행 스크립트: `scripts/run_dev_qa_cycle.sh`
+- 자동 반복 배치: `scripts/run_auto_cycle.sh`
 - 테스트:
   - `tests/test_spec_contract.py`
   - `tests/test_runtime_smoke.py`
@@ -175,4 +177,12 @@ python3 app/cli.py
 실행 예시:
 ```bash
 bash scripts/run_dev_qa_cycle.sh 4
+bash scripts/run_auto_cycle.sh 6 10 3 --fix-cmd "<your-fix-command>"
 ```
+
+## 14) 보안형 에이전트 협업 아이디어
+- 검토 문서: `SECURE_AGENT_COLLAB_ARCHITECTURE.md`
+- 핵심:
+  - 에이전트 private workspace 분리
+  - broker 중재형 공유 채널 읽기/쓰기
+  - local/api LLM 정책 라우팅
