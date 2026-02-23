@@ -31,7 +31,7 @@
 ## Step 3. 정책/권한
 - [x] 화이트리스트 경로 정의 (`POLICY_WHITELIST.md`)
 - [x] 금지 명령 목록 정의 (`POLICY_WHITELIST.md`)
-- [ ] RBAC 역할 정의 (요청자/검토자/승인자/관리자)
+- [x] RBAC 역할 정의 (요청자/검토자/승인자/관리자, `app/main.py`, `API_CONTRACT.md`)
 - [x] 정책 위반 시 `BLOCKED_POLICY` 이벤트 로깅 (`app/main.py`, `POLICY_WHITELIST.md`)
 
 완료 기준:
@@ -56,14 +56,16 @@
 - 비IT 사용자 기준으로 생성/실행/상태/결과 4동작을 수행 가능
 
 ## Step 6. 검증 게이트
-- [ ] 정상 시나리오 테스트
-- [ ] 실패 시나리오 테스트
-- [ ] 차단 시나리오 테스트
-- [ ] 로그 누락 점검
-- [ ] 정책 위반 0건 확인
+- [x] 정상 시나리오 테스트 (`tests/test_runtime_smoke.py`)
+- [x] 실패 시나리오 테스트 (`tests/test_runtime_smoke.py`)
+- [x] 차단 시나리오 테스트 (`tests/test_runtime_smoke.py`)
+- [x] 로그 누락 점검 (`GET /api/v1/task/events/{task_id}`, `tests/test_runtime_smoke.py`)
+- [x] 정책 위반 0건 확인 (`GET /api/v1/audit/summary`, `policy_bypass_events=0`)
 
 완료 기준:
 - 회귀 테스트 통과 + 정책 위반 0 + 로그 누락 0
+주의:
+- 런타임 시나리오는 `fastapi` 테스트 런타임이 설치된 환경에서 최종 확인한다.
 
 ## Automation
 - [x] 개발/QA 순환 스크립트 추가 (`scripts/run_dev_qa_cycle.sh`)

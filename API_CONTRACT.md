@@ -9,7 +9,9 @@
 - Content-Type: `application/json`
 - 시간 표기: ISO 8601 UTC (`YYYY-MM-DDTHH:mm:ssZ`)
 - ID 형식: `task_<uuid>`
-- 인증: 로컬 환경 기준 토큰 인증(구현체에서 선택)
+- 인증: 로컬 환경 기준 헤더 기반 역할 인증
+  - `X-Actor-Id`: 호출자 식별자
+  - `X-Actor-Role`: `requester` | `reviewer` | `approver` | `admin`
 
 ## 3) 데이터 모델
 ### 3.1 Task
@@ -46,6 +48,10 @@
 ## 4.1 POST `/api/v1/task/create`
 작업을 생성하고 `READY` 상태로 반환한다.
 
+권한:
+- 허용 role: `requester`, `admin`
+- `requester`는 `X-Actor-Id == requested_by` 조건 필요
+
 요청:
 ```json
 {
@@ -79,6 +85,10 @@
 `READY` 상태 작업을 실행한다.
 동일 Task에 대해 실행 요청이 중복될 수 있으므로 멱등성 키를 권장한다.
 
+권한:
+- 허용 role: `requester`, `admin`
+- `requester`는 본인 Task만 실행 가능
+
 요청:
 ```json
 {
@@ -104,6 +114,10 @@
 
 ## 4.3 GET `/api/v1/task/status/{task_id}`
 현재 상태와 최신 실행 결과를 조회한다.
+
+권한:
+- 허용 role: `requester`, `reviewer`, `approver`, `admin`
+- `requester`는 본인 Task만 조회 가능
 
 응답 `200 OK` (진행 중):
 ```json
@@ -140,6 +154,59 @@
 
 오류:
 - `404 TASK_NOT_FOUND`
+
+## 4.4 GET `/api/v1/task/events/{task_id}`
+Task 이벤트 로그를 조회한다.
+
+권한:
+- 허용 role: `requester`, `reviewer`, `approver`, `admin`
+- `requester`는 본인 Task만 조회 가능
+
+응답:
+```json
+{
+  "task_id": "task_...",
+  "count": 4,
+  "items": [
+    {"event_type": "TASK_CREATED", "...": "..."}
+  ]
+}
+```
+
+## 4.5 GET `/api/v1/approvals`
+승인 큐 목록을 조회한다.
+
+권한:
+- 허용 role: `approver`, `admin`
+
+## 4.6 POST `/api/v1/approvals/{queue_id}/approve`
+승인 처리 후 Task를 `RUNNING`으로 복귀시킨다.
+
+권한:
+- 허용 role: `approver`, `admin`
+
+## 4.7 POST `/api/v1/approvals/{queue_id}/reject`
+반려 처리 후 Task를 종료한다.
+
+권한:
+- 허용 role: `approver`, `admin`
+
+## 4.8 GET `/api/v1/audit/summary`
+감사 지표 요약을 조회한다.
+
+권한:
+- 허용 role: `reviewer`, `admin`
+
+응답:
+```json
+{
+  "total_events": 12,
+  "blocked_policy_events": 2,
+  "policy_bypass_events": 0,
+  "approvals_pending": 1,
+  "approvals_resolved": 3
+}
+```
 
 ## 5) 이벤트 로깅 최소 스키마
 ```json

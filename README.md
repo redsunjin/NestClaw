@@ -25,8 +25,10 @@
 ## 2) 전문가 그룹 검토 요약
 기준 문서: `AGENT_EXPERT_GROUP.md`  
 검토보고서: `REVIEW_REPORT.md`
+최신 업데이트: `EXPERT_REVIEW_UPDATE_2026-02-24.md`
 
 - 종합 판정: **조건부 진행 가능 (Go with Guardrails)**
+- 최신 판정(2026-02-24): **유효함 (조건부 High)**
 - 핵심 조건:
   - 목적과 범위를 업무 위임으로 고정
   - 정책 엔진/승인 게이트를 초기부터 포함
@@ -126,12 +128,15 @@
   - `POST /api/v1/task/create`
   - `POST /api/v1/task/run`
   - `GET /api/v1/task/status/{task_id}`
+  - `GET /api/v1/task/events/{task_id}`
   - `GET /api/v1/approvals`
   - `POST /api/v1/approvals/{queue_id}/approve`
   - `POST /api/v1/approvals/{queue_id}/reject`
+  - `GET /api/v1/audit/summary`
 - 오케스트레이션 체인 구현: `planner -> executor -> reviewer -> reporter`
 - 재시도/승인 전환 구현: 재시도 1회 후 승인 큐 전환
 - 회의요약 템플릿 보고서 생성 구현: `reports/<task_id>/report.md`
+- RBAC 헤더 적용: `X-Actor-Id`, `X-Actor-Role`
 
 코드 위치:
 - 서버: `app/main.py`
@@ -186,3 +191,9 @@ bash scripts/run_auto_cycle.sh 6 10 3 --fix-cmd "<your-fix-command>"
   - 에이전트 private workspace 분리
   - broker 중재형 공유 채널 읽기/쓰기
   - local/api LLM 정책 라우팅
+
+## 15) 최신 검토 결론
+- 문서: `EXPERT_REVIEW_UPDATE_2026-02-24.md`
+- 결론:
+  - 현재 방향은 프로젝트 목적 달성에 유효
+  - 단, 운영 전 DB 저장소 전환 + 실운영 인증 계층 + CI 게이트 고정 필요

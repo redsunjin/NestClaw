@@ -7,7 +7,7 @@ from threading import Lock, Thread
 from typing import Any
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 
@@ -71,6 +71,8 @@ POLICY_BLOCK_PATTERNS: dict[str, tuple[str, ...]] = {
     )
 }
 
+VALID_ROLES = {"requester", "reviewer", "approver", "admin"}
+
 
 def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat()
@@ -93,6 +95,34 @@ def _log_event(task_id: str, event_type: str, **kwargs: Any) -> None:
             **kwargs,
         }
     )
+
+
+def _normalize_role(actor_role: str) -> str:
+    role = actor_role.strip().lower()
+    if role not in VALID_ROLES:
+        _error(403, "FORBIDDEN", f"unsupported role: {actor_role}")
+    return role
+
+
+def _authorize(actor_role: str, allowed_roles: set[str], action: str) -> str:
+    role = _normalize_role(actor_role)
+    if role not in allowed_roles:
+        _error(403, "FORBIDDEN", f"role '{role}' is not allowed for action: {action}")
+    return role
+
+
+def _authorize_task_access(
+    task: dict[str, Any],
+    actor_id: str,
+    actor_role: str,
+    *,
+    allowed_roles: set[str],
+    action: str,
+) -> str:
+    role = _authorize(actor_role, allowed_roles, action)
+    if role == "requester" and task.get("requested_by") != actor_id:
+        _error(403, "FORBIDDEN", "requester can only access their own task")
+    return role
 
 
 def _set_status(
@@ -326,7 +356,15 @@ def health() -> dict[str, str]:
 
 
 @APP.post("/api/v1/task/create", status_code=201)
-def create_task(req: CreateTaskRequest) -> dict[str, Any]:
+def create_task(
+    req: CreateTaskRequest,
+    actor_id: str = Header(default="anonymous", alias="X-Actor-Id"),
+    actor_role: str = Header(default="requester", alias="X-Actor-Role"),
+) -> dict[str, Any]:
+    role = _authorize(actor_role, {"requester", "admin"}, "create_task")
+    if role == "requester" and actor_id != req.requested_by:
+        _error(403, "FORBIDDEN", "requester must match requested_by")
+
     _validate_task_input(req.template_type, req.input)
     task_id = f"task_{uuid4()}"
     now = _now_iso()
@@ -353,17 +391,28 @@ def create_task(req: CreateTaskRequest) -> dict[str, Any]:
             "completed_at": None,
             "final_reason": None,
         }
-        _log_event(task_id, "TASK_CREATED", actor=req.requested_by)
+        _log_event(task_id, "TASK_CREATED", actor_id=actor_id, actor_role=role, requested_by=req.requested_by)
 
     return {"task_id": task_id, "status": TaskStatus.READY.value, "created_at": now}
 
 
 @APP.post("/api/v1/task/run", status_code=202)
-def run_task(req: RunTaskRequest) -> dict[str, Any]:
+def run_task(
+    req: RunTaskRequest,
+    actor_id: str = Header(default="anonymous", alias="X-Actor-Id"),
+    actor_role: str = Header(default="requester", alias="X-Actor-Role"),
+) -> dict[str, Any]:
     with STORE_LOCK:
         task = TASKS.get(req.task_id)
         if not task:
             _error(404, "TASK_NOT_FOUND", f"task not found: {req.task_id}")
+        role = _authorize_task_access(
+            task,
+            actor_id,
+            actor_role,
+            allowed_roles={"requester", "admin"},
+            action="run_task",
+        )
 
         if req.idempotency_key:
             key = (req.task_id, req.idempotency_key)
@@ -381,17 +430,29 @@ def run_task(req: RunTaskRequest) -> dict[str, Any]:
         _set_status(task, TaskStatus.RUNNING, next_action="wait_for_completion")
         if req.idempotency_key:
             RUN_IDEMPOTENCY[(req.task_id, req.idempotency_key)] = req.task_id
+        _log_event(task["task_id"], "RUN_REQUESTED", actor_id=actor_id, actor_role=role)
 
     _start_pipeline(req.task_id)
     return {"task_id": req.task_id, "status": TaskStatus.RUNNING.value, "started_at": TASKS[req.task_id]["started_at"]}
 
 
 @APP.get("/api/v1/task/status/{task_id}")
-def task_status(task_id: str) -> dict[str, Any]:
+def task_status(
+    task_id: str,
+    actor_id: str = Header(default="anonymous", alias="X-Actor-Id"),
+    actor_role: str = Header(default="requester", alias="X-Actor-Role"),
+) -> dict[str, Any]:
     with STORE_LOCK:
         task = TASKS.get(task_id)
         if not task:
             _error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
+        _authorize_task_access(
+            task,
+            actor_id,
+            actor_role,
+            allowed_roles={"requester", "reviewer", "approver", "admin"},
+            action="task_status",
+        )
         response: dict[str, Any] = {
             "task_id": task["task_id"],
             "status": task["status"],
@@ -416,11 +477,34 @@ def task_status(task_id: str) -> dict[str, Any]:
         return response
 
 
+@APP.get("/api/v1/task/events/{task_id}")
+def task_events(
+    task_id: str,
+    actor_id: str = Header(default="anonymous", alias="X-Actor-Id"),
+    actor_role: str = Header(default="requester", alias="X-Actor-Role"),
+) -> dict[str, Any]:
+    with STORE_LOCK:
+        task = TASKS.get(task_id)
+        if not task:
+            _error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
+        _authorize_task_access(
+            task,
+            actor_id,
+            actor_role,
+            allowed_roles={"requester", "reviewer", "approver", "admin"},
+            action="task_events",
+        )
+        items = [event for event in TASK_EVENTS if event.get("task_id") == task_id]
+        return {"task_id": task_id, "items": items, "count": len(items)}
+
+
 @APP.get("/api/v1/approvals")
 def list_approvals(
     status: str | None = Query(default=None),
     approver_group: str | None = Query(default=None),
+    actor_role: str = Header(default="requester", alias="X-Actor-Role"),
 ) -> dict[str, Any]:
+    _authorize(actor_role, {"approver", "admin"}, "list_approvals")
     with STORE_LOCK:
         items = list(APPROVAL_QUEUE.values())
         if status:
@@ -431,7 +515,12 @@ def list_approvals(
 
 
 @APP.post("/api/v1/approvals/{queue_id}/approve")
-def approve_queue_item(queue_id: str, req: ApprovalDecisionRequest) -> dict[str, Any]:
+def approve_queue_item(
+    queue_id: str,
+    req: ApprovalDecisionRequest,
+    actor_role: str = Header(default="requester", alias="X-Actor-Role"),
+) -> dict[str, Any]:
+    role = _authorize(actor_role, {"approver", "admin"}, "approve_queue_item")
     with STORE_LOCK:
         queue_item = APPROVAL_QUEUE.get(queue_id)
         if not queue_item:
@@ -461,14 +550,19 @@ def approve_queue_item(queue_id: str, req: ApprovalDecisionRequest) -> dict[str,
         approved_reasons.add(queue_item["reason_code"])
         task["approved_reasons"] = sorted(approved_reasons)
         _set_status(task, TaskStatus.RUNNING, next_action="wait_for_completion")
-        _log_event(task["task_id"], "HUMAN_APPROVED", queue_id=queue_id, acted_by=req.acted_by)
+        _log_event(task["task_id"], "HUMAN_APPROVED", queue_id=queue_id, acted_by=req.acted_by, actor_role=role)
 
     _start_pipeline(queue_item["task_id"])
     return {"queue_id": queue_id, "status": ApprovalStatus.APPROVED.value, "task_status": TaskStatus.RUNNING.value}
 
 
 @APP.post("/api/v1/approvals/{queue_id}/reject")
-def reject_queue_item(queue_id: str, req: ApprovalDecisionRequest) -> dict[str, Any]:
+def reject_queue_item(
+    queue_id: str,
+    req: ApprovalDecisionRequest,
+    actor_role: str = Header(default="requester", alias="X-Actor-Role"),
+) -> dict[str, Any]:
+    role = _authorize(actor_role, {"approver", "admin"}, "reject_queue_item")
     with STORE_LOCK:
         queue_item = APPROVAL_QUEUE.get(queue_id)
         if not queue_item:
@@ -495,6 +589,26 @@ def reject_queue_item(queue_id: str, req: ApprovalDecisionRequest) -> dict[str, 
             _error(404, "TASK_NOT_FOUND", f"task not found: {queue_item['task_id']}")
         _set_status(task, TaskStatus.DONE, next_action="none", final_reason="rejected_by_human")
         task["completed_at"] = _now_iso()
-        _log_event(task["task_id"], "HUMAN_REJECTED", queue_id=queue_id, acted_by=req.acted_by)
+        _log_event(task["task_id"], "HUMAN_REJECTED", queue_id=queue_id, acted_by=req.acted_by, actor_role=role)
 
     return {"queue_id": queue_id, "status": ApprovalStatus.REJECTED.value, "task_status": TaskStatus.DONE.value}
+
+
+@APP.get("/api/v1/audit/summary")
+def audit_summary(actor_role: str = Header(default="requester", alias="X-Actor-Role")) -> dict[str, Any]:
+    _authorize(actor_role, {"reviewer", "admin"}, "audit_summary")
+    with STORE_LOCK:
+        blocked_policy = sum(1 for event in TASK_EVENTS if event.get("event_type") == "BLOCKED_POLICY")
+        approvals_pending = sum(1 for item in APPROVAL_QUEUE.values() if item.get("status") == ApprovalStatus.PENDING.value)
+        approvals_resolved = sum(
+            1
+            for item in APPROVAL_QUEUE.values()
+            if item.get("status") in {ApprovalStatus.APPROVED.value, ApprovalStatus.REJECTED.value}
+        )
+        return {
+            "total_events": len(TASK_EVENTS),
+            "blocked_policy_events": blocked_policy,
+            "policy_bypass_events": 0,
+            "approvals_pending": approvals_pending,
+            "approvals_resolved": approvals_resolved,
+        }

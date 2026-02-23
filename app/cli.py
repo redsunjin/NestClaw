@@ -8,12 +8,25 @@ from urllib import error, request
 
 
 BASE_URL = "http://127.0.0.1:8000"
+ACTOR_ID = "user_cli"
+ACTOR_ROLE = "requester"
 
 
-def _http_json(method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+def _http_json(
+    method: str,
+    path: str,
+    payload: dict[str, Any] | None = None,
+    *,
+    actor_id: str | None = None,
+    actor_role: str | None = None,
+) -> dict[str, Any]:
     url = f"{BASE_URL}{path}"
     data = None
     headers = {"Content-Type": "application/json"}
+    if actor_id:
+        headers["X-Actor-Id"] = actor_id
+    if actor_role:
+        headers["X-Actor-Role"] = actor_role
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
 
@@ -62,6 +75,7 @@ def _print_status(payload: dict[str, Any]) -> None:
 
 
 def create_meeting_summary_task() -> None:
+    global ACTOR_ID, ACTOR_ROLE
     print("\n[템플릿: 회의요약 -> 액션리스트]")
     meeting_title = _input_required("회의 제목")
     meeting_date = _input_required("회의 날짜 (YYYY-MM-DD)")
@@ -81,7 +95,15 @@ def create_meeting_summary_task() -> None:
         },
         "requested_by": requested_by,
     }
-    resp = _http_json("POST", "/api/v1/task/create", payload)
+    ACTOR_ID = requested_by
+    ACTOR_ROLE = "requester"
+    resp = _http_json(
+        "POST",
+        "/api/v1/task/create",
+        payload,
+        actor_id=ACTOR_ID,
+        actor_role=ACTOR_ROLE,
+    )
     if "error" in resp:
         _print_status(resp)
         return
@@ -92,22 +114,25 @@ def create_meeting_summary_task() -> None:
 
 
 def run_task() -> None:
+    global ACTOR_ID, ACTOR_ROLE
     task_id = _input_required("실행할 Task ID")
     idem = input("idempotency_key (선택): ").strip() or None
     payload = {"task_id": task_id, "idempotency_key": idem, "run_mode": "standard"}
-    resp = _http_json("POST", "/api/v1/task/run", payload)
+    resp = _http_json("POST", "/api/v1/task/run", payload, actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
     _print_status(resp)
 
 
 def show_status() -> None:
+    global ACTOR_ID, ACTOR_ROLE
     task_id = _input_required("조회할 Task ID")
-    resp = _http_json("GET", f"/api/v1/task/status/{task_id}")
+    resp = _http_json("GET", f"/api/v1/task/status/{task_id}", actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
     _print_status(resp)
 
 
 def show_result() -> None:
+    global ACTOR_ID, ACTOR_ROLE
     task_id = _input_required("결과 확인할 Task ID")
-    resp = _http_json("GET", f"/api/v1/task/status/{task_id}")
+    resp = _http_json("GET", f"/api/v1/task/status/{task_id}", actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
     _print_status(resp)
     if resp.get("status") != "DONE":
         return
@@ -127,6 +152,14 @@ def show_result() -> None:
 
 
 def main() -> int:
+    global ACTOR_ID, ACTOR_ROLE
+    actor_id_input = input("작업자 ID (기본: user_cli): ").strip()
+    if actor_id_input:
+        ACTOR_ID = actor_id_input
+    actor_role_input = input("작업자 Role (requester/reviewer/approver/admin, 기본: requester): ").strip().lower()
+    if actor_role_input in {"requester", "reviewer", "approver", "admin"}:
+        ACTOR_ROLE = actor_role_input
+
     menu = {
         "1": ("회의요약 작업 생성", create_meeting_summary_task),
         "2": ("작업 실행", run_task),
@@ -137,6 +170,8 @@ def main() -> int:
 
     print("Local Work Delegation CLI")
     print(f"- API: {BASE_URL}\n")
+    print(f"- Actor ID: {ACTOR_ID}")
+    print(f"- Actor Role: {ACTOR_ROLE}\n")
 
     while True:
         print("메뉴:")
