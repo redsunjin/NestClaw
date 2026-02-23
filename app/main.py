@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -8,11 +7,11 @@ from threading import Lock, Thread
 from typing import Any
 from uuid import uuid4
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.auth import ActorContext, VALID_ROLES, actor_context_dependency
-from app.persistence import SQLiteStateStore
+from app.persistence import create_state_store
 
 
 class TaskStatus(str, Enum):
@@ -51,8 +50,7 @@ class ApprovalDecisionRequest(BaseModel):
 APP = FastAPI(title="Local Work Delegation Orchestrator", version="0.1.0")
 
 STORE_LOCK = Lock()
-DB_PATH = os.getenv("NEWCLAW_DB_PATH", "data/new_claw.db")
-STATE_STORE = SQLiteStateStore(DB_PATH)
+STATE_STORE = create_state_store()
 TASKS, TASK_EVENTS, APPROVAL_QUEUE, APPROVAL_ACTIONS, RUN_IDEMPOTENCY = STATE_STORE.load_state()
 
 REPORTS_ROOT = Path("reports")

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 TARGET_STAGE="${1:-4}"
-if ! [[ "$TARGET_STAGE" =~ ^[1-6]$ ]]; then
-  echo "Usage: $0 <target-stage: 1..6>"
+if ! [[ "$TARGET_STAGE" =~ ^[1-7]$ ]]; then
+  echo "Usage: $0 <target-stage: 1..7>"
   exit 2
 fi
 
@@ -108,6 +108,12 @@ check_stage_5() {
 check_stage_6() {
   run_check "static contract tests" python3 -m unittest tests.test_spec_contract
   run_optional_check "runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_runtime_smoke
+}
+
+check_stage_7() {
+  run_check "stage7 static contract tests" python3 -m unittest tests.test_stage7_contract
+  run_check "idp auth unit tests" python3 -m unittest tests.test_auth_idp
+  run_check "postgres migration script exists" test -f scripts/migrate_postgres.sh
 }
 
 write_header

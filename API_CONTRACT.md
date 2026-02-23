@@ -13,12 +13,17 @@
   - 권장:
     - `Authorization: Bearer <jwt>`
     - JWT claim: `sub`, `role`
-  - SSO 연동 헤더:
+  - 외부 IdP 토큰:
+    - `X-SSO-Token: <jwt>`
+    - 검증 기준: `NEWCLAW_IDP_JWKS_PATH`, `NEWCLAW_IDP_ISSUER`, `NEWCLAW_IDP_AUDIENCE`
+  - 선택형 신뢰 SSO 헤더:
     - `X-SSO-User`
     - `X-SSO-Role`
+    - 활성화: `NEWCLAW_ALLOW_TRUSTED_SSO_HEADERS=1`
   - 호환(개발/이관용):
     - `X-Actor-Id`
     - `X-Actor-Role`
+    - 활성화: `NEWCLAW_ALLOW_COMPAT_HEADERS=1`
 
 ## 3) 데이터 모델
 ### 3.1 Task
@@ -235,10 +240,15 @@ Task 이벤트 로그를 조회한다.
 
 ## 7) 구현 메모
 - 초기 구현은 in-memory 저장소로 시작 가능
-- 현재 구현: SQLite 영속 저장소 사용 (`NEWCLAW_DB_PATH`, 기본 `data/new_claw.db`)
+- 현재 구현: SQLite/PostgreSQL 영속 저장소 지원
+  - SQLite: `NEWCLAW_DB_BACKEND=sqlite`, `NEWCLAW_DB_PATH` (기본 `data/new_claw.db`)
+  - PostgreSQL: `NEWCLAW_DB_BACKEND=postgres`, `NEWCLAW_DATABASE_URL`
 - 저장 테이블:
   - `tasks`
   - `events`
   - `approvals`
   - `approval_actions`
   - `run_idempotency`
+- PostgreSQL 마이그레이션:
+  - `migrations/postgres/001_init.sql`
+  - `scripts/migrate_postgres.sh`

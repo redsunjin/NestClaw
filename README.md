@@ -137,10 +137,13 @@
 - 재시도/승인 전환 구현: 재시도 1회 후 승인 큐 전환
 - 회의요약 템플릿 보고서 생성 구현: `reports/<task_id>/report.md`
 - 인증/권한:
-  - JWT 인증(`Authorization: Bearer <token>`)
-  - SSO 헤더(`X-SSO-User`, `X-SSO-Role`)
-  - 호환 헤더(`X-Actor-Id`, `X-Actor-Role`)
-- 영속 저장소: SQLite (`data/new_claw.db`, env: `NEWCLAW_DB_PATH`)
+  - 로컬 JWT(`Authorization: Bearer <token>`)
+  - 외부 IdP 토큰(`X-SSO-Token`) + JWKS 서명 검증
+  - 선택형 SSO 헤더(`X-SSO-User`, `X-SSO-Role`, `NEWCLAW_ALLOW_TRUSTED_SSO_HEADERS=1`)
+  - 호환 헤더(`X-Actor-Id`, `X-Actor-Role`, `NEWCLAW_ALLOW_COMPAT_HEADERS=1`)
+- 영속 저장소:
+  - SQLite 기본값 (`NEWCLAW_DB_BACKEND=sqlite`, `NEWCLAW_DB_PATH=data/new_claw.db`)
+  - PostgreSQL 지원 (`NEWCLAW_DB_BACKEND=postgres`, `NEWCLAW_DATABASE_URL=...`)
 
 코드 위치:
 - 서버: `app/main.py`
@@ -172,6 +175,12 @@ python3 app/cli.py
 python3 scripts/gen_dev_jwt.py --sub user_cli --role requester
 ```
 
+6. PostgreSQL 마이그레이션(선택)
+```bash
+export NEWCLAW_DATABASE_URL="postgresql://user:pass@127.0.0.1:5432/new_claw"
+bash scripts/migrate_postgres.sh up
+```
+
 ## 12) Git 운영 기준
 - 워크플로우 문서: `GIT_WORKFLOW.md`
 - 워크트리 가이드: `GIT_WORKTREE_GUIDE.md`
@@ -191,13 +200,15 @@ python3 scripts/gen_dev_jwt.py --sub user_cli --role requester
 - 테스트:
   - `tests/test_spec_contract.py`
   - `tests/test_runtime_smoke.py`
+  - `tests/test_stage7_contract.py`
+  - `tests/test_auth_idp.py`
 
 실행 예시:
 ```bash
 bash scripts/run_dev_qa_cycle.sh 4
-bash scripts/run_auto_cycle.sh 6 10 3 --fix-cmd "<your-fix-command>"
+bash scripts/run_auto_cycle.sh 7 10 3 --fix-cmd "<your-fix-command>"
 bash scripts/run_plan_qa.sh NEXT_STAGE_PLAN_2026-02-24.md
-bash scripts/run_next_stage_pipeline.sh 6 5 2 NEXT_STAGE_PLAN_2026-02-24.md
+bash scripts/run_next_stage_pipeline.sh 7 5 2 NEXT_STAGE_PLAN_2026-02-24.md
 ```
 
 ## 14) 보안형 에이전트 협업 아이디어
@@ -211,7 +222,7 @@ bash scripts/run_next_stage_pipeline.sh 6 5 2 NEXT_STAGE_PLAN_2026-02-24.md
 - 문서: `EXPERT_REVIEW_UPDATE_2026-02-24.md`
 - 결론:
   - 현재 방향은 프로젝트 목적 달성에 유효
-  - 단, 운영 전 DB 저장소 전환 + 실운영 인증 계층 + CI 게이트 고정 필요
+  - Stage 7 기준선(영속/인증/CI) 반영 완료, 운영 전 부하/장애복구 리허설 필요
 
 ## 16) 다음 단계 계획
 - 계획 문서: `NEXT_STAGE_PLAN_2026-02-24.md`

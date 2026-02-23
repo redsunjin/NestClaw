@@ -5,7 +5,7 @@
 지정한 단계(`Step N`)까지 도달 가능한지 자동 판정한다.
 
 ## 핵심 개념
-- 입력: 목표 단계(1~6)
+- 입력: 목표 단계(1~7)
 - 실행: 단계별 게이트 체크(정적 검증 + 테스트)
 - 출력: QA 리포트(`reports/qa/cycle-<timestamp>.md`)
 - 종료: 실패 0이면 해당 단계까지 통과
@@ -18,16 +18,17 @@ bash scripts/run_dev_qa_cycle.sh 4
 예시:
 - Step 4까지 판정: `bash scripts/run_dev_qa_cycle.sh 4`
 - Step 6까지 판정: `bash scripts/run_dev_qa_cycle.sh 6`
+- Step 7까지 판정: `bash scripts/run_dev_qa_cycle.sh 7`
 
 ## 자동 반복 배치
 반복 실행 + 실패 시 수정 명령을 훅으로 연결하려면:
 
 ```bash
-bash scripts/run_auto_cycle.sh 6 10 3 --fix-cmd "<your-fix-command>"
+bash scripts/run_auto_cycle.sh 7 10 3 --fix-cmd "<your-fix-command>"
 ```
 
 파라미터:
-- `target-stage`: 1~6
+- `target-stage`: 1~7
 - `max-rounds`: 최대 반복 횟수
 - `sleep-seconds`: 라운드 간 대기
 - `--fix-cmd`: 실패 라운드 뒤 실행할 수정 명령
@@ -35,13 +36,13 @@ bash scripts/run_auto_cycle.sh 6 10 3 --fix-cmd "<your-fix-command>"
 예시:
 ```bash
 bash scripts/run_auto_cycle.sh 4
-bash scripts/run_auto_cycle.sh 6 5 2 --fix-cmd "python3 -m unittest tests.test_spec_contract"
+bash scripts/run_auto_cycle.sh 7 5 2 --fix-cmd "python3 -m unittest tests.test_spec_contract"
 ```
 
 ## 문서감사 + 전문가QA + 다음단계 파이프라인
 한 번에 실행하려면:
 ```bash
-bash scripts/run_next_stage_pipeline.sh 6 5 2
+bash scripts/run_next_stage_pipeline.sh 7 5 2
 ```
 
 구성:
@@ -74,6 +75,11 @@ bash scripts/run_next_stage_pipeline.sh 6 5 2
 ### Stage 6
 - 정적 계약 테스트(`tests/test_spec_contract.py`)
 - 런타임 스모크 테스트(`tests/test_runtime_smoke.py`, 의존성 있을 때 실행)
+
+### Stage 7
+- PostgreSQL 어댑터/마이그레이션 산출물 존재
+- 외부 IdP 검증 단위 테스트(`tests/test_auth_idp.py`)
+- Stage 7 계약 테스트(`tests/test_stage7_contract.py`)
 
 ## Codex 자동 순환 방식 (권장)
 1. 목표 단계 지정 (예: `Step 5`)

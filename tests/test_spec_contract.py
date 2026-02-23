@@ -42,10 +42,12 @@ class TestSpecContract(unittest.TestCase):
         self.assertIn("Authorization", self.auth_source)
         self.assertIn("X-SSO-User", self.auth_source)
         self.assertIn("X-SSO-Role", self.auth_source)
+        self.assertIn("X-SSO-Token", self.auth_source)
 
-    def test_sqlite_persistence_exists(self) -> None:
+    def test_persistence_backends_exist(self) -> None:
         persistence_source = Path("app/persistence.py").read_text(encoding="utf-8")
         self.assertIn("class SQLiteStateStore", persistence_source)
+        self.assertIn("class PostgresStateStore", persistence_source)
         self.assertIn("CREATE TABLE IF NOT EXISTS tasks", persistence_source)
 
 

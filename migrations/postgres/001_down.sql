@@ -1,0 +1,7 @@
+BEGIN;
+DROP TABLE IF EXISTS run_idempotency;
+DROP TABLE IF EXISTS approval_actions;
+DROP TABLE IF EXISTS approvals;
+DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS tasks;
+COMMIT;

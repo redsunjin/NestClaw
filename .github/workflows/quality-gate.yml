@@ -39,7 +39,7 @@ jobs:
         run: python -m unittest tests.test_runtime_smoke
 
       - name: Stage cycle gate
-        run: bash scripts/run_dev_qa_cycle.sh 6
+        run: bash scripts/run_dev_qa_cycle.sh 7
 
       - name: Expert QA report
         run: bash scripts/run_expert_qa.sh

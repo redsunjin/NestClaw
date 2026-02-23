@@ -19,7 +19,7 @@ runtime_status="PASS"
 set +e
 bash scripts/run_doc_audit.sh >"$DOC_AUDIT_LOG" 2>&1
 DOC_RC=$?
-bash scripts/run_dev_qa_cycle.sh 6 >"$CYCLE_LOG" 2>&1
+bash scripts/run_dev_qa_cycle.sh 7 >"$CYCLE_LOG" 2>&1
 CYCLE_RC=$?
 python3 -m unittest tests.test_spec_contract >"$SPEC_LOG" 2>&1
 SPEC_RC=$?
