@@ -38,6 +38,17 @@ bash scripts/run_auto_cycle.sh 4
 bash scripts/run_auto_cycle.sh 6 5 2 --fix-cmd "python3 -m unittest tests.test_spec_contract"
 ```
 
+## 문서감사 + 전문가QA + 다음단계 파이프라인
+한 번에 실행하려면:
+```bash
+bash scripts/run_next_stage_pipeline.sh 6 5 2
+```
+
+구성:
+1. `scripts/run_doc_audit.sh`
+2. `scripts/run_expert_qa.sh`
+3. `scripts/run_auto_cycle.sh`
+
 ## 단계별 자동 게이트
 ### Stage 1
 - API 파일 문법 검증

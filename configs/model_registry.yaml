@@ -1,0 +1,30 @@
+version: 1
+
+providers:
+  - id: local_primary
+    type: local
+    enabled: true
+    engine: ollama
+    model: llama3.1:8b
+    purpose: "sensitive_internal"
+
+  - id: api_general
+    type: api
+    enabled: true
+    engine: openai
+    model: gpt-4.1-mini
+    purpose: "general_reasoning"
+
+routing_rules:
+  - when:
+      sensitivity: high
+    use_provider: local_primary
+
+  - when:
+      sensitivity: low
+      task_type: summarize
+    use_provider: api_general
+
+  - when:
+      external_send: true
+    require_human_approval: true

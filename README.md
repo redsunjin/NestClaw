@@ -175,6 +175,9 @@ python3 app/cli.py
 - 운영 가이드: `CODEX_AUTOMATION_CYCLE.md`
 - 실행 스크립트: `scripts/run_dev_qa_cycle.sh`
 - 자동 반복 배치: `scripts/run_auto_cycle.sh`
+- 문서감사 스크립트: `scripts/run_doc_audit.sh`
+- 전문가 QA 스크립트: `scripts/run_expert_qa.sh`
+- 다음단계 통합 파이프라인: `scripts/run_next_stage_pipeline.sh`
 - 테스트:
   - `tests/test_spec_contract.py`
   - `tests/test_runtime_smoke.py`
@@ -183,6 +186,7 @@ python3 app/cli.py
 ```bash
 bash scripts/run_dev_qa_cycle.sh 4
 bash scripts/run_auto_cycle.sh 6 10 3 --fix-cmd "<your-fix-command>"
+bash scripts/run_next_stage_pipeline.sh 6 5 2
 ```
 
 ## 14) 보안형 에이전트 협업 아이디어
@@ -197,3 +201,8 @@ bash scripts/run_auto_cycle.sh 6 10 3 --fix-cmd "<your-fix-command>"
 - 결론:
   - 현재 방향은 프로젝트 목적 달성에 유효
   - 단, 운영 전 DB 저장소 전환 + 실운영 인증 계층 + CI 게이트 고정 필요
+
+## 16) 다음 단계 계획
+- 계획 문서: `NEXT_STAGE_PLAN_2026-02-24.md`
+- 모델 라우팅 설정: `configs/model_registry.yaml`
+- CI 품질게이트: `.github/workflows/quality-gate.yml`

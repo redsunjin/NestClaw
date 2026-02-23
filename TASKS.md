@@ -73,6 +73,15 @@
 - [x] 런타임 스모크 테스트 추가 (`tests/test_runtime_smoke.py`)
 - [x] 순환 운영 가이드 문서화 (`CODEX_AUTOMATION_CYCLE.md`)
 
+## Stage 7 착수 (운영 전환 준비)
+- [x] 문서 정합성 감사 자동화 (`scripts/run_doc_audit.sh`)
+- [x] 전문가 QA 리포트 자동화 (`scripts/run_expert_qa.sh`)
+- [x] 다음단계 통합 파이프라인 추가 (`scripts/run_next_stage_pipeline.sh`)
+- [x] CI 품질게이트 워크플로우 추가 (`.github/workflows/quality-gate.yml`)
+- [x] 모델 레지스트리 초안 추가 (`configs/model_registry.yaml`)
+- [ ] 저장소 영속화(DB) 어댑터 구현
+- [ ] 실운영 인증 계층(JWT/SSO) 연결
+
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)
 2. [x] 상태 전이 다이어그램 작성 (`STATE_MACHINE.md`)
