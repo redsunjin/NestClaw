@@ -152,3 +152,10 @@ uvicorn app.main:APP --reload --port 8000
 ```bash
 curl http://127.0.0.1:8000/health
 ```
+
+## 12) Git 운영 기준
+- 워크플로우 문서: `GIT_WORKFLOW.md`
+- PR 템플릿: `.github/pull_request_template.md`
+- 기본 브랜치: `main`
+- 작업 브랜치: `codex/<topic>`
+- 릴리즈 태그: `vMAJOR.MINOR.PATCH`
