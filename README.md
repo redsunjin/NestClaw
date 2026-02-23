@@ -136,7 +136,11 @@
 - 오케스트레이션 체인 구현: `planner -> executor -> reviewer -> reporter`
 - 재시도/승인 전환 구현: 재시도 1회 후 승인 큐 전환
 - 회의요약 템플릿 보고서 생성 구현: `reports/<task_id>/report.md`
-- RBAC 헤더 적용: `X-Actor-Id`, `X-Actor-Role`
+- 인증/권한:
+  - JWT 인증(`Authorization: Bearer <token>`)
+  - SSO 헤더(`X-SSO-User`, `X-SSO-Role`)
+  - 호환 헤더(`X-Actor-Id`, `X-Actor-Role`)
+- 영속 저장소: SQLite (`data/new_claw.db`, env: `NEWCLAW_DB_PATH`)
 
 코드 위치:
 - 서버: `app/main.py`
@@ -161,6 +165,11 @@ curl http://127.0.0.1:8000/health
 4. 비IT 사용자 CLI 실행
 ```bash
 python3 app/cli.py
+```
+
+5. 개발용 JWT 생성
+```bash
+python3 scripts/gen_dev_jwt.py --sub user_cli --role requester
 ```
 
 ## 12) Git 운영 기준

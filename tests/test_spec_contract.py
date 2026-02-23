@@ -6,6 +6,7 @@ class TestSpecContract(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.source = Path("app/main.py").read_text(encoding="utf-8")
+        cls.auth_source = Path("app/auth.py").read_text(encoding="utf-8")
 
     def test_required_statuses_exist(self) -> None:
         for status in (
@@ -36,8 +37,16 @@ class TestSpecContract(unittest.TestCase):
         self.assertIn("MAX_RETRY = 1", self.source)
 
     def test_rbac_headers_exist(self) -> None:
-        self.assertIn("X-Actor-Role", self.source)
-        self.assertIn("X-Actor-Id", self.source)
+        self.assertIn("X-Actor-Role", self.auth_source)
+        self.assertIn("X-Actor-Id", self.auth_source)
+        self.assertIn("Authorization", self.auth_source)
+        self.assertIn("X-SSO-User", self.auth_source)
+        self.assertIn("X-SSO-Role", self.auth_source)
+
+    def test_sqlite_persistence_exists(self) -> None:
+        persistence_source = Path("app/persistence.py").read_text(encoding="utf-8")
+        self.assertIn("class SQLiteStateStore", persistence_source)
+        self.assertIn("CREATE TABLE IF NOT EXISTS tasks", persistence_source)
 
 
 if __name__ == "__main__":

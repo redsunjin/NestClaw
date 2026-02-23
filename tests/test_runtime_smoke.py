@@ -7,6 +7,7 @@ import unittest
 try:
     from fastapi.testclient import TestClient
     from app.main import APP
+    from app.auth import issue_dev_jwt
 except Exception as exc:  # pragma: no cover - environment dependent
     TestClient = None
     IMPORT_ERROR = exc
@@ -18,9 +19,9 @@ else:
 class TestRuntimeSmoke(unittest.TestCase):
     def setUp(self) -> None:
         self.client = TestClient(APP)
-        self.req_headers = {"X-Actor-Id": "qa_user", "X-Actor-Role": "requester"}
-        self.reviewer_headers = {"X-Actor-Id": "qa_reviewer", "X-Actor-Role": "reviewer"}
-        self.approver_headers = {"X-Actor-Id": "qa_approver", "X-Actor-Role": "approver"}
+        self.req_headers = {"Authorization": f"Bearer {issue_dev_jwt('qa_user', 'requester')}"}
+        self.reviewer_headers = {"Authorization": f"Bearer {issue_dev_jwt('qa_reviewer', 'reviewer')}"}
+        self.approver_headers = {"Authorization": f"Bearer {issue_dev_jwt('qa_approver', 'approver')}"}
 
     def _wait_status(self, task_id: str, expected: set[str], timeout: float = 5.0) -> dict | None:
         deadline = time.time() + timeout

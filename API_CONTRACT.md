@@ -9,9 +9,16 @@
 - Content-Type: `application/json`
 - 시간 표기: ISO 8601 UTC (`YYYY-MM-DDTHH:mm:ssZ`)
 - ID 형식: `task_<uuid>`
-- 인증: 로컬 환경 기준 헤더 기반 역할 인증
-  - `X-Actor-Id`: 호출자 식별자
-  - `X-Actor-Role`: `requester` | `reviewer` | `approver` | `admin`
+- 인증: JWT/SSO + 호환 헤더 방식
+  - 권장:
+    - `Authorization: Bearer <jwt>`
+    - JWT claim: `sub`, `role`
+  - SSO 연동 헤더:
+    - `X-SSO-User`
+    - `X-SSO-Role`
+  - 호환(개발/이관용):
+    - `X-Actor-Id`
+    - `X-Actor-Role`
 
 ## 3) 데이터 모델
 ### 3.1 Task
@@ -228,4 +235,10 @@ Task 이벤트 로그를 조회한다.
 
 ## 7) 구현 메모
 - 초기 구현은 in-memory 저장소로 시작 가능
-- 운영 전환 시 DB 테이블(`tasks`, `task_events`, `task_runs`)로 분리 권장
+- 현재 구현: SQLite 영속 저장소 사용 (`NEWCLAW_DB_PATH`, 기본 `data/new_claw.db`)
+- 저장 테이블:
+  - `tasks`
+  - `events`
+  - `approvals`
+  - `approval_actions`
+  - `run_idempotency`

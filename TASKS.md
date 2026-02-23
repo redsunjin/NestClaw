@@ -81,8 +81,10 @@
 - [x] 다음단계 통합 파이프라인 추가 (`scripts/run_next_stage_pipeline.sh`)
 - [x] CI 품질게이트 워크플로우 추가 (`.github/workflows/quality-gate.yml`)
 - [x] 모델 레지스트리 초안 추가 (`configs/model_registry.yaml`)
-- [ ] 저장소 영속화(DB) 어댑터 구현
-- [ ] 실운영 인증 계층(JWT/SSO) 연결
+- [x] 저장소 영속화(DB) 어댑터 구현 (`app/persistence.py`, SQLite)
+- [x] 실운영 인증 계층(JWT/SSO) 연결 (`app/auth.py`, `app/main.py`)
+- [ ] PostgreSQL 어댑터 및 마이그레이션 스크립트
+- [ ] 외부 IdP(SSO) 검증 연동(서명키/토큰 검증 체계)
 
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)

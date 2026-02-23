@@ -26,6 +26,9 @@ jobs:
       - name: Documentation audit
         run: bash scripts/run_doc_audit.sh
 
+      - name: Plan QA
+        run: bash scripts/run_plan_qa.sh NEXT_STAGE_PLAN_2026-02-24.md
+
       - name: Model registry check
         run: bash scripts/check_model_registry.sh
 

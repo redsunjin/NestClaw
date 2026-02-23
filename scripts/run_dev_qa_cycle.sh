@@ -88,7 +88,7 @@ check_stage_2() {
 
 check_stage_3() {
   run_check "policy block event exists" rg -q "BLOCKED_POLICY" app/main.py
-  run_check "rbac header exists" rg -q "X-Actor-Role" app/main.py
+  run_check "rbac/jwt auth exists" rg -q "actor_context_dependency|Authorization|X-Actor-Role" app/auth.py
   run_check "policy whitelist doc exists" test -f POLICY_WHITELIST.md
 }
 
