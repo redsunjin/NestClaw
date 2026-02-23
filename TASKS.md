@@ -74,6 +74,8 @@
 - [x] 순환 운영 가이드 문서화 (`CODEX_AUTOMATION_CYCLE.md`)
 
 ## Stage 7 착수 (운영 전환 준비)
+- [x] 다음 단계 실행계획 수립 (`NEXT_STAGE_PLAN_2026-02-24.md`)
+- [x] 계획 QA 자동화 (`scripts/run_plan_qa.sh`)
 - [x] 문서 정합성 감사 자동화 (`scripts/run_doc_audit.sh`)
 - [x] 전문가 QA 리포트 자동화 (`scripts/run_expert_qa.sh`)
 - [x] 다음단계 통합 파이프라인 추가 (`scripts/run_next_stage_pipeline.sh`)

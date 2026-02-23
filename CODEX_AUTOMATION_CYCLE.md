@@ -45,9 +45,11 @@ bash scripts/run_next_stage_pipeline.sh 6 5 2
 ```
 
 구성:
-1. `scripts/run_doc_audit.sh`
-2. `scripts/run_expert_qa.sh`
-3. `scripts/run_auto_cycle.sh`
+1. `scripts/run_plan_qa.sh`
+2. `scripts/run_doc_audit.sh`
+3. `scripts/check_model_registry.sh`
+4. `scripts/run_expert_qa.sh`
+5. `scripts/run_auto_cycle.sh`
 
 ## 단계별 자동 게이트
 ### Stage 1

@@ -173,6 +173,7 @@ python3 app/cli.py
 
 ## 13) Codex 자동 순환
 - 운영 가이드: `CODEX_AUTOMATION_CYCLE.md`
+- 계획 QA 스크립트: `scripts/run_plan_qa.sh`
 - 실행 스크립트: `scripts/run_dev_qa_cycle.sh`
 - 자동 반복 배치: `scripts/run_auto_cycle.sh`
 - 문서감사 스크립트: `scripts/run_doc_audit.sh`
@@ -186,7 +187,8 @@ python3 app/cli.py
 ```bash
 bash scripts/run_dev_qa_cycle.sh 4
 bash scripts/run_auto_cycle.sh 6 10 3 --fix-cmd "<your-fix-command>"
-bash scripts/run_next_stage_pipeline.sh 6 5 2
+bash scripts/run_plan_qa.sh NEXT_STAGE_PLAN_2026-02-24.md
+bash scripts/run_next_stage_pipeline.sh 6 5 2 NEXT_STAGE_PLAN_2026-02-24.md
 ```
 
 ## 14) 보안형 에이전트 협업 아이디어
