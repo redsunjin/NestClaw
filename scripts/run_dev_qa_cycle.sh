@@ -72,6 +72,23 @@ run_optional_check() {
   fi
 }
 
+run_optional_dep_check() {
+  local name="$1"
+  shift
+  if "$@" >/tmp/cycle_check.out 2>/tmp/cycle_check.err; then
+    pass "$name"
+  else
+    local rc=$?
+    if [[ "$rc" -eq 10 ]]; then
+      skip "$name"
+      echo "  - reason: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+    else
+      fail "$name"
+      echo "  - stderr: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+    fi
+  fi
+}
+
 check_stage_1() {
   run_check "py_compile app/main.py" env PYTHONPYCACHEPREFIX=.pycache python3 -m py_compile app/main.py app/__init__.py
   run_check "endpoint create exists" rg -q "def create_task" app/main.py
@@ -108,6 +125,7 @@ check_stage_5() {
 check_stage_6() {
   run_check "static contract tests" python3 -m unittest tests.test_spec_contract
   run_optional_check "runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_runtime_smoke
+  run_optional_dep_check "browser swagger smoke (playwright)" bash scripts/run_browser_smoke.sh
 }
 
 check_stage_7() {

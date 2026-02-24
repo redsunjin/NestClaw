@@ -20,6 +20,11 @@ bash scripts/run_dev_qa_cycle.sh 4
 - Step 6까지 판정: `bash scripts/run_dev_qa_cycle.sh 6`
 - Step 7까지 판정: `bash scripts/run_dev_qa_cycle.sh 7`
 
+브라우저 스모크 단독 실행:
+```bash
+bash scripts/run_browser_smoke.sh
+```
+
 ## 자동 반복 배치
 반복 실행 + 실패 시 수정 명령을 훅으로 연결하려면:
 
@@ -75,6 +80,9 @@ bash scripts/run_next_stage_pipeline.sh 7 5 2
 ### Stage 6
 - 정적 계약 테스트(`tests/test_spec_contract.py`)
 - 런타임 스모크 테스트(`tests/test_runtime_smoke.py`, 의존성 있을 때 실행)
+- 브라우저 스모크 테스트(`scripts/run_browser_smoke.sh`)
+  - 종료코드 `10`: 의존성 미충족으로 SKIP
+  - 종료코드 `1`: 실행/검증 실패로 FAIL
 
 ### Stage 7
 - PostgreSQL 어댑터/마이그레이션 산출물 존재
@@ -98,3 +106,5 @@ bash scripts/run_next_stage_pipeline.sh 7 5 2
 ## 주의
 - Stage 5는 현재 `app/cli.py`가 없으면 실패하게 설계되어 있다.
 - Stage 6 런타임 테스트는 `fastapi/pydantic/uvicorn` 설치가 필요하다.
+- Stage 6 브라우저 스모크는 `npx`와 Playwright CLI wrapper(`$CODEX_HOME/skills/playwright/scripts/playwright_cli.sh`)가 필요하다.
+- 브라우저 스모크 실패 시 증적은 `output/playwright/<timestamp>/`에 저장된다.

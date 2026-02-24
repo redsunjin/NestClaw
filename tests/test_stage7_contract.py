@@ -19,6 +19,18 @@ class TestStage7Contract(unittest.TestCase):
         self.assertIn("X-SSO-Token", source)
         self.assertIn("_decode_idp_jwt", source)
 
+    def test_browser_smoke_script_exists_and_executable(self) -> None:
+        script = Path("scripts/run_browser_smoke.sh")
+        self.assertTrue(script.is_file())
+        self.assertNotEqual(script.stat().st_mode & 0o111, 0)
+
+    def test_cycle_script_integrates_browser_smoke(self) -> None:
+        source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
+        self.assertIn("run_optional_dep_check", source)
+        self.assertIn("browser swagger smoke (playwright)", source)
+        self.assertIn("scripts/run_browser_smoke.sh", source)
+        self.assertIn("[[ \"$rc\" -eq 10 ]]", source)
+
 
 if __name__ == "__main__":
     unittest.main()

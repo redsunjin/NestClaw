@@ -181,6 +181,25 @@ export NEWCLAW_DATABASE_URL="postgresql://user:pass@127.0.0.1:5432/new_claw"
 bash scripts/migrate_postgres.sh up
 ```
 
+7. 브라우저 스모크 도구 확인(선택)
+```bash
+command -v npx
+```
+
+8. Swagger/OpenAPI 브라우저 스모크 실행(선택)
+```bash
+bash scripts/run_browser_smoke.sh
+```
+- 기본값:
+  - `NEWCLAW_BROWSER_SMOKE_BASE_URL=http://127.0.0.1:18080`
+  - `NEWCLAW_BROWSER_SMOKE_AUTOSTART=1`
+  - `NEWCLAW_BROWSER_SMOKE_SESSION=newclaw-browser-smoke`
+- 종료코드:
+  - `0`: PASS
+  - `10`: 의존성 미충족(SKIP)
+  - `1`: 실행/검증 실패(FAIL)
+- 실패 시 증적 저장: `output/playwright/<timestamp>/`
+
 ## 12) Git 운영 기준
 - 워크플로우 문서: `GIT_WORKFLOW.md`
 - 워크트리 가이드: `GIT_WORKTREE_GUIDE.md`
@@ -193,6 +212,7 @@ bash scripts/migrate_postgres.sh up
 - 운영 가이드: `CODEX_AUTOMATION_CYCLE.md`
 - 계획 QA 스크립트: `scripts/run_plan_qa.sh`
 - 실행 스크립트: `scripts/run_dev_qa_cycle.sh`
+- 브라우저 스모크 스크립트: `scripts/run_browser_smoke.sh`
 - 자동 반복 배치: `scripts/run_auto_cycle.sh`
 - 문서감사 스크립트: `scripts/run_doc_audit.sh`
 - 전문가 QA 스크립트: `scripts/run_expert_qa.sh`
@@ -206,6 +226,7 @@ bash scripts/migrate_postgres.sh up
 실행 예시:
 ```bash
 bash scripts/run_dev_qa_cycle.sh 4
+bash scripts/run_browser_smoke.sh
 bash scripts/run_auto_cycle.sh 7 10 3 --fix-cmd "<your-fix-command>"
 bash scripts/run_plan_qa.sh NEXT_STAGE_PLAN_2026-02-24.md
 bash scripts/run_next_stage_pipeline.sh 7 5 2 NEXT_STAGE_PLAN_2026-02-24.md
