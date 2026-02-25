@@ -86,8 +86,11 @@ bash scripts/run_next_stage_pipeline.sh 7 5 2
 
 ### Stage 7
 - PostgreSQL 어댑터/마이그레이션 산출물 존재
-- 외부 IdP 검증 단위 테스트(`tests/test_auth_idp.py`)
+- 외부 IdP 검증 단위 테스트(`tests/test_auth_idp.py`, 런타임 스택 의존 시 SKIP 가능)
 - Stage 7 계약 테스트(`tests/test_stage7_contract.py`)
+- Postgres 리허설 스모크(`scripts/run_postgres_rehearsal.sh`)
+  - 종료코드 `10`: DB URL/의존성 미충족으로 SKIP
+  - 종료코드 `1`: 마이그레이션/런타임 실패로 FAIL
 
 ## Codex 자동 순환 방식 (권장)
 1. 목표 단계 지정 (예: `Step 5`)
@@ -108,3 +111,4 @@ bash scripts/run_next_stage_pipeline.sh 7 5 2
 - Stage 6 런타임 테스트는 `fastapi/pydantic/uvicorn` 설치가 필요하다.
 - Stage 6 브라우저 스모크는 `npx`와 Playwright CLI wrapper(`$CODEX_HOME/skills/playwright/scripts/playwright_cli.sh`)가 필요하다.
 - 브라우저 스모크 실패 시 증적은 `output/playwright/<timestamp>/`에 저장된다.
+- Stage 7 Postgres 리허설은 `NEWCLAW_DATABASE_URL`, `psql`, `psycopg`가 필요하다.

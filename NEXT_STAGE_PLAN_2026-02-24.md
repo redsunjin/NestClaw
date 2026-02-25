@@ -36,11 +36,13 @@
   - 모델 라우팅 설정 파일 추가
   - SQLite 영속 저장소 어댑터 추가
   - PostgreSQL 어댑터 + 마이그레이션 스크립트
+  - Postgres 리허설 스모크 스크립트 + Stage7 게이트 연동
   - JWT/SSO 인증 경로 추가
   - 외부 IdP 연동 검증(JWKS 기반 서명 검증)
+  - IdP JWKS 키 회전 시나리오 회귀 테스트 추가
 - 잔여:
-  - 운영 환경 Postgres 연결 리허설
-  - 실제 IdP 키 회전 시나리오 점검
+  - 운영 환경 DB URL로 `scripts/run_postgres_rehearsal.sh` 실행 검증
+  - 실제 IdP 키 교체 절차와 동일한 운영 키 회전 리허설
 
 ## 리스크
 - 네트워크 제약 환경에서 런타임 테스트 일부 skip 가능

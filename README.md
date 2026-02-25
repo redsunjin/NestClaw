@@ -200,6 +200,16 @@ bash scripts/run_browser_smoke.sh
   - `1`: 실행/검증 실패(FAIL)
 - 실패 시 증적 저장: `output/playwright/<timestamp>/`
 
+9. Postgres 리허설 스모크 실행(선택)
+```bash
+export NEWCLAW_DATABASE_URL="postgresql://user:pass@127.0.0.1:5432/new_claw"
+bash scripts/run_postgres_rehearsal.sh
+```
+- 종료코드:
+  - `0`: PASS
+  - `10`: 의존성/환경 미충족(SKIP)
+  - `1`: 마이그레이션/런타임 검증 실패(FAIL)
+
 ## 12) Git 운영 기준
 - 워크플로우 문서: `GIT_WORKFLOW.md`
 - 워크트리 가이드: `GIT_WORKTREE_GUIDE.md`
@@ -213,6 +223,7 @@ bash scripts/run_browser_smoke.sh
 - 계획 QA 스크립트: `scripts/run_plan_qa.sh`
 - 실행 스크립트: `scripts/run_dev_qa_cycle.sh`
 - 브라우저 스모크 스크립트: `scripts/run_browser_smoke.sh`
+- Postgres 리허설 스크립트: `scripts/run_postgres_rehearsal.sh`
 - 자동 반복 배치: `scripts/run_auto_cycle.sh`
 - 문서감사 스크립트: `scripts/run_doc_audit.sh`
 - 전문가 QA 스크립트: `scripts/run_expert_qa.sh`
@@ -227,6 +238,7 @@ bash scripts/run_browser_smoke.sh
 ```bash
 bash scripts/run_dev_qa_cycle.sh 4
 bash scripts/run_browser_smoke.sh
+bash scripts/run_postgres_rehearsal.sh
 bash scripts/run_auto_cycle.sh 7 10 3 --fix-cmd "<your-fix-command>"
 bash scripts/run_plan_qa.sh NEXT_STAGE_PLAN_2026-02-24.md
 bash scripts/run_next_stage_pipeline.sh 7 5 2 NEXT_STAGE_PLAN_2026-02-24.md

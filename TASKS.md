@@ -85,6 +85,8 @@
 - [x] 실운영 인증 계층(JWT/SSO) 연결 (`app/auth.py`, `app/main.py`)
 - [x] PostgreSQL 어댑터 및 마이그레이션 스크립트 (`app/persistence.py`, `migrations/postgres/001_init.sql`, `scripts/migrate_postgres.sh`)
 - [x] 외부 IdP(SSO) 검증 연동(서명키/토큰 검증 체계) (`app/auth.py`, `tests/test_auth_idp.py`)
+- [x] 운영 Postgres 연결 리허설 스크립트 추가 (`scripts/run_postgres_rehearsal.sh`, `scripts/run_dev_qa_cycle.sh`)
+- [x] IdP 키 회전 시나리오 회귀 테스트 추가 (`tests/test_auth_idp.py`)
 
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)

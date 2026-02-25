@@ -24,12 +24,22 @@ class TestStage7Contract(unittest.TestCase):
         self.assertTrue(script.is_file())
         self.assertNotEqual(script.stat().st_mode & 0o111, 0)
 
+    def test_postgres_rehearsal_script_exists_and_executable(self) -> None:
+        script = Path("scripts/run_postgres_rehearsal.sh")
+        self.assertTrue(script.is_file())
+        self.assertNotEqual(script.stat().st_mode & 0o111, 0)
+
     def test_cycle_script_integrates_browser_smoke(self) -> None:
         source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         self.assertIn("run_optional_dep_check", source)
         self.assertIn("browser swagger smoke (playwright)", source)
         self.assertIn("scripts/run_browser_smoke.sh", source)
         self.assertIn("[[ \"$rc\" -eq 10 ]]", source)
+
+    def test_cycle_script_integrates_postgres_rehearsal(self) -> None:
+        source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
+        self.assertIn("postgres rehearsal smoke (env-gated)", source)
+        self.assertIn("scripts/run_postgres_rehearsal.sh", source)
 
 
 if __name__ == "__main__":

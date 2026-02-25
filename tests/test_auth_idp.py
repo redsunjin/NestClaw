@@ -95,6 +95,101 @@ class TestAuthIdP(unittest.TestCase):
 
         self.assertEqual(getattr(ctx.exception, "status_code", None), 401)
 
+    def test_jwks_rotation_accepts_new_kid(self) -> None:
+        old_secret = "idp-secret-old"
+        new_secret = "idp-secret-new"
+        jwks = {
+            "keys": [
+                {"kid": "kid-old", "kty": "oct", "alg": "HS256", "k": _b64url(old_secret.encode("utf-8"))},
+                {"kid": "kid-new", "kty": "oct", "alg": "HS256", "k": _b64url(new_secret.encode("utf-8"))},
+            ]
+        }
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+            fh.write(json.dumps(jwks))
+            jwks_path = fh.name
+        self.addCleanup(lambda: os.path.exists(jwks_path) and os.unlink(jwks_path))
+
+        os.environ["NEWCLAW_IDP_JWKS_PATH"] = jwks_path
+        os.environ["NEWCLAW_IDP_ISSUER"] = "https://idp.example"
+        os.environ["NEWCLAW_IDP_AUDIENCE"] = "new_claw"
+
+        token_new = _sign_hs256(
+            {"alg": "HS256", "typ": "JWT", "kid": "kid-new"},
+            {
+                "sub": "idp_rotated_user",
+                "role": "reviewer",
+                "iss": "https://idp.example",
+                "aud": "new_claw",
+                "exp": int(time.time()) + 600,
+            },
+            new_secret,
+        )
+        actor = resolve_actor_context(None, None, None, None, None, token_new)
+        self.assertEqual(actor.actor_id, "idp_rotated_user")
+        self.assertEqual(actor.actor_role, "reviewer")
+        self.assertEqual(actor.source, "idp")
+
+    def test_jwks_rotation_rejects_removed_key(self) -> None:
+        old_secret = "idp-secret-old"
+        new_secret = "idp-secret-new"
+        jwks_initial = {
+            "keys": [
+                {"kid": "kid-old", "kty": "oct", "alg": "HS256", "k": _b64url(old_secret.encode("utf-8"))},
+                {"kid": "kid-new", "kty": "oct", "alg": "HS256", "k": _b64url(new_secret.encode("utf-8"))},
+            ]
+        }
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+            fh.write(json.dumps(jwks_initial))
+            jwks_path = fh.name
+        self.addCleanup(lambda: os.path.exists(jwks_path) and os.unlink(jwks_path))
+
+        os.environ["NEWCLAW_IDP_JWKS_PATH"] = jwks_path
+        os.environ["NEWCLAW_IDP_ISSUER"] = "https://idp.example"
+        os.environ["NEWCLAW_IDP_AUDIENCE"] = "new_claw"
+
+        token_old = _sign_hs256(
+            {"alg": "HS256", "typ": "JWT", "kid": "kid-old"},
+            {
+                "sub": "idp_old_user",
+                "role": "approver",
+                "iss": "https://idp.example",
+                "aud": "new_claw",
+                "exp": int(time.time()) + 600,
+            },
+            old_secret,
+        )
+        token_new = _sign_hs256(
+            {"alg": "HS256", "typ": "JWT", "kid": "kid-new"},
+            {
+                "sub": "idp_new_user",
+                "role": "approver",
+                "iss": "https://idp.example",
+                "aud": "new_claw",
+                "exp": int(time.time()) + 600,
+            },
+            new_secret,
+        )
+
+        actor_before_rotation = resolve_actor_context(None, None, None, None, None, token_old)
+        self.assertEqual(actor_before_rotation.actor_id, "idp_old_user")
+
+        jwks_rotated = {
+            "keys": [
+                {"kid": "kid-new", "kty": "oct", "alg": "HS256", "k": _b64url(new_secret.encode("utf-8"))},
+            ]
+        }
+        with open(jwks_path, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(jwks_rotated))
+
+        with self.assertRaises(Exception) as old_ctx:
+            resolve_actor_context(None, None, None, None, None, token_old)
+        self.assertEqual(getattr(old_ctx.exception, "status_code", None), 401)
+
+        actor_after_rotation = resolve_actor_context(None, None, None, None, None, token_new)
+        self.assertEqual(actor_after_rotation.actor_id, "idp_new_user")
+        self.assertEqual(actor_after_rotation.actor_role, "approver")
+        self.assertEqual(actor_after_rotation.source, "idp")
+
 
 if __name__ == "__main__":
     unittest.main()

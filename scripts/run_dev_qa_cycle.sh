@@ -130,8 +130,9 @@ check_stage_6() {
 
 check_stage_7() {
   run_check "stage7 static contract tests" python3 -m unittest tests.test_stage7_contract
-  run_check "idp auth unit tests" python3 -m unittest tests.test_auth_idp
+  run_optional_check "idp auth unit tests (requires auth runtime stack)" python3 -m unittest tests.test_auth_idp
   run_check "postgres migration script exists" test -f scripts/migrate_postgres.sh
+  run_optional_dep_check "postgres rehearsal smoke (env-gated)" bash scripts/run_postgres_rehearsal.sh
 }
 
 write_header
