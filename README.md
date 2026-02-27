@@ -1,3 +1,5 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # 로컬 업무 위임 오케스트레이션 (기본문서)
 
 ## 문서 목적
