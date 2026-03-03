@@ -44,6 +44,12 @@ bash scripts/run_auto_cycle.sh 4
 bash scripts/run_auto_cycle.sh 7 5 2 --fix-cmd "python3 -m unittest tests.test_spec_contract"
 ```
 
+엄격 게이트(릴리즈 기준):
+```bash
+NEWCLAW_STRICT_GATE=1 bash scripts/run_dev_qa_cycle.sh 7
+```
+- `NEWCLAW_STRICT_GATE=1`이면 optional/dependency 체크의 `SKIP`도 실패로 처리된다.
+
 ## 문서감사 + 전문가QA + 다음단계 파이프라인
 한 번에 실행하려면:
 ```bash
@@ -87,10 +93,15 @@ bash scripts/run_next_stage_pipeline.sh 7 5 2
 ### Stage 7
 - PostgreSQL 어댑터/마이그레이션 산출물 존재
 - 외부 IdP 검증 단위 테스트(`tests/test_auth_idp.py`, 런타임 스택 의존 시 SKIP 가능)
+- IdP 키 회전 리허설 스크립트(`scripts/run_idp_key_rotation_rehearsal.sh`)
 - Stage 7 계약 테스트(`tests/test_stage7_contract.py`)
 - Postgres 리허설 스모크(`scripts/run_postgres_rehearsal.sh`)
   - 종료코드 `10`: DB URL/의존성 미충족으로 SKIP
   - 종료코드 `1`: 마이그레이션/런타임 실패로 FAIL
+
+로컬 Postgres 운영 제어:
+- `scripts/manage_local_postgres.sh status|start|stop|restart|dsn`
+- workspace 로컬 클러스터(`.local/pgdata`)만 제어
 
 ## Codex 자동 순환 방식 (권장)
 1. 목표 단계 지정 (예: `Step 5`)

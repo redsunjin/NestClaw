@@ -211,6 +211,94 @@ class TestRuntimeSmoke(unittest.TestCase):
         self.assertIn("policy_bypass_events", audit_payload)
         self.assertEqual(audit_payload["policy_bypass_events"], 0)
 
+    def test_approver_identity_mismatch_is_forbidden(self) -> None:
+        create_resp = self.client.post(
+            "/api/v1/task/create",
+            json={
+                "title": "승인자 식별 검증",
+                "template_type": "meeting_summary",
+                "input": {
+                    "meeting_title": "승인자 검증",
+                    "meeting_date": "2026-03-02",
+                    "participants": ["Ops"],
+                    "notes": "외부 전송 요청",
+                },
+                "requested_by": "qa_user",
+            },
+            headers=self.req_headers,
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        task_id = create_resp.json()["task_id"]
+
+        run_resp = self.client.post(
+            "/api/v1/task/run",
+            json={"task_id": task_id, "idempotency_key": "smoke_6", "run_mode": "standard"},
+            headers=self.req_headers,
+        )
+        self.assertEqual(run_resp.status_code, 202)
+
+        approval_payload = self._wait_status(task_id, {"NEEDS_HUMAN_APPROVAL"})
+        self.assertIsNotNone(approval_payload)
+        queue_id = approval_payload["approval_queue_id"]
+
+        mismatch = self.client.post(
+            f"/api/v1/approvals/{queue_id}/approve",
+            json={"acted_by": "spoofed_user", "comment": "identity mismatch"},
+            headers=self.approver_headers,
+        )
+        self.assertEqual(mismatch.status_code, 403)
+
+        ok = self.client.post(
+            f"/api/v1/approvals/{queue_id}/approve",
+            json={"acted_by": "qa_approver", "comment": "identity matched"},
+            headers=self.approver_headers,
+        )
+        self.assertEqual(ok.status_code, 200)
+
+    def test_reject_flow_returns_done_with_completed_at(self) -> None:
+        create_resp = self.client.post(
+            "/api/v1/task/create",
+            json={
+                "title": "반려 완료 시각 검증",
+                "template_type": "meeting_summary",
+                "input": {
+                    "meeting_title": "반려 검증",
+                    "meeting_date": "2026-03-02",
+                    "participants": ["Ops"],
+                    "notes": "external send required",
+                },
+                "requested_by": "qa_user",
+            },
+            headers=self.req_headers,
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        task_id = create_resp.json()["task_id"]
+
+        run_resp = self.client.post(
+            "/api/v1/task/run",
+            json={"task_id": task_id, "idempotency_key": "smoke_7", "run_mode": "standard"},
+            headers=self.req_headers,
+        )
+        self.assertEqual(run_resp.status_code, 202)
+
+        approval_payload = self._wait_status(task_id, {"NEEDS_HUMAN_APPROVAL"})
+        self.assertIsNotNone(approval_payload)
+        queue_id = approval_payload["approval_queue_id"]
+
+        reject = self.client.post(
+            f"/api/v1/approvals/{queue_id}/reject",
+            json={"acted_by": "qa_approver", "comment": "reject for policy"},
+            headers=self.approver_headers,
+        )
+        self.assertEqual(reject.status_code, 200)
+
+        status_resp = self.client.get(f"/api/v1/task/status/{task_id}", headers=self.req_headers)
+        self.assertEqual(status_resp.status_code, 200)
+        status_payload = status_resp.json()
+        self.assertEqual(status_payload["status"], "DONE")
+        self.assertEqual(status_payload.get("final_reason"), "rejected_by_human")
+        self.assertIn("completed_at", status_payload)
+
 
 if __name__ == "__main__":
     unittest.main()

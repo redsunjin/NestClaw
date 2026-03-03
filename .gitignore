@@ -4,3 +4,6 @@ reports/
 .venv/
 data/
 output/playwright/
+.local/
+.codex/
+.playwright-cli/

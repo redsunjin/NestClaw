@@ -7,6 +7,13 @@ if ! [[ "$TARGET_STAGE" =~ ^[1-7]$ ]]; then
   exit 2
 fi
 
+STRICT_GATE="${NEWCLAW_STRICT_GATE:-0}"
+is_truthy() {
+  local value
+  value="$(printf "%s" "$1" | tr '[:upper:]' '[:lower:]')"
+  [[ "${value}" == "1" || "${value}" == "true" || "${value}" == "yes" || "${value}" == "on" ]]
+}
+
 REPORT_DIR="reports/qa"
 mkdir -p "$REPORT_DIR"
 TIMESTAMP="$(date -u +"%Y%m%dT%H%M%SZ")"
@@ -61,14 +68,24 @@ run_optional_check() {
   shift
   if "$@" >/tmp/cycle_check.out 2>/tmp/cycle_check.err; then
     if rg -q "skipped=[1-9]" /tmp/cycle_check.out || rg -q "skipped=[1-9]" /tmp/cycle_check.err; then
-      skip "$name"
-      echo "  - reason: optional check skipped by test runtime" | tee -a "$REPORT_FILE"
+      if is_truthy "${STRICT_GATE}"; then
+        fail "$name"
+        echo "  - stderr: strict gate enabled and optional check reported skip" | tee -a "$REPORT_FILE"
+      else
+        skip "$name"
+        echo "  - reason: optional check skipped by test runtime" | tee -a "$REPORT_FILE"
+      fi
     else
       pass "$name"
     fi
   else
-    skip "$name"
-    echo "  - reason: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+    if is_truthy "${STRICT_GATE}"; then
+      fail "$name"
+      echo "  - stderr: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+    else
+      skip "$name"
+      echo "  - reason: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+    fi
   fi
 }
 
@@ -80,8 +97,13 @@ run_optional_dep_check() {
   else
     local rc=$?
     if [[ "$rc" -eq 10 ]]; then
-      skip "$name"
-      echo "  - reason: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+      if is_truthy "${STRICT_GATE}"; then
+        fail "$name"
+        echo "  - stderr: strict gate enabled and dependency-gated check returned SKIP(10)" | tee -a "$REPORT_FILE"
+      else
+        skip "$name"
+        echo "  - reason: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+      fi
     else
       fail "$name"
       echo "  - stderr: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
@@ -131,6 +153,7 @@ check_stage_6() {
 check_stage_7() {
   run_check "stage7 static contract tests" python3 -m unittest tests.test_stage7_contract
   run_optional_check "idp auth unit tests (requires auth runtime stack)" python3 -m unittest tests.test_auth_idp
+  run_optional_dep_check "idp rotation rehearsal script (env-gated)" bash scripts/run_idp_key_rotation_rehearsal.sh
   run_check "postgres migration script exists" test -f scripts/migrate_postgres.sh
   run_optional_dep_check "postgres rehearsal smoke (env-gated)" bash scripts/run_postgres_rehearsal.sh
 }

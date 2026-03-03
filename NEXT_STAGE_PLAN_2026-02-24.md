@@ -44,6 +44,21 @@
   - 운영 환경 DB URL로 `scripts/run_postgres_rehearsal.sh` 실행 검증
   - 실제 IdP 키 교체 절차와 동일한 운영 키 회전 리허설
 
+## 진행 현황 업데이트 (2026-03-03)
+- 완료:
+  - 로컬 운영형 DB URL로 `scripts/run_postgres_rehearsal.sh` 실행 검증
+  - IdP JWKS 키 회전 시나리오 리허설(신규 kid 허용/기존 kid 차단) 재검증
+- 잔여:
+  - 실제 사내 IdP 운영 절차와 동일한 키 교체 런북 리허설
+
+## 진행 현황 업데이트 (2026-03-04)
+- 완료:
+  - IdP 키 회전 런북 문서화 (`IDP_KEY_ROTATION_RUNBOOK.md`)
+  - IdP 키 회전 리허설 스크립트 추가 (`scripts/run_idp_key_rotation_rehearsal.sh`)
+  - 로컬 Postgres 운영 제어 스크립트 추가 (`scripts/manage_local_postgres.sh`)
+- 잔여:
+  - 실제 사내 IdP 운영 토큰/JWKS 기반 실리허설 증적 적재
+
 ## 리스크
 - 네트워크 제약 환경에서 런타임 테스트 일부 skip 가능
 - DB 전환 시 기존 API 응답 포맷 회귀 위험

@@ -11,6 +11,7 @@ AUTOSTART="${NEWCLAW_BROWSER_SMOKE_AUTOSTART:-1}"
 SESSION_NAME="${NEWCLAW_BROWSER_SMOKE_SESSION:-newclaw-browser-smoke}"
 CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
 PWCLI="${CODEX_HOME_DIR}/skills/playwright/scripts/playwright_cli.sh"
+PWCLI_FALLBACK="${CODEX_HOME_DIR}/vendor_imports/skills/skills/.curated/playwright/scripts/playwright_cli.sh"
 ARTIFACT_DIR="output/playwright/${TIMESTAMP_UTC}"
 
 SERVER_STARTED=0
@@ -76,7 +77,8 @@ is_server_up() {
 }
 
 pw() {
-  PLAYWRIGHT_CLI_SESSION="${SESSION_NAME}" "${PWCLI}" --session "${SESSION_NAME}" "$@"
+  local tmpdir_value="/tmp"
+  PLAYWRIGHT_CLI_SESSION="${SESSION_NAME}" TMPDIR="${tmpdir_value}" "${PWCLI}" --session "${SESSION_NAME}" "$@"
 }
 
 if ! command -v npx >/dev/null 2>&1; then
@@ -84,7 +86,11 @@ if ! command -v npx >/dev/null 2>&1; then
 fi
 
 if [[ ! -x "${PWCLI}" ]]; then
-  skip "playwright wrapper not executable: ${PWCLI}"
+  if [[ -x "${PWCLI_FALLBACK}" ]]; then
+    PWCLI="${PWCLI_FALLBACK}"
+  else
+    skip "playwright wrapper not executable: ${PWCLI}"
+  fi
 fi
 
 if ! command -v python3 >/dev/null 2>&1; then

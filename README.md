@@ -212,6 +212,22 @@ bash scripts/run_postgres_rehearsal.sh
   - `10`: 의존성/환경 미충족(SKIP)
   - `1`: 마이그레이션/런타임 검증 실패(FAIL)
 
+10. IdP 키 회전 리허설 실행(선택)
+```bash
+bash scripts/run_idp_key_rotation_rehearsal.sh
+```
+- 상세 런북: `IDP_KEY_ROTATION_RUNBOOK.md`
+- 운영 토큰/JWKS 입력 시 old/new 토큰 교체 검증까지 수행 가능
+
+11. 로컬 Postgres 운영 제어(선택)
+```bash
+bash scripts/manage_local_postgres.sh status
+bash scripts/manage_local_postgres.sh restart
+bash scripts/manage_local_postgres.sh dsn
+```
+- 기본 대상: workspace 로컬 클러스터(`.local/pgdata`)
+- 전역 시스템 Postgres는 제어하지 않음
+
 ## 12) Git 운영 기준
 - 워크플로우 문서: `GIT_WORKFLOW.md`
 - 워크트리 가이드: `GIT_WORKTREE_GUIDE.md`

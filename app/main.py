@@ -532,6 +532,8 @@ def approve_queue_item(
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
     role = _authorize(actor.actor_role, {"approver", "admin"}, "approve_queue_item")
+    if req.acted_by != actor.actor_id:
+        _error(403, "FORBIDDEN", "acted_by must match authenticated actor")
     with STORE_LOCK:
         queue_item = APPROVAL_QUEUE.get(queue_id)
         if not queue_item:
@@ -548,7 +550,7 @@ def approve_queue_item(
             "queue_id": queue_id,
             "task_id": queue_item["task_id"],
             "action": "APPROVE",
-            "acted_by": req.acted_by,
+            "acted_by": actor.actor_id,
             "comment": req.comment,
             "created_at": _now_iso(),
         }
@@ -563,7 +565,7 @@ def approve_queue_item(
         approved_reasons.add(queue_item["reason_code"])
         task["approved_reasons"] = sorted(approved_reasons)
         _set_status(task, TaskStatus.RUNNING, next_action="wait_for_completion")
-        _log_event(task["task_id"], "HUMAN_APPROVED", queue_id=queue_id, acted_by=req.acted_by, actor_role=role)
+        _log_event(task["task_id"], "HUMAN_APPROVED", queue_id=queue_id, acted_by=actor.actor_id, actor_role=role)
 
     _start_pipeline(queue_item["task_id"])
     return {"queue_id": queue_id, "status": ApprovalStatus.APPROVED.value, "task_status": TaskStatus.RUNNING.value}
@@ -576,6 +578,8 @@ def reject_queue_item(
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
     role = _authorize(actor.actor_role, {"approver", "admin"}, "reject_queue_item")
+    if req.acted_by != actor.actor_id:
+        _error(403, "FORBIDDEN", "acted_by must match authenticated actor")
     with STORE_LOCK:
         queue_item = APPROVAL_QUEUE.get(queue_id)
         if not queue_item:
@@ -592,7 +596,7 @@ def reject_queue_item(
             "queue_id": queue_id,
             "task_id": queue_item["task_id"],
             "action": "REJECT",
-            "acted_by": req.acted_by,
+            "acted_by": actor.actor_id,
             "comment": req.comment,
             "created_at": _now_iso(),
         }
@@ -602,9 +606,10 @@ def reject_queue_item(
         task = TASKS.get(queue_item["task_id"])
         if not task:
             _error(404, "TASK_NOT_FOUND", f"task not found: {queue_item['task_id']}")
-        _set_status(task, TaskStatus.DONE, next_action="none", final_reason="rejected_by_human")
+        # Set completion timestamp before status persistence so DB state is consistent after restart.
         task["completed_at"] = _now_iso()
-        _log_event(task["task_id"], "HUMAN_REJECTED", queue_id=queue_id, acted_by=req.acted_by, actor_role=role)
+        _set_status(task, TaskStatus.DONE, next_action="none", final_reason="rejected_by_human")
+        _log_event(task["task_id"], "HUMAN_REJECTED", queue_id=queue_id, acted_by=actor.actor_id, actor_role=role)
 
     return {"queue_id": queue_id, "status": ApprovalStatus.REJECTED.value, "task_status": TaskStatus.DONE.value}
 

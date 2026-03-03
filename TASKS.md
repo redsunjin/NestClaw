@@ -7,6 +7,7 @@
 - 체크박스는 완료 시점에만 변경한다.
 - 확장 기능은 품질 게이트 통과 후에만 진행한다.
 - 위험 액션은 항상 승인 단계로 보낸다.
+- 각 단계는 착수 전에 담당 전문가 그룹이 상세계획을 수립하고, 사전 검토 승인 후에만 실행한다.
 
 ## Step 1. API/상태머신 기초
 - [x] `/task/create` 엔드포인트 스펙 고정 (`API_CONTRACT.md`)
@@ -87,6 +88,9 @@
 - [x] 외부 IdP(SSO) 검증 연동(서명키/토큰 검증 체계) (`app/auth.py`, `tests/test_auth_idp.py`)
 - [x] 운영 Postgres 연결 리허설 스크립트 추가 (`scripts/run_postgres_rehearsal.sh`, `scripts/run_dev_qa_cycle.sh`)
 - [x] IdP 키 회전 시나리오 회귀 테스트 추가 (`tests/test_auth_idp.py`)
+- [x] IdP 키 회전 운영 런북 문서화 (`IDP_KEY_ROTATION_RUNBOOK.md`)
+- [x] IdP 키 회전 리허설 자동화 스크립트 추가 (`scripts/run_idp_key_rotation_rehearsal.sh`)
+- [x] 로컬 Postgres 안전 운영 스크립트 추가 (`scripts/manage_local_postgres.sh`)
 
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)

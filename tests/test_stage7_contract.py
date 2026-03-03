@@ -29,6 +29,11 @@ class TestStage7Contract(unittest.TestCase):
         self.assertTrue(script.is_file())
         self.assertNotEqual(script.stat().st_mode & 0o111, 0)
 
+    def test_idp_rotation_rehearsal_script_exists_and_executable(self) -> None:
+        script = Path("scripts/run_idp_key_rotation_rehearsal.sh")
+        self.assertTrue(script.is_file())
+        self.assertNotEqual(script.stat().st_mode & 0o111, 0)
+
     def test_cycle_script_integrates_browser_smoke(self) -> None:
         source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         self.assertIn("run_optional_dep_check", source)
@@ -40,6 +45,21 @@ class TestStage7Contract(unittest.TestCase):
         source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         self.assertIn("postgres rehearsal smoke (env-gated)", source)
         self.assertIn("scripts/run_postgres_rehearsal.sh", source)
+
+    def test_cycle_script_integrates_idp_rotation_rehearsal(self) -> None:
+        source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
+        self.assertIn("idp rotation rehearsal script (env-gated)", source)
+        self.assertIn("scripts/run_idp_key_rotation_rehearsal.sh", source)
+
+    def test_browser_smoke_supports_wrapper_fallback(self) -> None:
+        source = Path("scripts/run_browser_smoke.sh").read_text(encoding="utf-8")
+        self.assertIn("vendor_imports/skills/skills/.curated/playwright/scripts/playwright_cli.sh", source)
+        self.assertIn("TMPDIR", source)
+
+    def test_cycle_script_supports_strict_gate_mode(self) -> None:
+        source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
+        self.assertIn("NEWCLAW_STRICT_GATE", source)
+        self.assertIn("strict gate enabled", source)
 
 
 if __name__ == "__main__":
