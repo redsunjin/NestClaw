@@ -118,12 +118,16 @@
 
 ## 9) 실행 문서
 - 실행 체크리스트: `TASKS.md`
+- 아이디에이션 1페이지(역할 경계/의사결정 기준): `IDEATION_ONEPAGER.md`
+- 아이디에이션 후보 비교표: `IDEATION_SCENARIO_SCORECARD.md`
+- 아이디에이션 전문가그룹 추천/발전안: `IDEATION_EXPERT_SQUAD_RECOMMENDATION.md`
 - 비IT 업무 템플릿 3종: `NON_IT_WORK_TEMPLATES.md`
 - API 계약서 초안: `API_CONTRACT.md`
 - 상태 전이 문서: `STATE_MACHINE.md`
 - 정책 화이트리스트 초안: `POLICY_WHITELIST.md`
 - 승인 큐 데이터 모델: `APPROVAL_QUEUE_MODEL.md`
 - 회의요약 템플릿 테스트 계획: `TEMPLATE_MEETING_SUMMARY_TEST_PLAN.md`
+- Stage 8 실행안(운영장애 + RAG/MCP): `INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`
 
 ## 10) 현재 구현 상태
 - API 스켈레톤 구현 완료:
@@ -277,5 +281,6 @@ bash scripts/run_next_stage_pipeline.sh 7 5 2 NEXT_STAGE_PLAN_2026-02-24.md
 
 ## 16) 다음 단계 계획
 - 계획 문서: `NEXT_STAGE_PLAN_2026-02-24.md`
+- Stage 8 실행안: `INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`
 - 모델 라우팅 설정: `configs/model_registry.yaml`
 - CI 품질게이트: `.github/workflows/quality-gate.yml`

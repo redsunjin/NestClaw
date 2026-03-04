@@ -92,6 +92,18 @@
 - [x] IdP 키 회전 리허설 자동화 스크립트 추가 (`scripts/run_idp_key_rotation_rehearsal.sh`)
 - [x] 로컬 Postgres 안전 운영 스크립트 추가 (`scripts/manage_local_postgres.sh`)
 
+## Stage 8 착수 (킬러 컨텐츠: 운영장애 대응 오케스트레이션)
+- [ ] Stage 8 목표/범위/성공지표 고정 (`INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`)
+- [ ] 외부 업무지식 RAG 연동 계약 고정 (입력/출력/신뢰도 필드)
+- [ ] 시스템분석 RAG 연동 계약 고정 (신호/근거/컴포넌트 필드)
+- [ ] Redmine MCP 메서드 맵 고정 (`issue.create/update/add_comment/assign/transition`)
+- [ ] 장애 전용 액션 카드 스키마 정의 (위험도/승인필요여부/근거링크)
+- [ ] 승인 분류표 확정 (자동실행 가능 vs 승인필수)
+- [ ] Incident 전용 planner/executor 경로 추가 설계
+- [ ] Dry-run E2E 시나리오 작성 (티켓 생성 시뮬레이션)
+- [ ] Sandbox E2E 시나리오 작성 (테스트 Redmine 프로젝트)
+- [ ] Stage 8 품질게이트 정의 (정상/차단/승인대기/실패복구)
+
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)
 2. [x] 상태 전이 다이어그램 작성 (`STATE_MACHINE.md`)
