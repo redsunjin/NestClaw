@@ -128,6 +128,7 @@
 - Stage 8 실행안(운영장애 + RAG/MCP): `INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`
 - Stage 8 실행 체크리스트: `STAGE8_EXECUTION_CHECKLIST_2026-03-04.md`
 - Stage 8 상세 설계: `STAGE8_DETAILED_DESIGN_2026-03-04.md`
+- Stage 8 자체평가 그룹: `STAGE8_SELF_EVAL_GROUPS_2026-03-05.md`
 - Stage 8 마이크로 작업 프로토콜: `MICRO_AGENT_WORKFLOW.md`
 
 ## 10) 현재 구현 상태
@@ -249,6 +250,7 @@ bash scripts/manage_local_postgres.sh dsn
 - 운영 가이드: `CODEX_AUTOMATION_CYCLE.md`
 - 계획 QA 스크립트: `scripts/run_plan_qa.sh`
 - 실행 스크립트: `scripts/run_dev_qa_cycle.sh`
+- Stage 8 자체평가 스크립트: `scripts/run_stage8_self_eval.sh`
 - 마이크로 사이클 스크립트: `scripts/run_micro_cycle.sh`
 - 브라우저 스모크 스크립트: `scripts/run_browser_smoke.sh`
 - Postgres 리허설 스크립트: `scripts/run_postgres_rehearsal.sh`
@@ -267,6 +269,7 @@ bash scripts/manage_local_postgres.sh dsn
 ```bash
 bash scripts/run_dev_qa_cycle.sh 4
 bash scripts/run_dev_qa_cycle.sh 8
+bash scripts/run_stage8_self_eval.sh
 bash scripts/run_micro_cycle.sh status stage8-w2-001
 bash scripts/run_browser_smoke.sh
 bash scripts/run_postgres_rehearsal.sh

@@ -161,10 +161,13 @@ check_stage_7() {
 check_stage_8() {
   run_check "stage8 static contract tests" python3 -m unittest tests.test_stage8_contract
   run_check "stage8 incident adapter contract tests" python3 -m unittest tests.test_incident_adapter_contract
+  run_check "stage8 grouped self evaluation baseline" bash scripts/run_stage8_self_eval.sh
   run_check "stage8 execution checklist exists" test -f STAGE8_EXECUTION_CHECKLIST_2026-03-04.md
   run_check "stage8 detailed design exists" test -f STAGE8_DETAILED_DESIGN_2026-03-04.md
+  run_check "stage8 self eval group doc exists" test -f STAGE8_SELF_EVAL_GROUPS_2026-03-05.md
   run_check "stage8 micro workflow exists" test -f MICRO_AGENT_WORKFLOW.md
   run_check "stage8 micro cycle script exists" test -f scripts/run_micro_cycle.sh
+  run_check "stage8 self eval script exists" test -f scripts/run_stage8_self_eval.sh
   run_check "stage8 first micro unit exists" test -f work/micro_units/stage8-w2-001/WORK_UNIT.md
   run_check "stage8 tasks schedule exists" rg -q "Stage 8 실행 스케줄" TASKS.md
   run_check "stage8 next stage schedule exists" rg -q "Stage 8 실행 스케줄 업데이트" NEXT_STAGE_PLAN_2026-02-24.md

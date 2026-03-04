@@ -86,6 +86,8 @@
   - Stage 8 마이크로 작업 프로토콜 선언 및 자동화 (`MICRO_AGENT_WORKFLOW.md`, `scripts/run_micro_cycle.sh`)
   - 1번 구현작업 MWU 생성 및 Plan/Review 게이트 통과 (`work/micro_units/stage8-w2-001/`)
   - 1번 구현작업 MWU 구현/평가 게이트 통과 (`app/incident_rag.py`, `app/incident_mcp.py`)
+  - Stage 8 자체평가 그룹 문서/스크립트 추가 및 baseline 실행 (`STAGE8_SELF_EVAL_GROUPS_2026-03-05.md`, `scripts/run_stage8_self_eval.sh`)
+  - 2번 구현작업 MWU(`stage8-w3-001`) 생성 및 Plan/Review 게이트 통과
 - 잔여:
   - Incident 전용 오케스트레이션 구현/검증
   - Sandbox 운영 증적 확보 및 파일럿 Go/No-Go

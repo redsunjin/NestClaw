@@ -128,6 +128,15 @@
 - [ ] 2026-04-06 ~ 2026-04-10: Sandbox 운영 검증
 - [ ] 2026-04-13 ~ 2026-04-24: 파일럿/안정화 및 Go/No-Go 판단
 
+### D) 자체평가 그룹 운영 (2026-03-05)
+- [x] 자체평가 그룹 문서 고정 (`STAGE8_SELF_EVAL_GROUPS_2026-03-05.md`)
+- [x] 그룹 자동평가 스크립트 추가 (`scripts/run_stage8_self_eval.sh`)
+- [x] baseline 자체평가 실행 (G1 PASS, G2~G4 PENDING)
+- [x] G2 MWU(`stage8-w3-001`) 생성 및 Plan/Review 게이트 통과
+- [ ] G2(Incident Orchestration Integration) PASS
+- [ ] G3(Policy & Approval Classification) PASS
+- [ ] G4(Quality Gate & Sandbox Readiness) PASS
+
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)
 2. [x] 상태 전이 다이어그램 작성 (`STATE_MACHINE.md`)

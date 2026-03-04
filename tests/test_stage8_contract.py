@@ -12,9 +12,13 @@ class TestStage8Contract(unittest.TestCase):
     def test_stage8_detailed_design_doc_exists(self) -> None:
         self.assertTrue(Path("STAGE8_DETAILED_DESIGN_2026-03-04.md").is_file())
 
+    def test_stage8_self_eval_group_doc_exists(self) -> None:
+        self.assertTrue(Path("STAGE8_SELF_EVAL_GROUPS_2026-03-05.md").is_file())
+
     def test_micro_workflow_assets_exist(self) -> None:
         self.assertTrue(Path("MICRO_AGENT_WORKFLOW.md").is_file())
         self.assertTrue(Path("scripts/run_micro_cycle.sh").is_file())
+        self.assertTrue(Path("scripts/run_stage8_self_eval.sh").is_file())
         self.assertTrue(Path("work/micro_units/stage8-w2-001/WORK_UNIT.md").is_file())
         self.assertTrue(Path("app/incident_rag.py").is_file())
         self.assertTrue(Path("app/incident_mcp.py").is_file())
@@ -51,6 +55,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("check_stage_8", source)
         self.assertIn("tests.test_stage8_contract", source)
         self.assertIn("tests.test_incident_adapter_contract", source)
+        self.assertIn("run_stage8_self_eval.sh", source)
 
     def test_auto_cycle_supports_stage8(self) -> None:
         source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
@@ -64,6 +69,13 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("gate-implement", source)
         self.assertIn("gate-evaluate", source)
         self.assertIn("run_dev_qa_cycle.sh", source)
+
+    def test_self_eval_group_doc_has_four_groups(self) -> None:
+        source = Path("STAGE8_SELF_EVAL_GROUPS_2026-03-05.md").read_text(encoding="utf-8")
+        self.assertIn("G1. Adapter Contract Foundation", source)
+        self.assertIn("G2. Incident Orchestration Integration", source)
+        self.assertIn("G3. Policy & Approval Classification", source)
+        self.assertIn("G4. Quality Gate & Sandbox Readiness", source)
 
 
 if __name__ == "__main__":

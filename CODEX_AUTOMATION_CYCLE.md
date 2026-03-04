@@ -102,9 +102,11 @@ bash scripts/run_next_stage_pipeline.sh 8 5 2
 
 ### Stage 8
 - Stage 8 계약 테스트(`tests/test_stage8_contract.py`)
+- Stage 8 어댑터 계약 테스트(`tests/test_incident_adapter_contract.py`)
 - Stage 8 문서 자산 존재 확인:
   - `STAGE8_EXECUTION_CHECKLIST_2026-03-04.md`
   - `STAGE8_DETAILED_DESIGN_2026-03-04.md`
+  - `STAGE8_SELF_EVAL_GROUPS_2026-03-05.md`
 - Stage 8 일정 반영 확인:
   - `TASKS.md`
   - `NEXT_STAGE_PLAN_2026-02-24.md`
@@ -120,6 +122,7 @@ bash scripts/run_micro_cycle.sh gate-plan <unit-id>
 bash scripts/run_micro_cycle.sh gate-review <unit-id>
 bash scripts/run_micro_cycle.sh gate-implement <unit-id>
 bash scripts/run_micro_cycle.sh gate-evaluate <unit-id> 8
+bash scripts/run_stage8_self_eval.sh
 ```
 
 로컬 Postgres 운영 제어:
