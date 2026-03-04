@@ -126,6 +126,8 @@
 - 승인 큐 데이터 모델: `APPROVAL_QUEUE_MODEL.md`
 - 회의요약 템플릿 테스트 계획: `TEMPLATE_MEETING_SUMMARY_TEST_PLAN.md`
 - Stage 8 실행안(운영장애 + RAG/MCP): `INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`
+- Stage 8 실행 체크리스트: `STAGE8_EXECUTION_CHECKLIST_2026-03-04.md`
+- Stage 8 상세 설계: `STAGE8_DETAILED_DESIGN_2026-03-04.md`
 
 ## 10) 현재 구현 상태
 - API 스켈레톤 구현 완료:
@@ -252,16 +254,18 @@ bash scripts/manage_local_postgres.sh dsn
   - `tests/test_spec_contract.py`
   - `tests/test_runtime_smoke.py`
   - `tests/test_stage7_contract.py`
+  - `tests/test_stage8_contract.py`
   - `tests/test_auth_idp.py`
 
 실행 예시:
 ```bash
 bash scripts/run_dev_qa_cycle.sh 4
+bash scripts/run_dev_qa_cycle.sh 8
 bash scripts/run_browser_smoke.sh
 bash scripts/run_postgres_rehearsal.sh
-bash scripts/run_auto_cycle.sh 7 10 3 --fix-cmd "<your-fix-command>"
+bash scripts/run_auto_cycle.sh 8 10 3 --fix-cmd "<your-fix-command>"
 bash scripts/run_plan_qa.sh NEXT_STAGE_PLAN_2026-02-24.md
-bash scripts/run_next_stage_pipeline.sh 7 5 2 NEXT_STAGE_PLAN_2026-02-24.md
+bash scripts/run_next_stage_pipeline.sh 8 5 2 NEXT_STAGE_PLAN_2026-02-24.md
 ```
 
 ## 14) 보안형 에이전트 협업 아이디어
@@ -280,5 +284,7 @@ bash scripts/run_next_stage_pipeline.sh 7 5 2 NEXT_STAGE_PLAN_2026-02-24.md
 ## 16) 다음 단계 계획
 - 계획 문서: `NEXT_STAGE_PLAN_2026-02-24.md`
 - Stage 8 실행안: `INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`
+- Stage 8 체크리스트: `STAGE8_EXECUTION_CHECKLIST_2026-03-04.md`
+- Stage 8 상세 설계: `STAGE8_DETAILED_DESIGN_2026-03-04.md`
 - 모델 라우팅 설정: `configs/model_registry.yaml`
 - CI 품질게이트: `.github/workflows/quality-gate.yml`

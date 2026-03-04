@@ -54,14 +54,18 @@ require_file "$PLAN_FILE"
 if [[ -f "$PLAN_FILE" ]]; then
   require_pattern "$PLAN_FILE" "^## 목표" "contains goal section"
   require_pattern "$PLAN_FILE" "^## Stage 7 범위" "contains scope section"
+  require_pattern "$PLAN_FILE" "^## Stage 8 범위" "contains stage8 scope section"
   require_pattern "$PLAN_FILE" "^## 완료 기준" "contains acceptance criteria"
+  require_pattern "$PLAN_FILE" "^## Stage 8 완료 기준" "contains stage8 acceptance criteria"
   require_pattern "$PLAN_FILE" "^## 실행 순서" "contains execution order"
   require_pattern "$PLAN_FILE" "^## 리스크" "contains risk section"
   require_pattern "$PLAN_FILE" "^## 대응" "contains mitigation section"
+  require_pattern "$PLAN_FILE" "Stage 8 실행 스케줄 업데이트" "contains stage8 schedule update"
 
   require_pattern "$PLAN_FILE" "JWT|SSO|인증" "covers authentication upgrade"
   require_pattern "$PLAN_FILE" "DB|SQLite|PostgreSQL|영속" "covers persistence migration"
   require_pattern "$PLAN_FILE" "CI|게이트|품질" "covers CI quality gate"
+  require_pattern "$PLAN_FILE" "RAG|MCP|Incident" "covers stage8 orchestration contracts"
 fi
 
 {

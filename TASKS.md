@@ -93,16 +93,37 @@
 - [x] 로컬 Postgres 안전 운영 스크립트 추가 (`scripts/manage_local_postgres.sh`)
 
 ## Stage 8 착수 (킬러 컨텐츠: 운영장애 대응 오케스트레이션)
-- [ ] Stage 8 목표/범위/성공지표 고정 (`INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`)
-- [ ] 외부 업무지식 RAG 연동 계약 고정 (입력/출력/신뢰도 필드)
-- [ ] 시스템분석 RAG 연동 계약 고정 (신호/근거/컴포넌트 필드)
-- [ ] Redmine MCP 메서드 맵 고정 (`issue.create/update/add_comment/assign/transition`)
-- [ ] 장애 전용 액션 카드 스키마 정의 (위험도/승인필요여부/근거링크)
-- [ ] 승인 분류표 확정 (자동실행 가능 vs 승인필수)
-- [ ] Incident 전용 planner/executor 경로 추가 설계
-- [ ] Dry-run E2E 시나리오 작성 (티켓 생성 시뮬레이션)
-- [ ] Sandbox E2E 시나리오 작성 (테스트 Redmine 프로젝트)
-- [ ] Stage 8 품질게이트 정의 (정상/차단/승인대기/실패복구)
+### A) 설계/계약 고정 (완료: 2026-03-04)
+- [x] Stage 8 목표/범위/성공지표 고정 (`INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`)
+- [x] 외부 업무지식 RAG 연동 계약 고정 (입력/출력/신뢰도 필드, `STAGE8_DETAILED_DESIGN_2026-03-04.md`)
+- [x] 시스템분석 RAG 연동 계약 고정 (신호/근거/컴포넌트 필드, `STAGE8_DETAILED_DESIGN_2026-03-04.md`)
+- [x] Redmine MCP 메서드 맵 고정 (`issue.create/update/add_comment/assign/transition`, `STAGE8_DETAILED_DESIGN_2026-03-04.md`)
+- [x] 장애 전용 액션 카드 스키마 정의 (위험도/승인필요여부/근거링크, `STAGE8_DETAILED_DESIGN_2026-03-04.md`)
+- [x] 승인 분류표 확정 (자동실행 가능 vs 승인필수, `STAGE8_DETAILED_DESIGN_2026-03-04.md`)
+- [x] Incident 전용 planner/executor 경로 상세 설계 (`STAGE8_DETAILED_DESIGN_2026-03-04.md`)
+- [x] Dry-run E2E 시나리오 작성 (티켓 생성 시뮬레이션, `STAGE8_DETAILED_DESIGN_2026-03-04.md`)
+- [x] Sandbox E2E 시나리오 작성 (테스트 Redmine 프로젝트, `STAGE8_DETAILED_DESIGN_2026-03-04.md`)
+- [x] Stage 8 품질게이트 정의 (정상/차단/승인대기/실패복구, `STAGE8_DETAILED_DESIGN_2026-03-04.md`)
+- [x] Stage 8 실행 체크리스트 작성 (`STAGE8_EXECUTION_CHECKLIST_2026-03-04.md`)
+- [x] Stage 8 주차별 스케줄 고정 (`NEXT_STAGE_PLAN_2026-02-24.md`)
+
+### B) 구현/검증 (진행 필요)
+- [ ] RAG 클라이언트 인터페이스 2종 스켈레톤 구현 (`app/incident_rag.py`)
+- [ ] Redmine MCP 실행 어댑터 스켈레톤 구현 (`app/incident_mcp.py`)
+- [ ] Incident Intake + Action Planner 경로 구현 (`app/main.py`)
+- [ ] 승인 분류표를 정책 룰로 구현 (`POLICY_WHITELIST.md`, `app/main.py`)
+- [ ] Dry-run E2E 자동 테스트 추가 (`tests/test_stage8_contract.py` 이후 런타임 테스트 파일)
+- [ ] Sandbox E2E 리허설 증적 리포트 작성 (`reports/qa/`)
+- [ ] Stage 8 품질게이트를 CI 파이프라인에 통합 (`.github/workflows/quality-gate.yml`)
+
+### C) Stage 8 실행 스케줄 (2026-03-05 ~ 2026-04-24)
+- [ ] 2026-03-05 ~ 2026-03-06: 기준선 고정 (문서/백로그/오너 확정)
+- [ ] 2026-03-09 ~ 2026-03-13: 계약 고정 (Incident/RAG/MCP/승인 분류)
+- [ ] 2026-03-16 ~ 2026-03-20: 어댑터 스켈레톤 구현
+- [ ] 2026-03-23 ~ 2026-03-27: Incident 오케스트레이션 결합
+- [ ] 2026-03-30 ~ 2026-04-03: Stage 8 품질게이트 자동화
+- [ ] 2026-04-06 ~ 2026-04-10: Sandbox 운영 검증
+- [ ] 2026-04-13 ~ 2026-04-24: 파일럿/안정화 및 Go/No-Go 판단
 
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)

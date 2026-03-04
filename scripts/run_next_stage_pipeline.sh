@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TARGET_STAGE="${1:-7}"
+TARGET_STAGE="${1:-8}"
 MAX_ROUNDS="${2:-5}"
 SLEEP_SECONDS="${3:-3}"
 PLAN_FILE="${4:-NEXT_STAGE_PLAN_2026-02-24.md}"

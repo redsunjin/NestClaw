@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<EOF
 Usage:
-  $0 <target-stage:1..7> [max-rounds] [sleep-seconds] [--fix-cmd "<command>"]
+  $0 <target-stage:1..8> [max-rounds] [sleep-seconds] [--fix-cmd "<command>"]
 
 Examples:
   $0 4
@@ -28,8 +28,8 @@ if [[ -z "$TARGET_STAGE" ]]; then
   exit 2
 fi
 
-if ! [[ "$TARGET_STAGE" =~ ^[1-7]$ ]]; then
-  echo "target-stage must be 1..7"
+if ! [[ "$TARGET_STAGE" =~ ^[1-8]$ ]]; then
+  echo "target-stage must be 1..8"
   exit 2
 fi
 

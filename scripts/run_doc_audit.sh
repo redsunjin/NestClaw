@@ -54,6 +54,9 @@ check_file "API_CONTRACT.md"
 check_file "EXPERT_REVIEW_UPDATE_2026-02-24.md"
 check_file "SECURE_AGENT_COLLAB_ARCHITECTURE.md"
 check_file "CODEX_AUTOMATION_CYCLE.md"
+check_file "INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md"
+check_file "STAGE8_EXECUTION_CHECKLIST_2026-03-04.md"
+check_file "STAGE8_DETAILED_DESIGN_2026-03-04.md"
 
 # API contract vs implementation
 check_pattern_in_file "API_CONTRACT.md" 'POST `/api/v1/task/create`' "contract includes create endpoint"
@@ -73,6 +76,8 @@ check_pattern_in_file "README.md" "X-Actor-Role" "readme documents RBAC header"
 check_pattern_in_file "README.md" "scripts/run_auto_cycle.sh" "readme documents auto cycle script"
 check_pattern_in_file "TASKS.md" "Step 6" "tasks include QA gate step"
 check_pattern_in_file "TASKS.md" "\\[x\\] RBAC 역할 정의" "tasks show RBAC completed"
+check_pattern_in_file "TASKS.md" "Stage 8 실행 스케줄" "tasks include stage8 schedule"
+check_pattern_in_file "NEXT_STAGE_PLAN_2026-02-24.md" "Stage 8 실행 스케줄 업데이트" "next stage plan includes stage8 schedule"
 
 {
   echo ""

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 TARGET_STAGE="${1:-4}"
-if ! [[ "$TARGET_STAGE" =~ ^[1-7]$ ]]; then
-  echo "Usage: $0 <target-stage: 1..7>"
+if ! [[ "$TARGET_STAGE" =~ ^[1-8]$ ]]; then
+  echo "Usage: $0 <target-stage: 1..8>"
   exit 2
 fi
 
@@ -156,6 +156,14 @@ check_stage_7() {
   run_optional_dep_check "idp rotation rehearsal script (env-gated)" bash scripts/run_idp_key_rotation_rehearsal.sh
   run_check "postgres migration script exists" test -f scripts/migrate_postgres.sh
   run_optional_dep_check "postgres rehearsal smoke (env-gated)" bash scripts/run_postgres_rehearsal.sh
+}
+
+check_stage_8() {
+  run_check "stage8 static contract tests" python3 -m unittest tests.test_stage8_contract
+  run_check "stage8 execution checklist exists" test -f STAGE8_EXECUTION_CHECKLIST_2026-03-04.md
+  run_check "stage8 detailed design exists" test -f STAGE8_DETAILED_DESIGN_2026-03-04.md
+  run_check "stage8 tasks schedule exists" rg -q "Stage 8 실행 스케줄" TASKS.md
+  run_check "stage8 next stage schedule exists" rg -q "Stage 8 실행 스케줄 업데이트" NEXT_STAGE_PLAN_2026-02-24.md
 }
 
 write_header

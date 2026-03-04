@@ -1,0 +1,53 @@
+import unittest
+from pathlib import Path
+
+
+class TestStage8Contract(unittest.TestCase):
+    def test_stage8_plan_doc_exists(self) -> None:
+        self.assertTrue(Path("INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md").is_file())
+
+    def test_stage8_checklist_doc_exists(self) -> None:
+        self.assertTrue(Path("STAGE8_EXECUTION_CHECKLIST_2026-03-04.md").is_file())
+
+    def test_stage8_detailed_design_doc_exists(self) -> None:
+        self.assertTrue(Path("STAGE8_DETAILED_DESIGN_2026-03-04.md").is_file())
+
+    def test_detailed_design_includes_required_contract_sections(self) -> None:
+        source = Path("STAGE8_DETAILED_DESIGN_2026-03-04.md").read_text(encoding="utf-8")
+        self.assertIn("Incident Intake 객체", source)
+        self.assertIn("RAG 계약", source)
+        self.assertIn("Action Card 스키마", source)
+        self.assertIn("승인 분류표", source)
+        self.assertIn("QA 설계", source)
+
+    def test_checklist_includes_kpi_and_weekly_phases(self) -> None:
+        source = Path("STAGE8_EXECUTION_CHECKLIST_2026-03-04.md").read_text(encoding="utf-8")
+        self.assertIn("KPI (Go/No-Go 기준)", source)
+        self.assertIn("Week 1", source)
+        self.assertIn("Week 4", source)
+        self.assertIn("Week 6-7", source)
+
+    def test_tasks_include_stage8_schedule(self) -> None:
+        source = Path("TASKS.md").read_text(encoding="utf-8")
+        self.assertIn("Stage 8 실행 스케줄", source)
+        self.assertIn("2026-03-05 ~ 2026-03-06", source)
+
+    def test_next_stage_plan_includes_stage8_schedule_update(self) -> None:
+        source = Path("NEXT_STAGE_PLAN_2026-02-24.md").read_text(encoding="utf-8")
+        self.assertIn("Stage 8 실행 스케줄 업데이트", source)
+        self.assertIn("2026-04-13 ~ 2026-04-24", source)
+
+    def test_dev_qa_cycle_supports_stage8(self) -> None:
+        source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
+        self.assertIn("target-stage: 1..8", source)
+        self.assertIn("check_stage_8", source)
+        self.assertIn("tests.test_stage8_contract", source)
+
+    def test_auto_cycle_supports_stage8(self) -> None:
+        source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
+        self.assertIn("target-stage:1..8", source)
+        self.assertIn("target-stage must be 1..8", source)
+
+
+if __name__ == "__main__":
+    unittest.main()
