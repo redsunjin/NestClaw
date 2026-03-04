@@ -151,6 +151,10 @@
 - 영속 저장소:
   - SQLite 기본값 (`NEWCLAW_DB_BACKEND=sqlite`, `NEWCLAW_DB_PATH=data/new_claw.db`)
   - PostgreSQL 지원 (`NEWCLAW_DB_BACKEND=postgres`, `NEWCLAW_DATABASE_URL=...`)
+- Stage 8 어댑터 스켈레톤:
+  - Incident RAG 어댑터 계약 구현 (`app/incident_rag.py`)
+  - Redmine MCP 어댑터 계약 구현 (`app/incident_mcp.py`)
+  - 마이크로 유닛 게이트 운영 (`work/micro_units/stage8-w2-001/`)
 
 코드 위치:
 - 서버: `app/main.py`

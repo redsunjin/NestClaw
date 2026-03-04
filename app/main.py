@@ -11,6 +11,8 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.auth import ActorContext, VALID_ROLES, actor_context_dependency
+from app.incident_mcp import execute_redmine_action
+from app.incident_rag import fetch_knowledge_evidence, fetch_system_signals
 from app.persistence import create_state_store
 
 
@@ -70,6 +72,18 @@ POLICY_BLOCK_PATTERNS: dict[str, tuple[str, ...]] = {
         "https://",
     )
 }
+
+
+def _build_incident_adapter_registry() -> dict[str, Any]:
+    # Stage 8 skeleton binding point: keeps contracts importable before runtime integration.
+    return {
+        "knowledge_rag": fetch_knowledge_evidence,
+        "system_rag": fetch_system_signals,
+        "redmine_mcp": execute_redmine_action,
+    }
+
+
+INCIDENT_ADAPTERS = _build_incident_adapter_registry()
 
 
 def _now_iso() -> str:

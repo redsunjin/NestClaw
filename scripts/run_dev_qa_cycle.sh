@@ -160,6 +160,7 @@ check_stage_7() {
 
 check_stage_8() {
   run_check "stage8 static contract tests" python3 -m unittest tests.test_stage8_contract
+  run_check "stage8 incident adapter contract tests" python3 -m unittest tests.test_incident_adapter_contract
   run_check "stage8 execution checklist exists" test -f STAGE8_EXECUTION_CHECKLIST_2026-03-04.md
   run_check "stage8 detailed design exists" test -f STAGE8_DETAILED_DESIGN_2026-03-04.md
   run_check "stage8 micro workflow exists" test -f MICRO_AGENT_WORKFLOW.md
