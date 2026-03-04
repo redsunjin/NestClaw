@@ -57,6 +57,8 @@ check_file "CODEX_AUTOMATION_CYCLE.md"
 check_file "INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md"
 check_file "STAGE8_EXECUTION_CHECKLIST_2026-03-04.md"
 check_file "STAGE8_DETAILED_DESIGN_2026-03-04.md"
+check_file "MICRO_AGENT_WORKFLOW.md"
+check_file "scripts/run_micro_cycle.sh"
 
 # API contract vs implementation
 check_pattern_in_file "API_CONTRACT.md" 'POST `/api/v1/task/create`' "contract includes create endpoint"
@@ -78,6 +80,8 @@ check_pattern_in_file "TASKS.md" "Step 6" "tasks include QA gate step"
 check_pattern_in_file "TASKS.md" "\\[x\\] RBAC 역할 정의" "tasks show RBAC completed"
 check_pattern_in_file "TASKS.md" "Stage 8 실행 스케줄" "tasks include stage8 schedule"
 check_pattern_in_file "NEXT_STAGE_PLAN_2026-02-24.md" "Stage 8 실행 스케줄 업데이트" "next stage plan includes stage8 schedule"
+check_pattern_in_file "MICRO_AGENT_WORKFLOW.md" "계획 -> 검토 -> 구현 -> 평가" "micro workflow defines four-phase loop"
+check_pattern_in_file "MICRO_AGENT_WORKFLOW.md" "scripts/run_micro_cycle.sh" "micro workflow includes automation command"
 
 {
   echo ""

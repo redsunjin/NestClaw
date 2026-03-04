@@ -83,6 +83,8 @@
   - Stage 8 기준 문서 초안 작성 (`INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`)
   - Stage 8 실행 체크리스트 작성 (`STAGE8_EXECUTION_CHECKLIST_2026-03-04.md`)
   - Stage 8 상세 설계 고정 (`STAGE8_DETAILED_DESIGN_2026-03-04.md`)
+  - Stage 8 마이크로 작업 프로토콜 선언 및 자동화 (`MICRO_AGENT_WORKFLOW.md`, `scripts/run_micro_cycle.sh`)
+  - 1번 구현작업 MWU 생성 및 Plan/Review 게이트 통과 (`work/micro_units/stage8-w2-001/`)
 - 잔여:
   - Incident 어댑터 스켈레톤 구현
   - Incident 전용 오케스트레이션 구현/검증

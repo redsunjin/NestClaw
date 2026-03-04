@@ -12,6 +12,11 @@ class TestStage8Contract(unittest.TestCase):
     def test_stage8_detailed_design_doc_exists(self) -> None:
         self.assertTrue(Path("STAGE8_DETAILED_DESIGN_2026-03-04.md").is_file())
 
+    def test_micro_workflow_assets_exist(self) -> None:
+        self.assertTrue(Path("MICRO_AGENT_WORKFLOW.md").is_file())
+        self.assertTrue(Path("scripts/run_micro_cycle.sh").is_file())
+        self.assertTrue(Path("work/micro_units/stage8-w2-001/WORK_UNIT.md").is_file())
+
     def test_detailed_design_includes_required_contract_sections(self) -> None:
         source = Path("STAGE8_DETAILED_DESIGN_2026-03-04.md").read_text(encoding="utf-8")
         self.assertIn("Incident Intake 객체", source)
@@ -47,6 +52,14 @@ class TestStage8Contract(unittest.TestCase):
         source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
         self.assertIn("target-stage:1..8", source)
         self.assertIn("target-stage must be 1..8", source)
+
+    def test_micro_cycle_supports_stage8_gate_flow(self) -> None:
+        source = Path("scripts/run_micro_cycle.sh").read_text(encoding="utf-8")
+        self.assertIn("gate-plan", source)
+        self.assertIn("gate-review", source)
+        self.assertIn("gate-implement", source)
+        self.assertIn("gate-evaluate", source)
+        self.assertIn("run_dev_qa_cycle.sh", source)
 
 
 if __name__ == "__main__":

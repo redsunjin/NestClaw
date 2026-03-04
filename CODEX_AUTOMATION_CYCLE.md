@@ -5,7 +5,7 @@
 지정한 단계(`Step N`)까지 도달 가능한지 자동 판정한다.
 
 ## 핵심 개념
-- 입력: 목표 단계(1~7)
+- 입력: 목표 단계(1~8)
 - 실행: 단계별 게이트 체크(정적 검증 + 테스트)
 - 출력: QA 리포트(`reports/qa/cycle-<timestamp>.md`)
 - 종료: 실패 0이면 해당 단계까지 통과
@@ -19,6 +19,7 @@ bash scripts/run_dev_qa_cycle.sh 4
 - Step 4까지 판정: `bash scripts/run_dev_qa_cycle.sh 4`
 - Step 6까지 판정: `bash scripts/run_dev_qa_cycle.sh 6`
 - Step 7까지 판정: `bash scripts/run_dev_qa_cycle.sh 7`
+- Step 8까지 판정: `bash scripts/run_dev_qa_cycle.sh 8`
 
 브라우저 스모크 단독 실행:
 ```bash
@@ -29,11 +30,11 @@ bash scripts/run_browser_smoke.sh
 반복 실행 + 실패 시 수정 명령을 훅으로 연결하려면:
 
 ```bash
-bash scripts/run_auto_cycle.sh 7 10 3 --fix-cmd "<your-fix-command>"
+bash scripts/run_auto_cycle.sh 8 10 3 --fix-cmd "<your-fix-command>"
 ```
 
 파라미터:
-- `target-stage`: 1~7
+- `target-stage`: 1~8
 - `max-rounds`: 최대 반복 횟수
 - `sleep-seconds`: 라운드 간 대기
 - `--fix-cmd`: 실패 라운드 뒤 실행할 수정 명령
@@ -41,7 +42,7 @@ bash scripts/run_auto_cycle.sh 7 10 3 --fix-cmd "<your-fix-command>"
 예시:
 ```bash
 bash scripts/run_auto_cycle.sh 4
-bash scripts/run_auto_cycle.sh 7 5 2 --fix-cmd "python3 -m unittest tests.test_spec_contract"
+bash scripts/run_auto_cycle.sh 8 5 2 --fix-cmd "python3 -m unittest tests.test_spec_contract"
 ```
 
 엄격 게이트(릴리즈 기준):
@@ -53,7 +54,7 @@ NEWCLAW_STRICT_GATE=1 bash scripts/run_dev_qa_cycle.sh 7
 ## 문서감사 + 전문가QA + 다음단계 파이프라인
 한 번에 실행하려면:
 ```bash
-bash scripts/run_next_stage_pipeline.sh 7 5 2
+bash scripts/run_next_stage_pipeline.sh 8 5 2
 ```
 
 구성:
@@ -98,6 +99,28 @@ bash scripts/run_next_stage_pipeline.sh 7 5 2
 - Postgres 리허설 스모크(`scripts/run_postgres_rehearsal.sh`)
   - 종료코드 `10`: DB URL/의존성 미충족으로 SKIP
   - 종료코드 `1`: 마이그레이션/런타임 실패로 FAIL
+
+### Stage 8
+- Stage 8 계약 테스트(`tests/test_stage8_contract.py`)
+- Stage 8 문서 자산 존재 확인:
+  - `STAGE8_EXECUTION_CHECKLIST_2026-03-04.md`
+  - `STAGE8_DETAILED_DESIGN_2026-03-04.md`
+- Stage 8 일정 반영 확인:
+  - `TASKS.md`
+  - `NEXT_STAGE_PLAN_2026-02-24.md`
+
+## Stage 8 마이크로 유닛 운영
+프로토콜:
+- `MICRO_AGENT_WORKFLOW.md`
+
+표준 명령:
+```bash
+bash scripts/run_micro_cycle.sh init <unit-id> "<goal>" 8
+bash scripts/run_micro_cycle.sh gate-plan <unit-id>
+bash scripts/run_micro_cycle.sh gate-review <unit-id>
+bash scripts/run_micro_cycle.sh gate-implement <unit-id>
+bash scripts/run_micro_cycle.sh gate-evaluate <unit-id> 8
+```
 
 로컬 Postgres 운영 제어:
 - `scripts/manage_local_postgres.sh status|start|stop|restart|dsn`

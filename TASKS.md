@@ -106,6 +106,9 @@
 - [x] Stage 8 품질게이트 정의 (정상/차단/승인대기/실패복구, `STAGE8_DETAILED_DESIGN_2026-03-04.md`)
 - [x] Stage 8 실행 체크리스트 작성 (`STAGE8_EXECUTION_CHECKLIST_2026-03-04.md`)
 - [x] Stage 8 주차별 스케줄 고정 (`NEXT_STAGE_PLAN_2026-02-24.md`)
+- [x] Stage 8 마이크로 작업 프로토콜 선언 (`MICRO_AGENT_WORKFLOW.md`)
+- [x] 마이크로 사이클 자동화 스크립트 추가 (`scripts/run_micro_cycle.sh`)
+- [x] 1번 구현작업 MWU 생성 및 Plan/Review 게이트 통과 (`work/micro_units/stage8-w2-001/`)
 
 ### B) 구현/검증 (진행 필요)
 - [ ] RAG 클라이언트 인터페이스 2종 스켈레톤 구현 (`app/incident_rag.py`)

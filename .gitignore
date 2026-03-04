@@ -7,3 +7,4 @@ output/playwright/
 .local/
 .codex/
 .playwright-cli/
+work/micro_units/*/reports/
