@@ -119,8 +119,6 @@
 ## 9) 실행 문서
 - 실행 체크리스트: `TASKS.md`
 - 아이디에이션 1페이지(역할 경계/의사결정 기준): `IDEATION_ONEPAGER.md`
-- 아이디에이션 후보 비교표: `IDEATION_SCENARIO_SCORECARD.md`
-- 아이디에이션 전문가그룹 추천/발전안: `IDEATION_EXPERT_SQUAD_RECOMMENDATION.md`
 - 비IT 업무 템플릿 3종: `NON_IT_WORK_TEMPLATES.md`
 - API 계약서 초안: `API_CONTRACT.md`
 - 상태 전이 문서: `STATE_MACHINE.md`

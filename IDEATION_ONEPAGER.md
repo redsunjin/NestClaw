@@ -61,9 +61,11 @@ flowchart LR
 ```
 
 ## 5) 지금 단계의 선언
-- 지금은 구현 착수 단계가 아니라 **아이디에이션/경계 정렬 단계**다.
-- 다음 액션은 개발이 아니라 "후보 시나리오 3개를 동일 기준표로 비교 평가"다.
+- 아이디에이션/경계 정렬을 마쳤고, Stage 8의 1순위 시나리오는 **S1 운영장애 대응 오케스트레이션**으로 확정했다. (2026-03-04)
+- 구현 착수는 `INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md` 기준으로 진행한다.
+- S2/S3는 S1 공통 자산 완성 후 후속 확장으로 관리한다.
 
 ## 6) 연계 문서
-- 후보 시나리오 비교표: `IDEATION_SCENARIO_SCORECARD.md`
-- 아이디에이션 전담 전문가 그룹 추천: `IDEATION_EXPERT_SQUAD_RECOMMENDATION.md`
+- Stage 8 실행 기준/아키텍처: `INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`
+- 다음 단계 실행 추적: `NEXT_STAGE_PLAN_2026-02-24.md`
+- 전문가 역할/책임 정식 기준: `AGENT_EXPERT_GROUP.md`
