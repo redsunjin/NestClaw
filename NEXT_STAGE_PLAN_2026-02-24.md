@@ -92,6 +92,15 @@
   - Incident 전용 오케스트레이션 구현/검증
   - Sandbox 운영 증적 확보 및 파일럿 Go/No-Go
 
+## Stage 8 진행 현황 업데이트 (2026-03-06)
+- 완료:
+  - G1~G4 grouped self-eval PASS (`reports/qa/stage8-self-eval-20260306T141522Z.md`, QA worktree)
+  - Incident runtime dry-run/정책 분류/CI 품질게이트/rehearsal 스크립트 고정
+  - Stage 8 종료 요약 문서 작성 (`STAGE8_CLOSEOUT_SUMMARY_2026-03-06.md`)
+- 잔여:
+  - 실제 외부 sandbox live rehearsal
+  - 파일럿/안정화 및 Go/No-Go 판단
+
 ## 리스크
 - 네트워크 제약 환경에서 런타임 테스트 일부 skip 가능
 - DB 전환 시 기존 API 응답 포맷 회귀 위험

@@ -15,6 +15,9 @@ class TestStage8Contract(unittest.TestCase):
     def test_stage8_self_eval_group_doc_exists(self) -> None:
         self.assertTrue(Path("STAGE8_SELF_EVAL_GROUPS_2026-03-05.md").is_file())
 
+    def test_stage8_closeout_summary_exists(self) -> None:
+        self.assertTrue(Path("STAGE8_CLOSEOUT_SUMMARY_2026-03-06.md").is_file())
+
     def test_micro_workflow_assets_exist(self) -> None:
         self.assertTrue(Path("MICRO_AGENT_WORKFLOW.md").is_file())
         self.assertTrue(Path("scripts/run_micro_cycle.sh").is_file())
