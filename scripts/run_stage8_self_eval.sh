@@ -157,7 +157,7 @@ if [[ -n "${latest_sandbox_report}" ]] && tail -n 20 "${latest_sandbox_report}" 
 fi
 if rg -q "tests.test_incident_policy_gate|run_dev_qa_cycle.sh 8|run_stage8_sandbox_e2e.sh" .github/workflows/quality-gate.yml && [[ "$sandbox_report_ready" -eq 1 ]]; then
   g4_ok=1
-  run_check "next stage pipeline stage8" bash scripts/run_next_stage_pipeline.sh 8 2 1 NEXT_STAGE_PLAN_2026-02-24.md || g4_ok=0
+  run_check "next stage pipeline stage8" env NEWCLAW_SKIP_STAGE8_SELF_EVAL=1 bash scripts/run_next_stage_pipeline.sh 8 2 1 NEXT_STAGE_PLAN_2026-02-24.md || g4_ok=0
   if [[ "$g4_ok" -eq 1 ]]; then
     group_pass "G4"
   else

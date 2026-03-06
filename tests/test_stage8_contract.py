@@ -92,6 +92,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn('tail -n 20 "${latest_sandbox_report}"', source)
         self.assertIn('rg -q -- "^- status: PASS$"', source)
         self.assertIn("run_stage8_sandbox_e2e.sh", source)
+        self.assertIn("NEWCLAW_SKIP_STAGE8_SELF_EVAL=1", source)
 
     def test_self_eval_group_doc_has_four_groups(self) -> None:
         source = Path("STAGE8_SELF_EVAL_GROUPS_2026-03-05.md").read_text(encoding="utf-8")
