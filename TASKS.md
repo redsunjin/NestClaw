@@ -113,9 +113,9 @@
 ### B) 구현/검증 (진행 필요)
 - [x] RAG 클라이언트 인터페이스 2종 스켈레톤 구현 (`app/incident_rag.py`)
 - [x] Redmine MCP 실행 어댑터 스켈레톤 구현 (`app/incident_mcp.py`)
-- [ ] Incident Intake + Action Planner 경로 구현 (`app/main.py`)
-- [ ] 승인 분류표를 정책 룰로 구현 (`POLICY_WHITELIST.md`, `app/main.py`)
-- [ ] Dry-run E2E 자동 테스트 추가 (`tests/test_stage8_contract.py` 이후 런타임 테스트 파일)
+- [x] Incident Intake + Action Planner 경로 구현 (`app/main.py`)
+- [x] 승인 분류표를 정책 룰로 구현 (`POLICY_WHITELIST.md`, `app/main.py`, `app/incident_policy.py`)
+- [x] Dry-run E2E 자동 테스트 추가 (`tests/test_incident_runtime_smoke.py`)
 - [ ] Sandbox E2E 리허설 증적 리포트 작성 (`reports/qa/`)
 - [ ] Stage 8 품질게이트를 CI 파이프라인에 통합 (`.github/workflows/quality-gate.yml`)
 
@@ -132,9 +132,9 @@
 - [x] 자체평가 그룹 문서 고정 (`STAGE8_SELF_EVAL_GROUPS_2026-03-05.md`)
 - [x] 그룹 자동평가 스크립트 추가 (`scripts/run_stage8_self_eval.sh`)
 - [x] baseline 자체평가 실행 (G1 PASS, G2~G4 PENDING)
-- [x] G2 MWU(`stage8-w3-001`) 생성 및 Plan/Review 게이트 통과
-- [ ] G2(Incident Orchestration Integration) PASS
-- [ ] G3(Policy & Approval Classification) PASS
+- [x] G2 MWU(`stage8-w3-001`) 생성 및 완료
+- [x] G2(Incident Orchestration Integration) PASS
+- [x] G3(Policy & Approval Classification) PASS
 - [ ] G4(Quality Gate & Sandbox Readiness) PASS
 
 ## 즉시 시작 5개

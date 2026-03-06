@@ -20,10 +20,13 @@ class TestStage8Contract(unittest.TestCase):
         self.assertTrue(Path("scripts/run_micro_cycle.sh").is_file())
         self.assertTrue(Path("scripts/run_stage8_self_eval.sh").is_file())
         self.assertTrue(Path("work/micro_units/stage8-w2-001/WORK_UNIT.md").is_file())
+        self.assertTrue(Path("work/micro_units/stage8-w3-002/WORK_UNIT.md").is_file())
         self.assertTrue(Path("app/incident_rag.py").is_file())
         self.assertTrue(Path("app/incident_mcp.py").is_file())
+        self.assertTrue(Path("app/incident_policy.py").is_file())
         self.assertTrue(Path("tests/test_incident_adapter_contract.py").is_file())
         self.assertTrue(Path("tests/test_incident_runtime_smoke.py").is_file())
+        self.assertTrue(Path("tests/test_incident_policy_gate.py").is_file())
 
     def test_detailed_design_includes_required_contract_sections(self) -> None:
         source = Path("STAGE8_DETAILED_DESIGN_2026-03-04.md").read_text(encoding="utf-8")

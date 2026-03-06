@@ -12,6 +12,15 @@ from pydantic import BaseModel, Field
 
 from app.auth import ActorContext, VALID_ROLES, actor_context_dependency
 from app.incident_mcp import execute_redmine_action
+from app.incident_policy import (
+    IncidentPolicyDecision,
+    POLICY_BLOCK_PATTERNS,
+    detect_policy_block,
+    evaluate_incident_action_policy,
+    normalize_incident_risk_level,
+    reason_message_for,
+    requires_human_approval,
+)
 from app.incident_rag import fetch_knowledge_evidence, fetch_system_signals
 from app.persistence import create_state_store
 
@@ -88,20 +97,8 @@ TEMPLATE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "meeting_summary": ("meeting_title", "meeting_date", "participants", "notes"),
 }
 
-POLICY_BLOCK_PATTERNS: dict[str, tuple[str, ...]] = {
-    "external_send_requested": (
-        "외부 전송",
-        "external send",
-        "메일 발송",
-        "send externally",
-        "http://",
-        "https://",
-    )
-}
-
 TASK_WORKFLOW = "task"
 INCIDENT_WORKFLOW = "incident"
-INCIDENT_RISK_APPROVAL_REQUIRED = {"high", "critical"}
 
 
 def _build_incident_adapter_registry() -> dict[str, Any]:
@@ -239,25 +236,16 @@ def _validate_task_input(template_type: str, payload: dict[str, Any]) -> None:
 
 
 def _detect_policy_block(task_input: dict[str, Any], approved_reasons: set[str]) -> str | None:
-    joined = " ".join(str(value) for value in task_input.values()).lower()
-    for reason_code, patterns in POLICY_BLOCK_PATTERNS.items():
-        if reason_code in approved_reasons:
-            continue
-        if any(pattern.lower() in joined for pattern in patterns):
-            return reason_code
-    return None
+    return detect_policy_block(task_input, approved_reasons, block_patterns=POLICY_BLOCK_PATTERNS)
 
 
 def _incident_risk_level(task: dict[str, Any]) -> str:
     incident = task.get("incident") or {}
-    raw = str(incident.get("severity") or IncidentSeverity.MEDIUM.value).strip().lower()
-    if raw not in {IncidentSeverity.LOW.value, IncidentSeverity.MEDIUM.value, IncidentSeverity.HIGH.value, IncidentSeverity.CRITICAL.value}:
-        return IncidentSeverity.MEDIUM.value
-    return raw
+    return normalize_incident_risk_level(incident.get("severity") or IncidentSeverity.MEDIUM.value)
 
 
 def _incident_requires_approval(risk_level: str) -> bool:
-    return risk_level in INCIDENT_RISK_APPROVAL_REQUIRED
+    return requires_human_approval(risk_level)
 
 
 def _incident_summary(task: dict[str, Any]) -> str:
@@ -315,29 +303,15 @@ def _evaluate_incident_action_gate(
     task: dict[str, Any],
     action_card: dict[str, Any],
     approved_reasons: set[str],
-) -> tuple[str, str | None]:
-    reason_code = _detect_policy_block(
-        {
-            "summary": _incident_summary(task),
-            "method": action_card.get("mcp_call", {}).get("method"),
-            "payload": action_card.get("mcp_call", {}).get("payload"),
-        },
-        approved_reasons,
+) -> IncidentPolicyDecision:
+    incident = task.get("incident") or {}
+    return evaluate_incident_action_policy(
+        action_card,
+        summary=_incident_summary(task),
+        approved_reasons=approved_reasons,
+        policy_profile=str(incident.get("policy_profile") or "default"),
+        block_patterns=POLICY_BLOCK_PATTERNS,
     )
-    if reason_code:
-        return "BLOCKED_POLICY", reason_code
-
-    if not action_card.get("evidence_links"):
-        missing_reason = "missing_evidence"
-        if missing_reason not in approved_reasons:
-            return "NEEDS_APPROVAL", missing_reason
-
-    if action_card.get("approval_required"):
-        risk_reason = f"{action_card.get('risk_level', 'high')}_risk_action"
-        if risk_reason not in approved_reasons:
-            return "NEEDS_APPROVAL", risk_reason
-
-    return "APPROVED", None
 
 
 def _extract_points(notes: str, limit: int = 5) -> list[str]:
@@ -388,7 +362,14 @@ def _render_meeting_summary(task: dict[str, Any]) -> str:
     return "\n".join(report).strip() + "\n"
 
 
-def _create_approval_item(task: dict[str, Any], reason_code: str) -> str:
+def _create_approval_item(
+    task: dict[str, Any],
+    reason_code: str,
+    *,
+    reason_message: str | None = None,
+    approver_group: str = "ops_team",
+    review_recommendation: str | None = None,
+) -> str:
     queue_id = f"aq_{uuid4().hex}"
     now = _now_iso()
     APPROVAL_QUEUE[queue_id] = {
@@ -396,14 +377,16 @@ def _create_approval_item(task: dict[str, Any], reason_code: str) -> str:
         "task_id": task["task_id"],
         "request_id": f"req_{uuid4().hex[:10]}",
         "reason_code": reason_code,
-        "reason_message": f"approval required: {reason_code}",
+        "reason_message": reason_message or reason_message_for(reason_code),
         "requested_by": task["requested_by"],
-        "approver_group": "ops_team",
+        "approver_group": approver_group,
         "status": ApprovalStatus.PENDING.value,
         "created_at": now,
         "expires_at": None,
         "resolved_at": None,
     }
+    if review_recommendation is not None:
+        APPROVAL_QUEUE[queue_id]["review_recommendation"] = review_recommendation
     _persist_approval(APPROVAL_QUEUE[queue_id])
     _log_event(task["task_id"], "APPROVAL_REQUESTED", queue_id=queue_id, reason_code=reason_code)
     return queue_id
@@ -552,28 +535,52 @@ def _execute_incident_once(task_id: str) -> bool:
         _log_event(task_id, "INCIDENT_ACTIONS_PLANNED", count=len(action_cards))
 
         for action_card in action_cards:
-            gate_result, reason_code = _evaluate_incident_action_gate(task, action_card, approved_reasons)
-            if gate_result == "BLOCKED_POLICY":
-                _log_event(task_id, "BLOCKED_POLICY", reason_code=reason_code, action_id=action_card.get("action_id"))
-                queue_id = _create_approval_item(task, str(reason_code))
+            decision = _evaluate_incident_action_gate(task, action_card, approved_reasons)
+            if decision.gate_status == "BLOCKED_POLICY":
+                _log_event(
+                    task_id,
+                    "BLOCKED_POLICY",
+                    reason_code=decision.reason_code,
+                    action_id=action_card.get("action_id"),
+                    review_recommendation=decision.review_recommendation,
+                )
+                queue_id = _create_approval_item(
+                    task,
+                    str(decision.reason_code),
+                    reason_message=decision.reason_message,
+                    approver_group=decision.approver_group,
+                    review_recommendation=decision.review_recommendation,
+                )
                 _set_status(
                     task,
                     TaskStatus.NEEDS_HUMAN_APPROVAL,
-                    reason_code=reason_code,
+                    reason_code=decision.reason_code,
                     next_action="approve_or_reject",
                     approval_queue_id=queue_id,
                 )
                 return False
-            if gate_result == "NEEDS_APPROVAL":
-                queue_id = _create_approval_item(task, str(reason_code))
+            if decision.gate_status == "NEEDS_APPROVAL":
+                queue_id = _create_approval_item(
+                    task,
+                    str(decision.reason_code),
+                    reason_message=decision.reason_message,
+                    approver_group=decision.approver_group,
+                    review_recommendation=decision.review_recommendation,
+                )
                 _set_status(
                     task,
                     TaskStatus.NEEDS_HUMAN_APPROVAL,
-                    reason_code=reason_code,
+                    reason_code=decision.reason_code,
                     next_action="approve_or_reject",
                     approval_queue_id=queue_id,
                 )
-                _log_event(task_id, "INCIDENT_APPROVAL_QUEUED", action_id=action_card.get("action_id"), reason_code=reason_code)
+                _log_event(
+                    task_id,
+                    "INCIDENT_APPROVAL_QUEUED",
+                    action_id=action_card.get("action_id"),
+                    reason_code=decision.reason_code,
+                    review_recommendation=decision.review_recommendation,
+                )
                 return False
 
         actor_context = {
