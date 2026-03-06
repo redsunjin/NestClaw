@@ -8,6 +8,7 @@ if ! [[ "$TARGET_STAGE" =~ ^[1-8]$ ]]; then
 fi
 
 STRICT_GATE="${NEWCLAW_STRICT_GATE:-0}"
+SKIP_STAGE8_SELF_EVAL="${NEWCLAW_SKIP_STAGE8_SELF_EVAL:-0}"
 is_truthy() {
   local value
   value="$(printf "%s" "$1" | tr '[:upper:]' '[:lower:]')"
@@ -161,7 +162,12 @@ check_stage_7() {
 check_stage_8() {
   run_check "stage8 static contract tests" python3 -m unittest tests.test_stage8_contract
   run_check "stage8 incident adapter contract tests" python3 -m unittest tests.test_incident_adapter_contract
-  run_check "stage8 grouped self evaluation baseline" bash scripts/run_stage8_self_eval.sh
+  if is_truthy "${SKIP_STAGE8_SELF_EVAL}"; then
+    skip "stage8 grouped self evaluation baseline"
+    echo "  - reason: nested stage8 cycle requested self-eval skip" | tee -a "$REPORT_FILE"
+  else
+    run_check "stage8 grouped self evaluation baseline" bash scripts/run_stage8_self_eval.sh
+  fi
   run_check "stage8 execution checklist exists" test -f STAGE8_EXECUTION_CHECKLIST_2026-03-04.md
   run_check "stage8 detailed design exists" test -f STAGE8_DETAILED_DESIGN_2026-03-04.md
   run_check "stage8 self eval group doc exists" test -f STAGE8_SELF_EVAL_GROUPS_2026-03-05.md

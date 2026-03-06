@@ -300,7 +300,11 @@ gate_evaluate() {
 
   local cycle_output
   set +e
-  cycle_output="$(bash scripts/run_dev_qa_cycle.sh "$target_stage" 2>&1)"
+  if [[ "$target_stage" == "8" ]]; then
+    cycle_output="$(env NEWCLAW_SKIP_STAGE8_SELF_EVAL=1 bash scripts/run_dev_qa_cycle.sh "$target_stage" 2>&1)"
+  else
+    cycle_output="$(bash scripts/run_dev_qa_cycle.sh "$target_stage" 2>&1)"
+  fi
   local rc=$?
   set -e
   local cycle_log="$dir/reports/evaluate-cycle-$(ts_now).log"

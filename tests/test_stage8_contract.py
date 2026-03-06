@@ -23,6 +23,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertTrue(Path("app/incident_rag.py").is_file())
         self.assertTrue(Path("app/incident_mcp.py").is_file())
         self.assertTrue(Path("tests/test_incident_adapter_contract.py").is_file())
+        self.assertTrue(Path("tests/test_incident_runtime_smoke.py").is_file())
 
     def test_detailed_design_includes_required_contract_sections(self) -> None:
         source = Path("STAGE8_DETAILED_DESIGN_2026-03-04.md").read_text(encoding="utf-8")
@@ -56,6 +57,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("tests.test_stage8_contract", source)
         self.assertIn("tests.test_incident_adapter_contract", source)
         self.assertIn("run_stage8_self_eval.sh", source)
+        self.assertIn("NEWCLAW_SKIP_STAGE8_SELF_EVAL", source)
 
     def test_auto_cycle_supports_stage8(self) -> None:
         source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
@@ -69,6 +71,13 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("gate-implement", source)
         self.assertIn("gate-evaluate", source)
         self.assertIn("run_dev_qa_cycle.sh", source)
+        self.assertIn("NEWCLAW_SKIP_STAGE8_SELF_EVAL=1", source)
+
+    def test_self_eval_handles_runtime_skip_for_g2(self) -> None:
+        source = Path("scripts/run_stage8_self_eval.sh").read_text(encoding="utf-8")
+        self.assertIn("run_check_allow_skip", source)
+        self.assertIn("skipped=[1-9]", source)
+        self.assertIn("G2 (runtime smoke skipped)", source)
 
     def test_self_eval_group_doc_has_four_groups(self) -> None:
         source = Path("STAGE8_SELF_EVAL_GROUPS_2026-03-05.md").read_text(encoding="utf-8")

@@ -50,6 +50,23 @@ run_check() {
   return 1
 }
 
+run_check_allow_skip() {
+  local label="$1"
+  shift
+  if "$@" >/tmp/stage8_self_eval.out 2>/tmp/stage8_self_eval.err; then
+    if rg -q "skipped=[1-9]" /tmp/stage8_self_eval.out || rg -q "skipped=[1-9]" /tmp/stage8_self_eval.err; then
+      log_line "  - [PENDING] ${label}"
+      log_line "    - reason: command reported skipped tests"
+      return 2
+    fi
+    log_line "  - [PASS] ${label}"
+    return 0
+  fi
+  log_line "  - [FAIL] ${label}"
+  log_line "    - stderr: $(tr '\n' ' ' </tmp/stage8_self_eval.err)"
+  return 1
+}
+
 require_file() {
   local path="$1"
   [[ -f "$path" ]]
@@ -92,12 +109,23 @@ log_line ""
 log_line "### G2 Incident Orchestration Integration"
 if require_file "tests/test_incident_runtime_smoke.py" && [[ -d "work/micro_units/stage8-w3-001" ]]; then
   g2_ok=1
-  run_check "incident runtime smoke tests" python3 -m unittest tests.test_incident_runtime_smoke || g2_ok=0
+  g2_pending=0
+  set +e
+  run_check_allow_skip "incident runtime smoke tests" python3 -m unittest tests.test_incident_runtime_smoke
+  smoke_rc=$?
+  set -e
+  if [[ "$smoke_rc" -eq 1 ]]; then
+    g2_ok=0
+  elif [[ "$smoke_rc" -eq 2 ]]; then
+    g2_pending=1
+  fi
   run_check "stage8-w3-001 full micro cycle" bash scripts/run_micro_cycle.sh run stage8-w3-001 8 || g2_ok=0
-  if [[ "$g2_ok" -eq 1 ]]; then
-    group_pass "G2"
-  else
+  if [[ "$g2_ok" -eq 0 ]]; then
     group_fail "G2"
+  elif [[ "$g2_pending" -eq 1 ]]; then
+    group_pending "G2 (runtime smoke skipped)"
+  else
+    group_pass "G2"
   fi
 else
   group_pending "G2 (missing tests/test_incident_runtime_smoke.py or stage8-w3-001)"
