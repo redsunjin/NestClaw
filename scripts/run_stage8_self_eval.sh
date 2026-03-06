@@ -152,7 +152,7 @@ log_line ""
 log_line "### G4 Quality Gate & Sandbox Readiness"
 latest_sandbox_report="$(find reports/qa -maxdepth 1 -type f -name 'stage8-sandbox-e2e-*.md' | sort | tail -n 1)"
 sandbox_report_ready=0
-if [[ -n "${latest_sandbox_report}" ]] && rg -q -- "- status: PASS" "${latest_sandbox_report}"; then
+if [[ -n "${latest_sandbox_report}" ]] && tail -n 20 "${latest_sandbox_report}" | rg -q -- "^- status: PASS$"; then
   sandbox_report_ready=1
 fi
 if rg -q "tests.test_incident_policy_gate|run_dev_qa_cycle.sh 8|run_stage8_sandbox_e2e.sh" .github/workflows/quality-gate.yml && [[ "$sandbox_report_ready" -eq 1 ]]; then

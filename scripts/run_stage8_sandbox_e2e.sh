@@ -54,7 +54,7 @@ run_check() {
   echo "- sandbox_enabled: ${SANDBOX_ENABLED}"
   echo "- sandbox_base_url: ${SANDBOX_BASE_URL:-not_configured}"
   echo "- sandbox_project: ${SANDBOX_PROJECT:-not_configured}"
-  echo "- status: ${STATUS}"
+  echo "- status: RUNNING"
   echo ""
   echo "## Checks"
 } >"$REPORT_FILE"

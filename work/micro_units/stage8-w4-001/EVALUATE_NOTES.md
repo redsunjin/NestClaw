@@ -10,13 +10,13 @@
   - stage8 sandbox rehearsal: SKIP(10) with report emission
   - micro cycle: PASS (plan/review/implement/evaluate gate 전부 통과)
 - 확보된 리포트:
-  - `reports/qa/stage8-sandbox-e2e-20260306T132542Z.md`
-  - `reports/qa/cycle-20260306T132542Z.md`
-  - `work/micro_units/stage8-w4-001/reports/plan-gate-20260306T132541Z.md`
-  - `work/micro_units/stage8-w4-001/reports/review-gate-20260306T132541Z.md`
-  - `work/micro_units/stage8-w4-001/reports/implement-gate-20260306T132541Z.md`
-  - `work/micro_units/stage8-w4-001/reports/evaluate-gate-20260306T132542Z.md`
-  - `work/micro_units/stage8-w4-001/reports/evaluate-cycle-20260306T132542Z.log`
+  - `reports/qa/stage8-sandbox-e2e-20260306T132904Z.md`
+  - `reports/qa/cycle-20260306T132904Z.md`
+  - `work/micro_units/stage8-w4-001/reports/plan-gate-20260306T132904Z.md`
+  - `work/micro_units/stage8-w4-001/reports/review-gate-20260306T132904Z.md`
+  - `work/micro_units/stage8-w4-001/reports/implement-gate-20260306T132904Z.md`
+  - `work/micro_units/stage8-w4-001/reports/evaluate-gate-20260306T132904Z.md`
+  - `work/micro_units/stage8-w4-001/reports/evaluate-cycle-20260306T132904Z.log`
 
 ## Skip/Failure Reasons
 - `NEWCLAW_STAGE8_SANDBOX_ENABLED`, sandbox base url, sandbox project가 없어서 rehearsal은 `SKIP`가 정상이다.

@@ -89,7 +89,8 @@ class TestStage8Contract(unittest.TestCase):
 
     def test_self_eval_requires_passed_sandbox_report_for_g4(self) -> None:
         source = Path("scripts/run_stage8_self_eval.sh").read_text(encoding="utf-8")
-        self.assertIn('rg -q -- "- status: PASS"', source)
+        self.assertIn('tail -n 20 "${latest_sandbox_report}"', source)
+        self.assertIn('rg -q -- "^- status: PASS$"', source)
         self.assertIn("run_stage8_sandbox_e2e.sh", source)
 
     def test_self_eval_group_doc_has_four_groups(self) -> None:
