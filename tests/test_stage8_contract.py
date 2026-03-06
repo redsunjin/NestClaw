@@ -72,6 +72,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("gate-evaluate", source)
         self.assertIn("run_dev_qa_cycle.sh", source)
         self.assertIn("NEWCLAW_SKIP_STAGE8_SELF_EVAL=1", source)
+        self.assertIn("mkdir -p \"$(unit_dir \"$unit_id\")/reports\"", source)
 
     def test_self_eval_handles_runtime_skip_for_g2(self) -> None:
         source = Path("scripts/run_stage8_self_eval.sh").read_text(encoding="utf-8")

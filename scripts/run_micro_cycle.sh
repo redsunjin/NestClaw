@@ -143,6 +143,7 @@ phase_report_open() {
   local phase="$2"
   local ts
   ts="$(ts_now)"
+  mkdir -p "$(unit_dir "$unit_id")/reports"
   local report_path
   report_path="$(unit_dir "$unit_id")/reports/${phase}-${ts}.md"
   PHASE_REPORT="$report_path"
