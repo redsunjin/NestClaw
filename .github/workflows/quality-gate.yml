@@ -38,8 +38,26 @@ jobs:
       - name: Runtime smoke tests
         run: python -m unittest tests.test_runtime_smoke
 
+      - name: Stage 8 policy gate tests
+        run: python -m unittest tests.test_incident_policy_gate
+
       - name: Stage cycle gate
-        run: bash scripts/run_dev_qa_cycle.sh 7
+        run: bash scripts/run_dev_qa_cycle.sh 8
+
+      - name: Stage 8 sandbox rehearsal
+        run: |
+          set +e
+          bash scripts/run_stage8_sandbox_e2e.sh
+          rc=$?
+          set -e
+          if [ "$rc" -eq 10 ]; then
+            echo "Stage 8 sandbox rehearsal skipped by environment gate."
+            exit 0
+          fi
+          exit "$rc"
+
+      - name: Stage 8 self evaluation
+        run: bash scripts/run_stage8_self_eval.sh
 
       - name: Expert QA report
         run: bash scripts/run_expert_qa.sh

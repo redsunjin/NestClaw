@@ -150,8 +150,12 @@ fi
 # G4: Quality Gate & Sandbox Readiness
 log_line ""
 log_line "### G4 Quality Gate & Sandbox Readiness"
-sandbox_report_count="$(find reports/qa -maxdepth 1 -type f -name 'stage8-sandbox-e2e-*.md' | wc -l | tr -d ' ')"
-if rg -q "tests.test_incident_adapter_contract|run_dev_qa_cycle.sh 8" .github/workflows/quality-gate.yml && [[ "$sandbox_report_count" -gt 0 ]]; then
+latest_sandbox_report="$(find reports/qa -maxdepth 1 -type f -name 'stage8-sandbox-e2e-*.md' | sort | tail -n 1)"
+sandbox_report_ready=0
+if [[ -n "${latest_sandbox_report}" ]] && rg -q -- "- status: PASS" "${latest_sandbox_report}"; then
+  sandbox_report_ready=1
+fi
+if rg -q "tests.test_incident_policy_gate|run_dev_qa_cycle.sh 8|run_stage8_sandbox_e2e.sh" .github/workflows/quality-gate.yml && [[ "$sandbox_report_ready" -eq 1 ]]; then
   g4_ok=1
   run_check "next stage pipeline stage8" bash scripts/run_next_stage_pipeline.sh 8 2 1 NEXT_STAGE_PLAN_2026-02-24.md || g4_ok=0
   if [[ "$g4_ok" -eq 1 ]]; then
@@ -160,6 +164,9 @@ if rg -q "tests.test_incident_adapter_contract|run_dev_qa_cycle.sh 8" .github/wo
     group_fail "G4"
   fi
 else
+  if [[ -n "${latest_sandbox_report}" ]]; then
+    log_line "  - [PENDING] sandbox rehearsal report not PASS: ${latest_sandbox_report}"
+  fi
   group_pending "G4 (missing Stage8 CI wiring or stage8-sandbox-e2e report)"
 fi
 

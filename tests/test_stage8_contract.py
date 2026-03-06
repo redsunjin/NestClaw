@@ -19,8 +19,10 @@ class TestStage8Contract(unittest.TestCase):
         self.assertTrue(Path("MICRO_AGENT_WORKFLOW.md").is_file())
         self.assertTrue(Path("scripts/run_micro_cycle.sh").is_file())
         self.assertTrue(Path("scripts/run_stage8_self_eval.sh").is_file())
+        self.assertTrue(Path("scripts/run_stage8_sandbox_e2e.sh").is_file())
         self.assertTrue(Path("work/micro_units/stage8-w2-001/WORK_UNIT.md").is_file())
         self.assertTrue(Path("work/micro_units/stage8-w3-002/WORK_UNIT.md").is_file())
+        self.assertTrue(Path("work/micro_units/stage8-w4-001/WORK_UNIT.md").is_file())
         self.assertTrue(Path("app/incident_rag.py").is_file())
         self.assertTrue(Path("app/incident_mcp.py").is_file())
         self.assertTrue(Path("app/incident_policy.py").is_file())
@@ -59,7 +61,9 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("check_stage_8", source)
         self.assertIn("tests.test_stage8_contract", source)
         self.assertIn("tests.test_incident_adapter_contract", source)
+        self.assertIn("tests.test_incident_policy_gate", source)
         self.assertIn("run_stage8_self_eval.sh", source)
+        self.assertIn("run_stage8_sandbox_e2e.sh", source)
         self.assertIn("NEWCLAW_SKIP_STAGE8_SELF_EVAL", source)
 
     def test_auto_cycle_supports_stage8(self) -> None:
@@ -82,6 +86,11 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("run_check_allow_skip", source)
         self.assertIn("skipped=[1-9]", source)
         self.assertIn("G2 (runtime smoke skipped)", source)
+
+    def test_self_eval_requires_passed_sandbox_report_for_g4(self) -> None:
+        source = Path("scripts/run_stage8_self_eval.sh").read_text(encoding="utf-8")
+        self.assertIn('rg -q -- "- status: PASS"', source)
+        self.assertIn("run_stage8_sandbox_e2e.sh", source)
 
     def test_self_eval_group_doc_has_four_groups(self) -> None:
         source = Path("STAGE8_SELF_EVAL_GROUPS_2026-03-05.md").read_text(encoding="utf-8")
