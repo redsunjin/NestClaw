@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 
@@ -10,6 +11,7 @@ try:
     from fastapi.testclient import TestClient
     from app.auth import issue_dev_jwt
     from app.main import APP
+    from app import main as main_module
 except Exception as exc:  # pragma: no cover - environment dependent
     TestClient = None
     IMPORT_ERROR = exc
@@ -147,6 +149,64 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
         self.assertEqual(events_response.status_code, 200)
         event_types = [item["event_type"] for item in events_response.json()["items"]]
         self.assertIn("RETRY_STARTED", event_types)
+
+    def test_mcp_live_mode_keeps_rag_dry_run_and_executes_live_adapter(self) -> None:
+        task_id = self._create_incident()
+        captured: dict[str, object] = {}
+
+        def fake_redmine_action(
+            method: str,
+            payload: dict[str, object],
+            actor_context: dict[str, object],
+            *,
+            dry_run: bool | None = None,
+            timeout_seconds: float | None = None,
+        ) -> dict[str, object]:
+            captured["method"] = method
+            captured["payload"] = dict(payload)
+            captured["dry_run"] = dry_run
+            captured["actor_context"] = dict(actor_context)
+            captured["timeout_seconds"] = timeout_seconds
+            return {
+                "provider": "redmine_mcp",
+                "mode": "live",
+                "executed": True,
+                "method": method,
+                "timeout_seconds": timeout_seconds,
+                "actor_id": actor_context["actor_id"],
+                "actor_role": actor_context["actor_role"],
+                "request_payload": dict(payload),
+                "response": {
+                    "status": "ok",
+                    "external_ref": "RM-LIVE-001",
+                },
+                "generated_at": "2026-03-07T00:00:00+00:00",
+            }
+
+        with patch.dict(main_module.INCIDENT_ADAPTERS, {"redmine_mcp": fake_redmine_action}, clear=False):
+            self._run_incident(task_id, run_mode="mcp-live")
+            final_payload = self._wait_incident_status(task_id, {"DONE"})
+
+        self.assertIsNotNone(final_payload)
+        self.assertEqual(final_payload["status"], "DONE")
+        self.assertEqual(final_payload["run_mode"], "mcp-live")
+        self.assertFalse(captured["dry_run"])
+        self.assertEqual(captured["method"], "issue.create")
+        self.assertEqual(captured["actor_context"]["actor_id"], "qa_user")
+
+        report_path = Path(final_payload["result"]["report_path"])
+        report_text = report_path.read_text(encoding="utf-8")
+        self.assertIn("- run_mode: mcp-live", report_text)
+        self.assertIn("- context_dry_run: True", report_text)
+        self.assertIn("- mcp_dry_run: False", report_text)
+
+        events_response = self.client.get(f"/api/v1/incident/events/{task_id}", headers=self.reviewer_headers)
+        self.assertEqual(events_response.status_code, 200)
+        executed_events = [
+            item for item in events_response.json()["items"] if item["event_type"] == "INCIDENT_ACTION_EXECUTED"
+        ]
+        self.assertEqual(len(executed_events), 1)
+        self.assertEqual(executed_events[0]["mode"], "live")
 
     def test_task_and_incident_routes_are_isolated(self) -> None:
         incident_task_id = self._create_incident()

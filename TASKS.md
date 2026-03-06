@@ -138,6 +138,13 @@
 - [x] G4 MWU(`stage8-w4-001`) 생성 및 완료
 - [x] G4(Quality Gate & Sandbox Readiness) PASS
 
+### E) Live Rehearsal Follow-up (2026-03-07)
+- [x] Live rehearsal MWU(`stage8-w5-001`) 생성
+- [x] `mcp-live` 실행 모드 분리 (`app/main.py`)
+- [x] Redmine MCP live bridge 추가 (`app/incident_mcp.py`)
+- [x] live rehearsal runbook/script 추가 (`STAGE8_LIVE_REHEARSAL_RUNBOOK_2026-03-07.md`, `scripts/run_stage8_live_rehearsal.sh`)
+- [ ] 외부 sandbox credential 기반 live rehearsal PASS 증적 확보 (QA worktree)
+
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)
 2. [x] 상태 전이 다이어그램 작성 (`STATE_MACHINE.md`)

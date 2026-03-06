@@ -97,17 +97,22 @@ run_optional_dep_check() {
     pass "$name"
   else
     local rc=$?
+    local reason
+    reason="$(tr '\n' ' ' </tmp/cycle_check.err)"
+    if [[ -z "${reason// }" ]]; then
+      reason="$(tr '\n' ' ' </tmp/cycle_check.out)"
+    fi
     if [[ "$rc" -eq 10 ]]; then
       if is_truthy "${STRICT_GATE}"; then
         fail "$name"
         echo "  - stderr: strict gate enabled and dependency-gated check returned SKIP(10)" | tee -a "$REPORT_FILE"
       else
         skip "$name"
-        echo "  - reason: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+        echo "  - reason: ${reason}" | tee -a "$REPORT_FILE"
       fi
     else
       fail "$name"
-      echo "  - stderr: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+      echo "  - stderr: ${reason}" | tee -a "$REPORT_FILE"
     fi
   fi
 }
@@ -163,6 +168,7 @@ check_stage_8() {
   run_check "stage8 static contract tests" python3 -m unittest tests.test_stage8_contract
   run_check "stage8 incident adapter contract tests" python3 -m unittest tests.test_incident_adapter_contract
   run_check "stage8 incident policy gate tests" python3 -m unittest tests.test_incident_policy_gate
+  run_optional_check "stage8 incident runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_incident_runtime_smoke
   if is_truthy "${SKIP_STAGE8_SELF_EVAL}"; then
     skip "stage8 grouped self evaluation baseline"
     echo "  - reason: nested stage8 cycle requested self-eval skip" | tee -a "$REPORT_FILE"
@@ -170,6 +176,7 @@ check_stage_8() {
     run_check "stage8 grouped self evaluation baseline" bash scripts/run_stage8_self_eval.sh
   fi
   run_optional_dep_check "stage8 sandbox rehearsal (env-gated)" bash scripts/run_stage8_sandbox_e2e.sh
+  run_optional_dep_check "stage8 live rehearsal (env-gated)" bash scripts/run_stage8_live_rehearsal.sh
   run_check "stage8 execution checklist exists" test -f STAGE8_EXECUTION_CHECKLIST_2026-03-04.md
   run_check "stage8 detailed design exists" test -f STAGE8_DETAILED_DESIGN_2026-03-04.md
   run_check "stage8 self eval group doc exists" test -f STAGE8_SELF_EVAL_GROUPS_2026-03-05.md
@@ -177,6 +184,8 @@ check_stage_8() {
   run_check "stage8 micro cycle script exists" test -f scripts/run_micro_cycle.sh
   run_check "stage8 self eval script exists" test -f scripts/run_stage8_self_eval.sh
   run_check "stage8 sandbox rehearsal script exists" test -f scripts/run_stage8_sandbox_e2e.sh
+  run_check "stage8 live rehearsal script exists" test -f scripts/run_stage8_live_rehearsal.sh
+  run_check "stage8 live rehearsal runner exists" test -f scripts/stage8_live_rehearsal_runner.py
   run_check "stage8 first micro unit exists" test -f work/micro_units/stage8-w2-001/WORK_UNIT.md
   run_check "stage8 tasks schedule exists" rg -q "Stage 8 실행 스케줄" TASKS.md
   run_check "stage8 next stage schedule exists" rg -q "Stage 8 실행 스케줄 업데이트" NEXT_STAGE_PLAN_2026-02-24.md

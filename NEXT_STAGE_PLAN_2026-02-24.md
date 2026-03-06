@@ -101,6 +101,15 @@
   - 실제 외부 sandbox live rehearsal
   - 파일럿/안정화 및 Go/No-Go 판단
 
+## Stage 8 진행 현황 업데이트 (2026-03-07)
+- 완료:
+  - live rehearsal 후속 MWU 생성 (`work/micro_units/stage8-w5-001/`)
+  - incident runtime `mcp-live` 모드 분리
+  - Redmine MCP live bridge / runbook / rehearsal script 추가
+- 잔여:
+  - 외부 sandbox credential이 있는 QA worktree에서 live rehearsal `PASS` 증적 확보
+  - 파일럿 대상 서비스/팀 확정 및 Go/No-Go 패키지 작성
+
 ## 리스크
 - 네트워크 제약 환경에서 런타임 테스트 일부 skip 가능
 - DB 전환 시 기존 API 응답 포맷 회귀 위험

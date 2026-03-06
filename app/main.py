@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
+import os
 from pathlib import Path
 from threading import Lock, Thread
 from typing import Any
@@ -99,6 +100,7 @@ TEMPLATE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
 
 TASK_WORKFLOW = "task"
 INCIDENT_WORKFLOW = "incident"
+INCIDENT_RUN_MODES = {"dry-run", "mcp-live", "live"}
 
 
 def _build_incident_adapter_registry() -> dict[str, Any]:
@@ -178,6 +180,63 @@ def _authorize_task_access(
 
 def _workflow_type(task: dict[str, Any]) -> str:
     return str(task.get("workflow_type") or TASK_WORKFLOW)
+
+
+def _normalize_incident_run_mode(raw_mode: str | None) -> str:
+    mode = str(raw_mode or "dry-run").strip().lower()
+    if not mode:
+        return "dry-run"
+    if mode not in INCIDENT_RUN_MODES:
+        _error(400, "INVALID_RUN_MODE", f"unsupported incident run_mode: {raw_mode}")
+    return mode
+
+
+def _incident_runtime_flags_for_mode(run_mode: str) -> tuple[bool, bool]:
+    if run_mode == "live":
+        return False, False
+    if run_mode == "mcp-live":
+        return True, False
+    return True, True
+
+
+def _incident_runtime_snapshot(runtime: dict[str, Any]) -> dict[str, Any]:
+    if "context_dry_run" in runtime or "mcp_dry_run" in runtime:
+        context_dry_run = bool(runtime.get("context_dry_run", True))
+        mcp_dry_run = bool(runtime.get("mcp_dry_run", context_dry_run))
+    else:
+        dry_run = bool(runtime.get("dry_run", True))
+        context_dry_run = dry_run
+        mcp_dry_run = dry_run
+
+    if context_dry_run and mcp_dry_run:
+        run_mode = "dry-run"
+    elif context_dry_run and not mcp_dry_run:
+        run_mode = "mcp-live"
+    elif not context_dry_run and not mcp_dry_run:
+        run_mode = "live"
+    else:
+        run_mode = "mixed"
+
+    return {
+        "run_mode": run_mode,
+        "context_dry_run": context_dry_run,
+        "mcp_dry_run": mcp_dry_run,
+        "dry_run": context_dry_run and mcp_dry_run,
+    }
+
+
+def _apply_incident_run_mode(runtime: dict[str, Any], run_mode: str | None) -> dict[str, Any]:
+    normalized = _normalize_incident_run_mode(run_mode)
+    context_dry_run, mcp_dry_run = _incident_runtime_flags_for_mode(normalized)
+    runtime.update(
+        {
+            "run_mode": normalized,
+            "context_dry_run": context_dry_run,
+            "mcp_dry_run": mcp_dry_run,
+            "dry_run": context_dry_run and mcp_dry_run,
+        }
+    )
+    return runtime
 
 
 def _ensure_workflow(task: dict[str, Any], expected: str, *, not_found_code: str, not_found_message: str) -> None:
@@ -266,6 +325,15 @@ def _collect_incident_evidence(context: dict[str, Any]) -> list[str]:
     return sorted(set(links))
 
 
+def _incident_project_id() -> str:
+    project_id = str(
+        os.getenv("NEWCLAW_INCIDENT_PROJECT_ID")
+        or os.getenv("NEWCLAW_STAGE8_SANDBOX_PROJECT")
+        or "OPS"
+    ).strip()
+    return project_id or "OPS"
+
+
 def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
     incident = task.get("incident") or {}
     context = task.get("incident_context") or {}
@@ -274,7 +342,7 @@ def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
     summary = _incident_summary(task)
 
     payload: dict[str, Any] = {
-        "project_id": "OPS",
+        "project_id": _incident_project_id(),
         "subject": f"[INCIDENT] {incident.get('service', 'unknown-service')} {incident.get('severity', 'unknown')}",
         "description": summary,
         "priority": "High" if risk_level in {IncidentSeverity.HIGH.value, IncidentSeverity.CRITICAL.value} else "Normal",
@@ -394,6 +462,7 @@ def _create_approval_item(
 
 def _render_incident_report(task: dict[str, Any], action_results: list[dict[str, Any]]) -> str:
     incident = task.get("incident") or {}
+    runtime_state = _incident_runtime_snapshot(dict(task.get("incident_runtime") or {}))
     lines = [
         "# Incident Orchestration Report",
         "",
@@ -401,7 +470,10 @@ def _render_incident_report(task: dict[str, Any], action_results: list[dict[str,
         f"- service: {incident.get('service', 'N/A')}",
         f"- severity: {incident.get('severity', 'N/A')}",
         f"- policy_profile: {incident.get('policy_profile', 'N/A')}",
-        f"- dry_run: {task.get('incident_runtime', {}).get('dry_run', True)}",
+        f"- run_mode: {runtime_state['run_mode']}",
+        f"- context_dry_run: {runtime_state['context_dry_run']}",
+        f"- mcp_dry_run: {runtime_state['mcp_dry_run']}",
+        f"- dry_run: {runtime_state['dry_run']}",
         "",
         "## Action Results",
     ]
@@ -499,19 +571,21 @@ def _execute_incident_once(task_id: str) -> bool:
         task = TASKS[task_id]
         _set_stage(task, "planner")
 
-    dry_run = bool(runtime.get("dry_run", True))
+    runtime_state = _incident_runtime_snapshot(runtime)
+    context_dry_run = bool(runtime_state["context_dry_run"])
+    mcp_dry_run = bool(runtime_state["mcp_dry_run"])
     knowledge = INCIDENT_ADAPTERS["knowledge_rag"](
         query=f"{incident.get('service', 'unknown-service')} {incident.get('summary', '')}".strip(),
         team="platform",
         time_range="90d",
-        dry_run=dry_run,
+        dry_run=context_dry_run,
         timeout_seconds=3.0,
     )
     system = INCIDENT_ADAPTERS["system_rag"](
         incident_id=str(incident.get("incident_id") or ""),
         service=str(incident.get("service") or ""),
         window=str(incident.get("time_window") or "15m"),
-        dry_run=dry_run,
+        dry_run=context_dry_run,
         timeout_seconds=3.0,
     )
     context = {"knowledge": knowledge, "system": system}
@@ -599,13 +673,13 @@ def _execute_incident_once(task_id: str) -> bool:
             method=method,
             payload=payload,
             actor_context=actor_context,
-            dry_run=dry_run,
+            dry_run=mcp_dry_run,
             timeout_seconds=3.0,
         )
         action_results.append(
             {
                 "action_id": action_card.get("action_id"),
-                "status": "dry-run",
+                "status": "dry-run" if mcp_dry_run else "executed",
                 "method": method,
                 "external_ref": mcp_result.get("response", {}).get("external_ref"),
             }
@@ -901,6 +975,7 @@ def create_incident(
     title = f"[incident] {req.service} {req.severity.value}"
 
     with STORE_LOCK:
+        incident_runtime = _apply_incident_run_mode({}, "dry-run" if req.dry_run else "live")
         TASKS[task_id] = {
             "task_id": task_id,
             "workflow_type": INCIDENT_WORKFLOW,
@@ -908,7 +983,7 @@ def create_incident(
             "template_type": "incident_orchestration",
             "input": {"summary": req.summary, "service": req.service, "severity": req.severity.value},
             "incident": incident_payload,
-            "incident_runtime": {"dry_run": bool(req.dry_run)},
+            "incident_runtime": incident_runtime,
             "requested_by": req.requested_by,
             "status": TaskStatus.READY.value,
             "current_stage": None,
@@ -980,11 +1055,18 @@ def run_incident(
 
         task["started_at"] = _now_iso()
         _set_status(task, TaskStatus.RUNNING, next_action="wait_for_completion")
-        task.setdefault("incident_runtime", {})["dry_run"] = req.run_mode != "live"
+        runtime = dict(task.get("incident_runtime") or {})
+        task["incident_runtime"] = _apply_incident_run_mode(runtime, req.run_mode)
         if req.idempotency_key:
             RUN_IDEMPOTENCY[(req.task_id, req.idempotency_key)] = req.task_id
             STATE_STORE.save_idempotency(req.task_id, req.idempotency_key, req.task_id)
-        _log_event(task["task_id"], "INCIDENT_RUN_REQUESTED", actor_id=actor.actor_id, actor_role=role, run_mode=req.run_mode)
+        _log_event(
+            task["task_id"],
+            "INCIDENT_RUN_REQUESTED",
+            actor_id=actor.actor_id,
+            actor_role=role,
+            run_mode=task["incident_runtime"]["run_mode"],
+        )
 
     _start_incident_pipeline(req.task_id)
     return {"task_id": req.task_id, "status": TaskStatus.RUNNING.value, "started_at": TASKS[req.task_id]["started_at"]}
@@ -1019,6 +1101,7 @@ def incident_status(
             "current_stage": task["current_stage"],
             "last_event_at": task["updated_at"],
             "next_action": task.get("next_action"),
+            "run_mode": _incident_runtime_snapshot(dict(task.get("incident_runtime") or {}))["run_mode"],
         }
         if task["status"] == TaskStatus.FAILED_RETRYABLE.value:
             response["retry_count"] = task["retry_count"]

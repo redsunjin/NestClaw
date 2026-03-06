@@ -18,11 +18,16 @@ class TestStage8Contract(unittest.TestCase):
     def test_stage8_closeout_summary_exists(self) -> None:
         self.assertTrue(Path("STAGE8_CLOSEOUT_SUMMARY_2026-03-06.md").is_file())
 
+    def test_stage8_live_rehearsal_runbook_exists(self) -> None:
+        self.assertTrue(Path("STAGE8_LIVE_REHEARSAL_RUNBOOK_2026-03-07.md").is_file())
+
     def test_micro_workflow_assets_exist(self) -> None:
         self.assertTrue(Path("MICRO_AGENT_WORKFLOW.md").is_file())
         self.assertTrue(Path("scripts/run_micro_cycle.sh").is_file())
         self.assertTrue(Path("scripts/run_stage8_self_eval.sh").is_file())
         self.assertTrue(Path("scripts/run_stage8_sandbox_e2e.sh").is_file())
+        self.assertTrue(Path("scripts/run_stage8_live_rehearsal.sh").is_file())
+        self.assertTrue(Path("scripts/stage8_live_rehearsal_runner.py").is_file())
         self.assertTrue(Path("work/micro_units/stage8-w2-001/WORK_UNIT.md").is_file())
         self.assertTrue(Path("work/micro_units/stage8-w3-002/WORK_UNIT.md").is_file())
         self.assertTrue(Path("work/micro_units/stage8-w4-001/WORK_UNIT.md").is_file())
@@ -65,8 +70,10 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("tests.test_stage8_contract", source)
         self.assertIn("tests.test_incident_adapter_contract", source)
         self.assertIn("tests.test_incident_policy_gate", source)
+        self.assertIn("tests.test_incident_runtime_smoke", source)
         self.assertIn("run_stage8_self_eval.sh", source)
         self.assertIn("run_stage8_sandbox_e2e.sh", source)
+        self.assertIn("run_stage8_live_rehearsal.sh", source)
         self.assertIn("NEWCLAW_SKIP_STAGE8_SELF_EVAL", source)
 
     def test_auto_cycle_supports_stage8(self) -> None:
@@ -103,6 +110,18 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("G2. Incident Orchestration Integration", source)
         self.assertIn("G3. Policy & Approval Classification", source)
         self.assertIn("G4. Quality Gate & Sandbox Readiness", source)
+
+    def test_incident_runtime_supports_mcp_live_mode(self) -> None:
+        source = Path("app/main.py").read_text(encoding="utf-8")
+        self.assertIn("mcp-live", source)
+        self.assertIn("context_dry_run", source)
+        self.assertIn("mcp_dry_run", source)
+
+    def test_live_rehearsal_runbook_mentions_http_bridge_contract(self) -> None:
+        source = Path("STAGE8_LIVE_REHEARSAL_RUNBOOK_2026-03-07.md").read_text(encoding="utf-8")
+        self.assertIn("NEWCLAW_REDMINE_MCP_ENDPOINT", source)
+        self.assertIn("mcp-live", source)
+        self.assertIn("issue.transition", source)
 
 
 if __name__ == "__main__":
