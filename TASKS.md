@@ -116,7 +116,7 @@
 - [x] Incident Intake + Action Planner 경로 구현 (`app/main.py`)
 - [x] 승인 분류표를 정책 룰로 구현 (`POLICY_WHITELIST.md`, `app/main.py`, `app/incident_policy.py`)
 - [x] Dry-run E2E 자동 테스트 추가 (`tests/test_incident_runtime_smoke.py`)
-- [ ] Sandbox E2E 리허설 증적 리포트 작성 (`reports/qa/`)
+- [x] Sandbox E2E 리허설 증적 리포트 작성 (`reports/qa/stage8-sandbox-e2e-20260306T140858Z.md`, QA worktree)
 - [x] Stage 8 품질게이트를 CI 파이프라인에 통합 (`.github/workflows/quality-gate.yml`)
 
 ### C) Stage 8 실행 스케줄 (2026-03-05 ~ 2026-04-24)
@@ -136,7 +136,7 @@
 - [x] G2(Incident Orchestration Integration) PASS
 - [x] G3(Policy & Approval Classification) PASS
 - [x] G4 MWU(`stage8-w4-001`) 생성 및 완료
-- [ ] G4(Quality Gate & Sandbox Readiness) PASS
+- [x] G4(Quality Gate & Sandbox Readiness) PASS
 
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)
