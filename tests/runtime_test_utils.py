@@ -18,9 +18,14 @@ def reset_runtime_state(main_module: Any) -> None:
 
         table_names = ("approval_actions", "approvals", "events", "run_idempotency", "tasks")
         if hasattr(conn, "cursor"):
-            with conn.cursor() as cur:
+            cur = conn.cursor()
+            try:
                 for table_name in table_names:
                     cur.execute(f"DELETE FROM {table_name}")
+            finally:
+                close = getattr(cur, "close", None)
+                if callable(close):
+                    close()
         else:
             for table_name in table_names:
                 conn.execute(f"DELETE FROM {table_name}")
