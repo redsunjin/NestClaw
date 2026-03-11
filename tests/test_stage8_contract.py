@@ -35,6 +35,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertTrue(Path("app/incident_mcp.py").is_file())
         self.assertTrue(Path("app/incident_policy.py").is_file())
         self.assertTrue(Path("tests/test_incident_adapter_contract.py").is_file())
+        self.assertTrue(Path("tests/test_agent_entrypoint_smoke.py").is_file())
         self.assertTrue(Path("tests/test_incident_runtime_smoke.py").is_file())
         self.assertTrue(Path("tests/test_incident_policy_gate.py").is_file())
 
@@ -70,6 +71,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("tests.test_stage8_contract", source)
         self.assertIn("tests.test_incident_adapter_contract", source)
         self.assertIn("tests.test_incident_policy_gate", source)
+        self.assertIn("tests.test_agent_entrypoint_smoke", source)
         self.assertIn("tests.test_incident_runtime_smoke", source)
         self.assertIn("run_stage8_self_eval.sh", source)
         self.assertIn("run_stage8_sandbox_e2e.sh", source)

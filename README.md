@@ -135,6 +135,9 @@
 
 ## 10) 현재 구현 상태
 - API 스켈레톤 구현 완료:
+  - `POST /api/v1/agent/submit`
+  - `GET /api/v1/agent/status/{task_id}`
+  - `GET /api/v1/agent/events/{task_id}`
   - `POST /api/v1/task/create`
   - `POST /api/v1/task/run`
   - `GET /api/v1/task/status/{task_id}`
@@ -158,6 +161,9 @@
   - Incident RAG 어댑터 계약 구현 (`app/incident_rag.py`)
   - Redmine MCP 어댑터 계약 구현 (`app/incident_mcp.py`)
   - 마이크로 유닛 게이트 운영 (`work/micro_units/stage8-w2-001/`)
+- 현재 사용자 진입점:
+  - 기본 진입점은 `agent submit/status/events`
+  - `task/*`, `incident/*`는 하위 호환 및 세부 검증용
 
 코드 위치:
 - 서버: `app/main.py`
@@ -183,6 +189,11 @@ curl http://127.0.0.1:8000/health
 ```bash
 python3 app/cli.py
 ```
+기본 흐름:
+- `Agent 요청 제출`
+- `상태 조회`
+- `이벤트 조회`
+- `결과 확인`
 
 5. 개발용 JWT 생성
 ```bash
@@ -265,6 +276,8 @@ bash scripts/manage_local_postgres.sh dsn
   - `tests/test_runtime_smoke.py`
   - `tests/test_stage7_contract.py`
   - `tests/test_stage8_contract.py`
+  - `tests/test_agent_entrypoint_smoke.py`
+  - `tests/test_incident_runtime_smoke.py`
   - `tests/test_auth_idp.py`
 
 실행 예시:

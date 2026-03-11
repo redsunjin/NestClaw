@@ -168,6 +168,7 @@ check_stage_8() {
   run_check "stage8 static contract tests" python3 -m unittest tests.test_stage8_contract
   run_check "stage8 incident adapter contract tests" python3 -m unittest tests.test_incident_adapter_contract
   run_check "stage8 incident policy gate tests" python3 -m unittest tests.test_incident_policy_gate
+  run_optional_check "stage8 agent facade runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_agent_entrypoint_smoke
   run_optional_check "stage8 incident runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_incident_runtime_smoke
   if is_truthy "${SKIP_STAGE8_SELF_EVAL}"; then
     skip "stage8 grouped self evaluation baseline"

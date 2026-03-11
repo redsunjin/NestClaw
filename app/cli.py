@@ -58,6 +58,8 @@ def _print_status(payload: dict[str, Any]) -> None:
     # Standardized status message for non-IT users.
     print("\n[상태 보고]")
     print(f"- Task ID: {payload.get('task_id', '-')}")
+    if payload.get("resolved_kind"):
+        print(f"- 처리 종류: {payload.get('resolved_kind')}")
     print(f"- 현재 상태: {payload.get('status', '-')}")
     print(f"- 다음 액션: {payload.get('next_action', '-')}")
     if payload.get("status") == "NEEDS_HUMAN_APPROVAL":
@@ -74,65 +76,76 @@ def _print_status(payload: dict[str, Any]) -> None:
     print()
 
 
-def create_meeting_summary_task() -> None:
+def submit_agent_request() -> None:
     global ACTOR_ID, ACTOR_ROLE
-    print("\n[템플릿: 회의요약 -> 액션리스트]")
-    meeting_title = _input_required("회의 제목")
-    meeting_date = _input_required("회의 날짜 (YYYY-MM-DD)")
-    participants_raw = _input_required("참석자 (쉼표로 구분)")
-    notes = _input_required("회의 메모")
+    print("\n[Agent Submit]")
+    task_kind = input("요청 유형 (auto/task/incident, 기본: auto): ").strip().lower() or "auto"
+    title = input("작업 제목 (선택): ").strip() or None
+    request_text = _input_required("요청 내용")
     requested_by = _input_required("요청자 ID")
-    title = input("작업 제목 (기본: 회의요약 생성): ").strip() or "회의요약 생성"
+    metadata: dict[str, Any] = {}
+    run_mode = "dry-run"
+
+    if task_kind in {"task", "meeting", "meeting_summary"}:
+        metadata["meeting_title"] = input("회의 제목 (선택): ").strip() or title or "Agent Request"
+        metadata["meeting_date"] = input("회의 날짜 (YYYY-MM-DD, 기본: 오늘): ").strip()
+        participants_raw = input("참석자 (쉼표 구분, 기본: 요청자): ").strip()
+        metadata["participants"] = [x.strip() for x in participants_raw.split(",") if x.strip()] if participants_raw else [requested_by]
+        metadata["notes"] = input("회의 메모 (비우면 요청 내용 사용): ").strip() or request_text
+        task_kind = "task"
+    elif task_kind == "incident":
+        metadata["service"] = _input_required("서비스명")
+        metadata["severity"] = input("심각도 (low/medium/high/critical, 기본: low): ").strip().lower() or "low"
+        metadata["source"] = input("감지 출처 (기본: agent): ").strip() or "agent"
+        metadata["time_window"] = input("시간 구간 (기본: 15m): ").strip() or "15m"
+        metadata["policy_profile"] = input("정책 프로필 (기본: default): ").strip() or "default"
+        run_mode = input("incident run_mode (dry-run/mcp-live/live, 기본: dry-run): ").strip().lower() or "dry-run"
 
     payload = {
         "title": title,
-        "template_type": "meeting_summary",
-        "input": {
-            "meeting_title": meeting_title,
-            "meeting_date": meeting_date,
-            "participants": [x.strip() for x in participants_raw.split(",") if x.strip()],
-            "notes": notes,
-        },
+        "task_kind": task_kind,
+        "request_text": request_text,
+        "metadata": metadata,
         "requested_by": requested_by,
+        "auto_run": True,
+        "incident_run_mode": run_mode,
     }
     ACTOR_ID = requested_by
     ACTOR_ROLE = "requester"
     resp = _http_json(
         "POST",
-        "/api/v1/task/create",
+        "/api/v1/agent/submit",
         payload,
         actor_id=ACTOR_ID,
         actor_role=ACTOR_ROLE,
     )
-    if "error" in resp:
-        _print_status(resp)
-        return
-
-    print("\n[생성 완료]")
-    print(f"- Task ID: {resp.get('task_id')}")
-    print(f"- 상태: {resp.get('status')}\n")
-
-
-def run_task() -> None:
-    global ACTOR_ID, ACTOR_ROLE
-    task_id = _input_required("실행할 Task ID")
-    idem = input("idempotency_key (선택): ").strip() or None
-    payload = {"task_id": task_id, "idempotency_key": idem, "run_mode": "standard"}
-    resp = _http_json("POST", "/api/v1/task/run", payload, actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
     _print_status(resp)
 
 
 def show_status() -> None:
     global ACTOR_ID, ACTOR_ROLE
     task_id = _input_required("조회할 Task ID")
-    resp = _http_json("GET", f"/api/v1/task/status/{task_id}", actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
+    resp = _http_json("GET", f"/api/v1/agent/status/{task_id}", actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
     _print_status(resp)
+
+
+def show_events() -> None:
+    global ACTOR_ID, ACTOR_ROLE
+    task_id = _input_required("이벤트 조회할 Task ID")
+    resp = _http_json("GET", f"/api/v1/agent/events/{task_id}", actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
+    if "error" in resp:
+        _print_status(resp)
+        return
+    print("\n[이벤트]")
+    for item in resp.get("items", [])[-10:]:
+        print(f"- {item.get('created_at', '-')}: {item.get('event_type', '-')}")
+    print()
 
 
 def show_result() -> None:
     global ACTOR_ID, ACTOR_ROLE
     task_id = _input_required("결과 확인할 Task ID")
-    resp = _http_json("GET", f"/api/v1/task/status/{task_id}", actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
+    resp = _http_json("GET", f"/api/v1/agent/status/{task_id}", actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
     _print_status(resp)
     if resp.get("status") != "DONE":
         return
@@ -161,14 +174,14 @@ def main() -> int:
         ACTOR_ROLE = actor_role_input
 
     menu = {
-        "1": ("회의요약 작업 생성", create_meeting_summary_task),
-        "2": ("작업 실행", run_task),
-        "3": ("상태 조회", show_status),
+        "1": ("Agent 요청 제출", submit_agent_request),
+        "2": ("상태 조회", show_status),
+        "3": ("이벤트 조회", show_events),
         "4": ("결과 확인", show_result),
         "5": ("종료", None),
     }
 
-    print("Local Work Delegation CLI")
+    print("NewClaw Agent CLI")
     print(f"- API: {BASE_URL}\n")
     print(f"- Actor ID: {ACTOR_ID}")
     print(f"- Actor Role: {ACTOR_ROLE}\n")

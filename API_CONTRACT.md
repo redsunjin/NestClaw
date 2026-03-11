@@ -2,7 +2,7 @@
 
 ## 1) 목적
 로컬 업무 위임 오케스트레이션의 최소 API 계약을 고정한다.
-범위는 `create/run/status` 3개 엔드포인트로 제한한다.
+사용자 진입점은 `agent submit/status/events`를 기본으로 하고, 하위 호환을 위해 `task/*`, `incident/*` 직접 엔드포인트를 유지한다.
 
 ## 2) 공통 규칙
 - Base Path: `/api/v1`
@@ -217,6 +217,79 @@ Task 이벤트 로그를 조회한다.
   "policy_bypass_events": 0,
   "approvals_pending": 1,
   "approvals_resolved": 3
+}
+```
+
+## 4.9 POST `/api/v1/agent/submit`
+단일 요청 진입점이다. 규칙 기반으로 `task` 또는 `incident` workflow로 라우팅하고 기본값으로 즉시 실행한다.
+
+권한:
+- 허용 role: `requester`, `admin`
+- `requester`는 `X-Actor-Id == requested_by` 조건 필요
+
+요청:
+```json
+{
+  "task_kind": "auto",
+  "title": "주간 운영회의 요약",
+  "request_text": "회의 메모를 요약하고 액션 아이템을 정리해줘",
+  "requested_by": "user_01",
+  "metadata": {
+    "meeting_title": "주간 운영회의",
+    "meeting_date": "2026-03-11",
+    "participants": ["Kim", "Lee"]
+  },
+  "auto_run": true,
+  "incident_run_mode": "dry-run"
+}
+```
+
+응답 `202 Accepted`:
+```json
+{
+  "task_id": "task_2e85a6c5-6f8a-4f22-8c84-6d8dc3062b7b",
+  "entrypoint": "agent",
+  "resolved_kind": "task",
+  "status": "RUNNING",
+  "created_at": "2026-03-11T03:00:00+00:00",
+  "started_at": "2026-03-11T03:00:01+00:00",
+  "auto_run": true
+}
+```
+
+비고:
+- `task_kind=auto`는 규칙 기반 힌트로만 분류한다.
+- 실제 LLM intent classification은 아직 범위 밖이다.
+
+## 4.10 GET `/api/v1/agent/status/{task_id}`
+workflow 종류를 몰라도 단일 경로로 상태를 조회한다.
+
+응답:
+```json
+{
+  "task_id": "task_...",
+  "entrypoint": "agent",
+  "resolved_kind": "task",
+  "status": "RUNNING",
+  "current_stage": "executor",
+  "last_event_at": "2026-03-11T03:00:04+00:00",
+  "next_action": "wait_for_completion"
+}
+```
+
+## 4.11 GET `/api/v1/agent/events/{task_id}`
+workflow 종류를 몰라도 단일 경로로 이벤트 로그를 조회한다.
+
+응답:
+```json
+{
+  "task_id": "task_...",
+  "entrypoint": "agent",
+  "resolved_kind": "incident",
+  "count": 5,
+  "items": [
+    {"event_type": "AGENT_ROUTED", "...": "..."}
+  ]
 }
 ```
 

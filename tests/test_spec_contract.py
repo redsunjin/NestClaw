@@ -19,6 +19,9 @@ class TestSpecContract(unittest.TestCase):
             self.assertIn(status, self.source)
 
     def test_required_task_endpoints_exist(self) -> None:
+        self.assertIn("def agent_submit", self.source)
+        self.assertIn("def agent_status", self.source)
+        self.assertIn("def agent_events", self.source)
         self.assertIn("def create_task", self.source)
         self.assertIn("def run_task", self.source)
         self.assertIn("def task_status", self.source)

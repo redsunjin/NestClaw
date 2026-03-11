@@ -52,6 +52,7 @@
 - [x] 자유 프롬프트 대신 템플릿 필드 기반 입력 적용 (`app/cli.py`)
 - [x] 상태 메시지 표준화 (현재 상태/다음 액션/필요 승인) (`app/cli.py`)
 - [x] 결과 확인 화면 단순화 (`app/cli.py`)
+- [x] 단일 agent 진입 CLI로 기본 흐름 통합 (`app/cli.py`, `/api/v1/agent/*`)
 
 완료 기준:
 - 비IT 사용자 기준으로 생성/실행/상태/결과 4동작을 수행 가능
@@ -116,6 +117,7 @@
 - [x] Incident Intake + Action Planner 경로 구현 (`app/main.py`)
 - [x] 승인 분류표를 정책 룰로 구현 (`POLICY_WHITELIST.md`, `app/main.py`, `app/incident_policy.py`)
 - [x] Dry-run E2E 자동 테스트 추가 (`tests/test_incident_runtime_smoke.py`)
+- [x] 단일 agent facade 진입점 추가 (`app/main.py`, `tests/test_agent_entrypoint_smoke.py`, `app/cli.py`)
 - [x] Sandbox E2E 리허설 증적 리포트 작성 (`reports/qa/stage8-sandbox-e2e-20260306T140858Z.md`, QA worktree)
 - [x] Stage 8 품질게이트를 CI 파이프라인에 통합 (`.github/workflows/quality-gate.yml`)
 
