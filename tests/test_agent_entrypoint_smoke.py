@@ -9,6 +9,8 @@ try:
     from fastapi.testclient import TestClient
     from app.auth import issue_dev_jwt
     from app.main import APP
+    from app import main as main_module
+    from tests.runtime_test_utils import reset_runtime_state
 except Exception as exc:  # pragma: no cover - environment dependent
     TestClient = None
     IMPORT_ERROR = exc
@@ -19,6 +21,7 @@ else:
 @unittest.skipIf(TestClient is None, f"runtime dependencies unavailable: {IMPORT_ERROR}")
 class TestAgentEntrypointSmoke(unittest.TestCase):
     def setUp(self) -> None:
+        reset_runtime_state(main_module)
         self.client = TestClient(APP)
         self.requester_headers = {"Authorization": f"Bearer {issue_dev_jwt('qa_user', 'requester')}"}
         self.reviewer_headers = {"Authorization": f"Bearer {issue_dev_jwt('qa_reviewer', 'reviewer')}"}

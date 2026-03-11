@@ -10,6 +10,11 @@
   - incident 입력 시 필요한 최소 metadata와 run_mode 선택을 한 곳에서 받도록 정리
 - [x] `tests/test_agent_entrypoint_smoke.py`
   - agent facade가 task/incident를 단일 경로로 생성/실행/조회하는 runtime smoke 추가
+- [x] `tests/runtime_test_utils.py`
+  - runtime suite 간 전역 state 누수를 막기 위한 reset helper 추가
+- [x] `tests/test_runtime_smoke.py`
+- [x] `tests/test_incident_runtime_smoke.py`
+  - 각 runtime suite 시작 전에 app state/store를 초기화하도록 보정
 - [x] `tests/test_spec_contract.py`
   - `agent_submit`, `agent_status`, `agent_events` 계약 고정
 - [x] `tests/test_stage8_contract.py`
