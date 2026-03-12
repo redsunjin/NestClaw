@@ -28,6 +28,7 @@ INTENT_INCIDENT_HINTS = {
 }
 SENSITIVITY_HINTS = {"sensitive", "confidential", "내부 전용", "민감"}
 DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
+DEFAULT_LMSTUDIO_BASE_URL = "http://127.0.0.1:1234"
 DEFAULT_TIMEOUT_SECONDS = 5.0
 
 
@@ -148,12 +149,86 @@ def _call_ollama_generate(*, base_url: str, model: str, prompt: str, timeout_sec
     return response_text
 
 
+def _normalize_openai_compatible_base_url(base_url: str) -> str:
+    normalized = base_url.rstrip("/")
+    if normalized.endswith("/v1"):
+        return normalized
+    return f"{normalized}/v1"
+
+
+def _detect_openai_compatible_model(*, base_url: str, timeout_seconds: float, api_key: str | None = None) -> str:
+    headers: dict[str, str] = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    req = request.Request(
+        f"{_normalize_openai_compatible_base_url(base_url)}/models",
+        method="GET",
+        headers=headers,
+    )
+    try:
+        with request.urlopen(req, timeout=timeout_seconds) as response:
+            body = response.read().decode("utf-8")
+    except error.URLError as exc:
+        raise RuntimeError(f"intent classifier model discovery failed: {exc}") from exc
+    parsed = json.loads(body)
+    items = parsed.get("data")
+    if not isinstance(items, list) or not items:
+        raise RuntimeError("intent classifier model discovery returned no models")
+    model_id = str((items[0] or {}).get("id") or "").strip()
+    if not model_id:
+        raise RuntimeError("intent classifier model discovery returned empty model id")
+    return model_id
+
+
+def _call_openai_compatible_chat(
+    *,
+    base_url: str,
+    model: str,
+    prompt: str,
+    timeout_seconds: float,
+    api_key: str | None = None,
+) -> str:
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": "You are a strict JSON-only orchestration intent classifier."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0,
+        "stream": False,
+    }
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    req = request.Request(
+        f"{_normalize_openai_compatible_base_url(base_url)}/chat/completions",
+        method="POST",
+        headers=headers,
+        data=json.dumps(payload).encode("utf-8"),
+    )
+    try:
+        with request.urlopen(req, timeout=timeout_seconds) as response:
+            body = response.read().decode("utf-8")
+    except error.URLError as exc:
+        raise RuntimeError(f"intent classifier call failed: {exc}") from exc
+    parsed = json.loads(body)
+    choices = parsed.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise RuntimeError("intent classifier response did not include choices")
+    message = dict((choices[0] or {}).get("message") or {})
+    response_text = str(message.get("content") or "").strip()
+    if not response_text:
+        raise RuntimeError("intent classifier response was empty")
+    return response_text
+
+
 class IntentClassifier:
     def __init__(self, registry: ModelRegistry) -> None:
         self.registry = registry
 
     def classify(self, request_text: str, metadata: Mapping[str, Any] | None = None) -> IntentClassification:
         metadata_map = dict(metadata or {})
+        timeout_seconds = float(os.getenv("NEWCLAW_INTENT_CLASSIFIER_TIMEOUT", str(DEFAULT_TIMEOUT_SECONDS)))
         provider_selection = select_provider(
             self.registry,
             sensitivity=_infer_sensitivity(request_text, metadata_map),
@@ -173,7 +248,7 @@ class IntentClassifier:
 
         provider_type = str(provider_selection.get("provider_type") or "")
         engine = str(provider_selection.get("engine") or "")
-        if provider_type != "local" or engine != "ollama":
+        if provider_type != "local" or engine not in {"ollama", "lmstudio"}:
             return IntentClassification(
                 resolved_kind=heuristic_kind,
                 source="heuristic_fallback",
@@ -183,24 +258,31 @@ class IntentClassifier:
                 fallback_reason="unsupported_provider",
             )
 
-        model = str(provider_selection.get("model") or "").strip()
-        if not model:
-            return IntentClassification(
-                resolved_kind=heuristic_kind,
-                source="heuristic_fallback",
-                confidence=0.55,
-                rationale="selected provider model is missing",
-                provider_selection=provider_selection,
-                fallback_reason="missing_model",
-            )
-
         try:
-            response_text = _call_ollama_generate(
-                base_url=os.getenv("NEWCLAW_OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL),
-                model=model,
-                prompt=_build_intent_prompt(request_text, metadata_map),
-                timeout_seconds=float(os.getenv("NEWCLAW_INTENT_CLASSIFIER_TIMEOUT", str(DEFAULT_TIMEOUT_SECONDS))),
-            )
+            model = str(provider_selection.get("model") or "").strip()
+            if engine == "lmstudio" and model.lower() in {"", "auto"}:
+                model = _detect_openai_compatible_model(
+                    base_url=os.getenv("NEWCLAW_LMSTUDIO_BASE_URL", DEFAULT_LMSTUDIO_BASE_URL),
+                    timeout_seconds=timeout_seconds,
+                    api_key=os.getenv("NEWCLAW_LMSTUDIO_API_KEY"),
+                )
+            if not model:
+                raise RuntimeError("missing_model")
+            if engine == "lmstudio":
+                response_text = _call_openai_compatible_chat(
+                    base_url=os.getenv("NEWCLAW_LMSTUDIO_BASE_URL", DEFAULT_LMSTUDIO_BASE_URL),
+                    model=model,
+                    prompt=_build_intent_prompt(request_text, metadata_map),
+                    timeout_seconds=timeout_seconds,
+                    api_key=os.getenv("NEWCLAW_LMSTUDIO_API_KEY"),
+                )
+            else:
+                response_text = _call_ollama_generate(
+                    base_url=os.getenv("NEWCLAW_OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL),
+                    model=model,
+                    prompt=_build_intent_prompt(request_text, metadata_map),
+                    timeout_seconds=timeout_seconds,
+                )
             payload = _extract_json_object(response_text)
             resolved_kind = str(payload.get("task_kind") or "").strip().lower()
             if resolved_kind not in {"task", "incident"}:

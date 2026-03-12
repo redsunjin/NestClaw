@@ -8,6 +8,13 @@ providers:
     model: llama3.1:8b
     purpose: "sensitive_internal"
 
+  - id: local_lmstudio
+    type: local
+    enabled: true
+    engine: lmstudio
+    model: auto
+    purpose: "local_openai_compatible"
+
   - id: api_general
     type: api
     enabled: true
@@ -18,7 +25,7 @@ providers:
 routing_rules:
   - when:
       task_type: classify_intent
-    use_provider: local_primary
+    use_provider: local_lmstudio
 
   - when:
       sensitivity: high

@@ -22,14 +22,18 @@ class TestIntentClassifierContract(unittest.TestCase):
 
         self.assertEqual(result.resolved_kind, "incident")
         self.assertEqual(result.source, "heuristic_fallback")
-        self.assertEqual(result.provider_selection["provider_id"], "local_primary")
+        self.assertEqual(result.provider_selection["provider_id"], "local_lmstudio")
         self.assertIsNone(result.fallback_reason)
 
     def test_live_classifier_uses_llm_result_when_response_is_valid(self) -> None:
         with (
             patch.dict(os.environ, {"NEWCLAW_ENABLE_LLM_INTENT": "1"}, clear=False),
             patch(
-                "app.intent_classifier._call_ollama_generate",
+                "app.intent_classifier._detect_openai_compatible_model",
+                return_value="lmstudio-loaded-model",
+            ),
+            patch(
+                "app.intent_classifier._call_openai_compatible_chat",
                 return_value='{"task_kind":"task","confidence":0.91,"rationale":"meeting summary request"}',
             ),
         ):
@@ -38,18 +42,34 @@ class TestIntentClassifierContract(unittest.TestCase):
         self.assertEqual(result.resolved_kind, "task")
         self.assertEqual(result.source, "llm")
         self.assertAlmostEqual(float(result.confidence or 0), 0.91, places=2)
-        self.assertEqual(result.provider_selection["provider_id"], "local_primary")
+        self.assertEqual(result.provider_selection["provider_id"], "local_lmstudio")
 
     def test_live_classifier_falls_back_when_response_is_not_json(self) -> None:
         with (
             patch.dict(os.environ, {"NEWCLAW_ENABLE_LLM_INTENT": "1"}, clear=False),
-            patch("app.intent_classifier._call_ollama_generate", return_value="not-json"),
+            patch("app.intent_classifier._detect_openai_compatible_model", return_value="lmstudio-loaded-model"),
+            patch("app.intent_classifier._call_openai_compatible_chat", return_value="not-json"),
         ):
             result = self.classifier.classify("운영회의 메모를 요약해줘", {"meeting_title": "ops sync"})
 
         self.assertEqual(result.resolved_kind, "task")
         self.assertEqual(result.source, "llm_error_fallback")
         self.assertIn("json object", str(result.fallback_reason))
+
+    def test_live_classifier_autodetects_lmstudio_model_when_config_is_auto(self) -> None:
+        with (
+            patch.dict(os.environ, {"NEWCLAW_ENABLE_LLM_INTENT": "1"}, clear=False),
+            patch("app.intent_classifier._detect_openai_compatible_model", return_value="qwen2.5-14b-instruct"),
+            patch(
+                "app.intent_classifier._call_openai_compatible_chat",
+                return_value='{"task_kind":"incident","confidence":0.88,"rationale":"outage-like request"}',
+            ) as call_mock,
+        ):
+            result = self.classifier.classify("billing-api 장애 대응 티켓을 생성해줘", {"service": "billing-api"})
+
+        self.assertEqual(result.source, "llm")
+        self.assertEqual(result.resolved_kind, "incident")
+        self.assertEqual(call_mock.call_args.kwargs["model"], "qwen2.5-14b-instruct")
 
     def test_live_classifier_falls_back_for_unsupported_provider(self) -> None:
         api_only_registry = ModelRegistry(

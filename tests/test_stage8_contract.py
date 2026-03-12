@@ -188,6 +188,9 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("INTENT_CLASSIFIED", service_source)
         self.assertIn("intent_classification", service_source)
         self.assertIn("NEWCLAW_ENABLE_LLM_INTENT", classifier_source)
+        self.assertIn("NEWCLAW_LMSTUDIO_BASE_URL", classifier_source)
+        self.assertIn("_call_openai_compatible_chat", classifier_source)
+        self.assertIn("engine: lmstudio", registry_source)
         self.assertIn("task_type: classify_intent", registry_source)
 
     def test_live_rehearsal_runbook_mentions_http_bridge_contract(self) -> None:

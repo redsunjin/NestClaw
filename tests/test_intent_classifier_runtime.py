@@ -46,7 +46,7 @@ class TestIntentClassifierRuntime(unittest.TestCase):
             source="llm",
             confidence=0.93,
             rationale="user asked for a summary deliverable",
-            provider_selection={"provider_id": "local_primary", "model": "llama3.1:8b"},
+            provider_selection={"provider_id": "local_lmstudio", "engine": "lmstudio", "model": "auto"},
         )
         with patch.object(main_module.INTENT_CLASSIFIER, "classify", return_value=classification):
             response = self.client.post(
@@ -75,7 +75,7 @@ class TestIntentClassifierRuntime(unittest.TestCase):
         classified = [item for item in events_response.json()["items"] if item["event_type"] == "INTENT_CLASSIFIED"]
         self.assertEqual(len(classified), 1)
         self.assertEqual(classified[0]["source"], "llm")
-        self.assertEqual(classified[0]["provider_id"], "local_primary")
+        self.assertEqual(classified[0]["provider_id"], "local_lmstudio")
 
     def test_auto_route_reports_heuristic_fallback_when_llm_is_disabled(self) -> None:
         with patch.dict(os.environ, {"NEWCLAW_ENABLE_LLM_INTENT": "0"}, clear=False):
