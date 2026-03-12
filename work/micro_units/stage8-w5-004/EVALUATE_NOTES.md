@@ -3,14 +3,21 @@
 ## QA Result Summary
 - 검증 명령:
   - `python3 -m unittest tests.test_spec_contract tests.test_stage8_contract`
-  - `python3 -m unittest tests.test_agent_entrypoint_smoke tests.test_incident_runtime_smoke tests.test_tool_cli_smoke`
-  - `bash scripts/run_dev_qa_cycle.sh 8`
+  - `env PATH="/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/.venv/bin:$PATH" NEWCLAW_DB_PATH=/tmp/nestclaw-stage8-cli-feature.db python3 -m unittest tests.test_agent_entrypoint_smoke tests.test_incident_runtime_smoke tests.test_tool_cli_smoke`
+  - `env PATH="$PWD/.venv/bin:$PATH" NEWCLAW_DB_PATH=/tmp/nestclaw-stage8-qa-runtime.db python3 -m unittest tests.test_spec_contract tests.test_stage8_contract tests.test_agent_entrypoint_smoke tests.test_incident_runtime_smoke tests.test_tool_cli_smoke`
+  - `env PATH="$PWD/.venv/bin:$PATH" NEWCLAW_DB_PATH=/tmp/nestclaw-stage8-qa-runtime.db NEWCLAW_SKIP_STAGE8_SELF_EVAL=1 bash scripts/run_dev_qa_cycle.sh 8`
   - `bash scripts/run_micro_cycle.sh run stage8-w5-004 8`
 - 결과:
-  - 구현 후 반영 예정
+  - feature contract tests: PASS (`29 tests`)
+  - feature runtime preflight bundle: PASS (`12 tests`)
+  - QA runtime + contract bundle: PASS (`41 tests`)
+  - QA worktree stage 8 dev qa cycle: PASS (`/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/cycle-20260312T071824Z.md`)
+  - feature micro-cycle: PASS (`work/micro_units/stage8-w5-004/reports/evaluate-gate-20260312T071850Z.md`)
 
 ## Skip/Failure Reasons
-- 구현 후 반영 예정
+- sandbox/live rehearsal은 이번 단위 범위 밖이라 env 미설정 시 계속 `SKIP`이다.
+- stage8 grouped self-eval은 nested cycle 방지를 위해 `NEWCLAW_SKIP_STAGE8_SELF_EVAL=1`로 의도적으로 skip 했다.
 
 ## Next Action
-- 구현 후 feature/QA worktree 증적과 함께 최종 업데이트
+- 다음 우선순위는 MCP server를 추가해 `agent.submit/status/events`, `approval.*`를 외부 AI tool surface로 노출하는 것이다.
+- feature cycle evidence: `reports/qa/cycle-20260312T071850Z.md`
