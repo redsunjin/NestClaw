@@ -1,0 +1,62 @@
+version: 1
+tools:
+  - id: redmine.issue.create
+    title: Create Redmine incident issue
+    description: Create an incident issue in Redmine for follow-up and coordination.
+    adapter: redmine_mcp
+    method: issue.create
+    action_type: redmine_issue_create
+    external_system: redmine
+    capability_family: ticketing
+    default_risk_level: medium
+    default_approval_required: false
+    supports_dry_run: true
+    required_payload_fields: project_id,subject,description,priority
+  - id: redmine.issue.update
+    title: Update Redmine incident issue
+    description: Update an existing Redmine issue with incident details.
+    adapter: redmine_mcp
+    method: issue.update
+    action_type: redmine_issue_update
+    external_system: redmine
+    capability_family: ticketing
+    default_risk_level: medium
+    default_approval_required: false
+    supports_dry_run: true
+    required_payload_fields: issue_id
+  - id: redmine.issue.add_comment
+    title: Comment on Redmine incident issue
+    description: Add a timeline or status comment to an incident issue.
+    adapter: redmine_mcp
+    method: issue.add_comment
+    action_type: redmine_issue_comment
+    external_system: redmine
+    capability_family: ticketing
+    default_risk_level: low
+    default_approval_required: false
+    supports_dry_run: true
+    required_payload_fields: issue_id,comment
+  - id: redmine.issue.assign
+    title: Assign Redmine incident issue
+    description: Assign the incident issue to the target on-call or owner.
+    adapter: redmine_mcp
+    method: issue.assign
+    action_type: redmine_issue_assign
+    external_system: redmine
+    capability_family: ticketing
+    default_risk_level: medium
+    default_approval_required: false
+    supports_dry_run: true
+    required_payload_fields: issue_id,assignee
+  - id: redmine.issue.transition
+    title: Transition Redmine incident issue
+    description: Move the incident issue to a new workflow state.
+    adapter: redmine_mcp
+    method: issue.transition
+    action_type: redmine_issue_transition
+    external_system: redmine
+    capability_family: ticketing
+    default_risk_level: medium
+    default_approval_required: false
+    supports_dry_run: true
+    required_payload_fields: issue_id,transition

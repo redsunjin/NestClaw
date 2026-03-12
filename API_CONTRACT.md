@@ -260,7 +260,8 @@ Task 이벤트 로그를 조회한다.
 
 비고:
 - `task_kind=auto`는 현재 LLM intent classifier + heuristic fallback으로 분류한다.
-- broader tool registry / planner / execution adapter는 후속 단계 범위다.
+- execution tool catalog는 `configs/tool_registry.yaml` 기반으로 조회 가능하고, broader planner / execution adapter 일반화는 후속 단계 범위다.
+- broader tool registry / planner / execution adapter 비전 중 `tool registry`는 현재 구현됐고, planner / execution adapter 일반화는 후속 단계 범위다.
 
 ## 4.10 GET `/api/v1/agent/status/{task_id}`
 workflow 종류를 몰라도 단일 경로로 상태를 조회한다.
@@ -291,6 +292,43 @@ workflow 종류를 몰라도 단일 경로로 이벤트 로그를 조회한다.
   "items": [
     {"event_type": "AGENT_ROUTED", "...": "..."}
   ]
+}
+```
+
+## 4.12 GET `/api/v1/tools`
+현재 등록된 execution tool catalog를 조회한다.
+
+권한:
+- 허용 role: `requester`, `approver`, `reviewer`, `admin`
+
+응답:
+```json
+{
+  "count": 5,
+  "items": [
+    {
+      "tool_id": "redmine.issue.create",
+      "title": "Create Redmine incident issue",
+      "external_system": "redmine",
+      "capability_family": "ticketing",
+      "method": "issue.create"
+    }
+  ]
+}
+```
+
+## 4.13 GET `/api/v1/tools/{tool_id}`
+하나의 execution tool capability 상세를 조회한다.
+
+응답:
+```json
+{
+  "tool_id": "redmine.issue.create",
+  "adapter": "redmine_mcp",
+  "method": "issue.create",
+  "action_type": "redmine_issue_create",
+  "supports_dry_run": true,
+  "required_payload_fields": ["project_id", "subject", "description", "priority"]
 }
 ```
 

@@ -26,7 +26,15 @@ from app.incident_rag import fetch_knowledge_evidence, fetch_system_signals
 from app.intent_classifier import IntentClassifier
 from app.model_registry import load_model_registry, select_provider
 from app.persistence import create_state_store
-from app.services import ApprovalService, ApprovalServiceDeps, OrchestrationService, OrchestrationServiceDeps
+from app.services import (
+    ApprovalService,
+    ApprovalServiceDeps,
+    OrchestrationService,
+    OrchestrationServiceDeps,
+    ToolCatalogService,
+    ToolCatalogServiceDeps,
+)
+from app.tool_registry import ToolRegistryError, get_tool_capability, load_tool_registry
 
 
 class TaskStatus(str, Enum):
@@ -130,6 +138,7 @@ def _build_incident_adapter_registry() -> dict[str, Any]:
 
 INCIDENT_ADAPTERS = _build_incident_adapter_registry()
 MODEL_REGISTRY = load_model_registry()
+TOOL_REGISTRY = load_tool_registry()
 INTENT_CLASSIFIER = IntentClassifier(MODEL_REGISTRY)
 
 
@@ -421,12 +430,21 @@ def _incident_project_id() -> str:
     return project_id or "OPS"
 
 
+def _incident_ticket_tool_id() -> str:
+    tool_id = str(os.getenv("NEWCLAW_INCIDENT_TICKET_TOOL_ID") or "redmine.issue.create").strip()
+    return tool_id or "redmine.issue.create"
+
+
 def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
     incident = task.get("incident") or {}
     context = task.get("incident_context") or {}
     risk_level = _incident_risk_level(task)
     evidence_links = _collect_incident_evidence(context)
     summary = _incident_summary(task)
+    try:
+        capability = get_tool_capability(TOOL_REGISTRY, _incident_ticket_tool_id())
+    except ToolRegistryError as exc:
+        raise RuntimeError(str(exc)) from exc
 
     payload: dict[str, Any] = {
         "project_id": _incident_project_id(),
@@ -441,13 +459,19 @@ def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
         {
             "action_id": f"act_{uuid4().hex[:12]}",
             "incident_id": incident.get("incident_id"),
-            "title": "Create incident ticket and assign on-call",
-            "action_type": "redmine_issue_create",
+            "title": capability.title,
+            "action_type": capability.action_type,
+            "tool_id": capability.tool_id,
+            "tool_family": capability.capability_family,
+            "external_system": capability.external_system,
             "risk_level": risk_level,
-            "approval_required": _incident_requires_approval(risk_level),
+            "approval_required": capability.default_approval_required or _incident_requires_approval(risk_level),
             "evidence_links": evidence_links,
+            "tool_capability": capability.as_dict(),
             "mcp_call": {
-                "method": "issue.create",
+                "adapter": capability.adapter,
+                "method": capability.method,
+                "supports_dry_run": capability.supports_dry_run,
                 "payload": payload,
             },
         }
@@ -754,11 +778,15 @@ def _execute_incident_once(task_id: str) -> bool:
     action_results: list[dict[str, Any]] = []
     for action_card in action_cards:
         mcp_call = action_card.get("mcp_call", {})
+        adapter_name = str(mcp_call.get("adapter") or "redmine_mcp")
         method = str(mcp_call.get("method") or "")
         payload = dict(mcp_call.get("payload") or {})
         if bool(payload.get("simulate_timeout")):
             raise TimeoutError("simulated incident mcp timeout")
-        mcp_result = INCIDENT_ADAPTERS["redmine_mcp"](
+        adapter = INCIDENT_ADAPTERS.get(adapter_name)
+        if adapter is None:
+            raise RuntimeError(f"incident adapter not found: {adapter_name}")
+        mcp_result = adapter(
             method=method,
             payload=payload,
             actor_context=actor_context,
@@ -769,6 +797,8 @@ def _execute_incident_once(task_id: str) -> bool:
             {
                 "action_id": action_card.get("action_id"),
                 "status": "dry-run" if mcp_dry_run else "executed",
+                "tool_id": action_card.get("tool_id"),
+                "adapter": adapter_name,
                 "method": method,
                 "external_ref": mcp_result.get("response", {}).get("external_ref"),
             }
@@ -777,6 +807,8 @@ def _execute_incident_once(task_id: str) -> bool:
             task_id,
             "INCIDENT_ACTION_EXECUTED",
             action_id=action_card.get("action_id"),
+            tool_id=action_card.get("tool_id"),
+            adapter=adapter_name,
             method=method,
             mode=mcp_result.get("mode"),
             external_ref=mcp_result.get("response", {}).get("external_ref"),
@@ -967,8 +999,19 @@ def build_approval_service(*, sync_execution: bool = False) -> ApprovalService:
     )
 
 
+def build_tool_catalog_service() -> ToolCatalogService:
+    return ToolCatalogService(
+        ToolCatalogServiceDeps(
+            registry=TOOL_REGISTRY,
+            authorize=_authorize,
+            error=_error,
+        )
+    )
+
+
 ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=False)
 APPROVAL_SERVICE = build_approval_service(sync_execution=False)
+TOOL_CATALOG_SERVICE = build_tool_catalog_service()
 
 
 @APP.get("/health")
@@ -998,6 +1041,23 @@ def agent_events(
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
     return ORCHESTRATION_SERVICE.agent_events(task_id, actor)
+
+
+@APP.get("/api/v1/tools")
+def list_tools(
+    capability_family: str | None = Query(default=None),
+    external_system: str | None = Query(default=None),
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return TOOL_CATALOG_SERVICE.list_tools(capability_family, external_system, actor)
+
+
+@APP.get("/api/v1/tools/{tool_id}")
+def get_tool(
+    tool_id: str,
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return TOOL_CATALOG_SERVICE.get_tool(tool_id, actor)
 
 
 @APP.post("/api/v1/task/create", status_code=201)

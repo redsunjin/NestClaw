@@ -95,12 +95,21 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
         self.assertTrue(report_path.is_file())
         self.assertEqual(report_path.name, "incident_report.md")
 
+        with main_module.STORE_LOCK:
+            task = dict(main_module.TASKS[task_id])
+        action_cards = list(task.get("action_cards") or [])
+        self.assertEqual(action_cards[0]["tool_id"], "redmine.issue.create")
+        self.assertEqual(action_cards[0]["mcp_call"]["adapter"], "redmine_mcp")
+
         events_response = self.client.get(f"/api/v1/incident/events/{task_id}", headers=self.reviewer_headers)
         self.assertEqual(events_response.status_code, 200)
-        event_types = {item["event_type"] for item in events_response.json()["items"]}
+        events_payload = events_response.json()
+        event_types = {item["event_type"] for item in events_payload["items"]}
         self.assertIn("INCIDENT_CREATED", event_types)
         self.assertIn("INCIDENT_CONTEXT_BUILT", event_types)
         self.assertIn("INCIDENT_ACTION_EXECUTED", event_types)
+        executed_events = [item for item in events_payload["items"] if item["event_type"] == "INCIDENT_ACTION_EXECUTED"]
+        self.assertEqual(executed_events[0]["tool_id"], "redmine.issue.create")
 
     def test_high_risk_incident_requires_approval_then_resumes(self) -> None:
         task_id = self._create_incident(severity="high", summary="customer-facing outage requires on-call coordination")

@@ -154,7 +154,7 @@
 - [x] `configs/model_registry.yaml` runtime loader 연결 및 provider selection logging 추가
 - [x] `task_kind=auto`를 heuristic에서 LLM intent classifier로 고도화
 - [x] LM Studio local provider 등록 및 intent classifier adapter 연결 (`http://localhost:1234`)
-- [ ] tool registry / capability schema 초안 작성
+- [x] tool registry / capability schema 초안 작성 (`configs/tool_registry.yaml`, `app/tool_registry.py`, `catalog.*`)
 - [ ] model registry selection을 실제 provider invocation에 연결
 - [ ] tool planning / execution adapter 공통 루프 정리
 - [ ] 최소 operator UI 설계 초안 작성

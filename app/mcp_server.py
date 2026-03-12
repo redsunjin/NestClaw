@@ -12,7 +12,7 @@ if __package__ in {None, ""}:
 from fastapi import HTTPException
 
 from app.auth import ActorContext, VALID_ROLES
-from app.main import build_approval_service, build_orchestration_service
+from app.main import build_approval_service, build_orchestration_service, build_tool_catalog_service
 
 
 SERVER_NAME = "newclaw-mcp"
@@ -65,6 +65,7 @@ class NewClawMcpServer:
     def __init__(self) -> None:
         self.orchestration_service = build_orchestration_service(sync_execution=True)
         self.approval_service = build_approval_service(sync_execution=True)
+        self.tool_catalog_service = build_tool_catalog_service()
         self.initialized = False
         self.tools = self._build_tools()
 
@@ -177,6 +178,39 @@ class NewClawMcpServer:
                 },
                 handler=self._handle_approval_reject,
             ),
+            "catalog.list": ToolSpec(
+                name="catalog.list",
+                title="List Registered Execution Tools",
+                description="List the policy-governed execution tools known to NewClaw.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "capability_family": {"type": "string"},
+                        "external_system": {"type": "string"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_catalog_list,
+            ),
+            "catalog.get": ToolSpec(
+                name="catalog.get",
+                title="Get Execution Tool Capability",
+                description="Fetch the capability metadata for one registered execution tool.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "tool_id": {"type": "string"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["tool_id", "actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_catalog_get,
+            ),
         }
 
     def _tool_result(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -244,6 +278,19 @@ class NewClawMcpServer:
         actor = self._tool_actor(arguments, default_role="approver")
         payload = {"acted_by": arguments.get("acted_by"), "comment": arguments.get("comment")}
         return _invoke(self.approval_service.reject, str(arguments.get("queue_id") or ""), payload, actor)
+
+    def _handle_catalog_list(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="requester")
+        return _invoke(
+            self.tool_catalog_service.list_tools,
+            arguments.get("capability_family"),
+            arguments.get("external_system"),
+            actor,
+        )
+
+    def _handle_catalog_get(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="requester")
+        return _invoke(self.tool_catalog_service.get_tool, str(arguments.get("tool_id") or ""), actor)
 
     def process_message(self, message: dict[str, Any]) -> dict[str, Any] | None:
         method = str(message.get("method") or "")

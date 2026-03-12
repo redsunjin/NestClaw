@@ -15,7 +15,7 @@
   - Redmine MCP live bridge 경로와 rehearsal script가 준비되어 있다.
 - 현재 한계:
   - classifier는 `task` / `incident` 분기까지만 담당하고, 실제 tool planning은 아직 없다.
-  - 다양한 도구를 설명하는 tool registry / capability schema가 아직 없다.
+  - tool registry / capability schema와 catalog 조회 표면은 생겼지만, planner가 그것을 아직 사용하지 않는다.
   - model registry selection이 실제 provider invocation으로 이어지지 않는다.
   - RAG 어댑터는 여전히 dry-run 중심이다.
   - Stage 8 전체 readiness는 sandbox/live env 부재로 `7/8` 상태다.
@@ -30,7 +30,7 @@
 ## 아직 못 하는 일
 1. 자연어 요청만으로 LLM이 의도를 분류하고 tool을 스스로 고르는 범용 agent 동작
 2. 실제 live RAG를 통한 사내 지식/시스템 신호 기반 reasoning
-3. tool registry / capability schema 기반으로 여러 도구를 선택하는 범용 agent 동작
+3. tool registry / capability schema를 planner가 사용해 여러 도구를 선택하는 범용 agent 동작
 4. 운영자가 쓰는 전용 GUI 콘솔
 
 ## 권장 구조
@@ -92,32 +92,26 @@ MCP 원칙:
 1. 모델 라우팅 실제 연결
 - `configs/model_registry.yaml` selection을 실제 provider invocation으로 이어 붙인다.
 
-2. tool registry / capability schema 고정
-- 어떤 도구를 어떤 입력/승인조건/출력계약으로 사용할지 표준화한다.
-
-3. action-card / tool planning 공통 루프 정리
+2. action-card / tool planning 공통 루프 정리
 - 현재 task/incident 분기 뒤의 실행 단계를 공통 planner/executor 계약으로 수렴시킨다.
 
-4. live RAG adapter 고도화
+3. live RAG adapter 고도화
 - dry-run evidence를 실제 retrieval/provider 호출로 바꾼다.
 
-5. operator UI 추가
+4. operator UI 추가
 - 마지막 단계로 최소 운영 콘솔을 붙인다.
 
 ## 다음 MWU 후보
 1. `agent-s6-provider-invocation`
 - 목적: model registry selection을 실제 provider adapter 호출로 연결
 
-2. `agent-s7-tool-registry`
-- 목적: 다양한 도구를 capability/approval schema로 고정
-
-3. `agent-s8-tool-planning-loop`
+2. `agent-s8-tool-planning-loop`
 - 목적: task/incident action-card를 공통 planner/executor 계약으로 수렴
 
-4. `agent-s9-live-rag`
+3. `agent-s9-live-rag`
 - 목적: retrieval / signals adapter를 dry-run에서 실제 live 호출로 확장
 
-5. `agent-s10-operator-ui`
+4. `agent-s10-operator-ui`
 - 목적: 최소 operator UI 설계/구현
 
 ## 판단 기준

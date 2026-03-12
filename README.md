@@ -182,7 +182,6 @@
 - local LM Studio(`http://localhost:1234`)를 intent classifier provider로 등록해 사용할 수 있음
 
 ### 10.2 아직 못 하는 것
-- tool registry / capability schema 기반의 범용 도구 선택
 - LLM 기반 tool selection / multi-step planning
 - live RAG 기반 reasoning
 - production-ready MCP host packaging / remote transport hardening
@@ -191,8 +190,9 @@
 ### 10.3 다음 고도화 방향
 - `코어 서비스 -> HTTP/CLI/MCP 공통 표면` 구조로 재구성
 - menu형 CLI를 유지하되, 별도로 비대화형 tool CLI를 제공
-- MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`를 직접 호출 가능하게 확장
-- 현재는 intent classifier까지만 live 시도하고 있으므로, 다음은 `tool registry + capability schema + provider/tool invocation`을 실제 실행 계층에 연결해야 한다
+- MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`, `catalog.*`를 직접 호출 가능하게 확장
+- `configs/tool_registry.yaml` 기반 execution tool catalog와 capability schema를 실제 실행 계층에 연결했다
+- 다음은 `model registry selection -> provider invocation`과 `tool planning / execution adapter` 공통 루프다
 - incident workflow는 broader execution agent의 첫 번째 high-risk vertical이며, 이후 일반 업무/운영 작업/티켓 처리 흐름으로 확장한다
 - 그 다음 단계는 action-card/tool planning 공통 루프와 최소 operator UI다
 - 상세 방향 문서: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
@@ -201,9 +201,11 @@
 - 서버: `app/main.py`
 - 서비스 계층: `app/services/orchestration_service.py`
 - 승인 서비스 계층: `app/services/approval_service.py`
+- 도구 카탈로그 서비스 계층: `app/services/tool_catalog_service.py`
 - 도구 CLI: `app/cli.py`
 - MCP server: `app/mcp_server.py`
 - 모델 레지스트리: `app/model_registry.py`
+- 도구 레지스트리: `app/tool_registry.py`
 - intent classifier: `app/intent_classifier.py`
 - 의존성: `requirements.txt`
 

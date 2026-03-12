@@ -12,6 +12,13 @@ from uuid import uuid4
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
+try:
+    import fastapi  # noqa: F401
+except Exception as exc:  # pragma: no cover - environment dependent
+    MCP_IMPORT_ERROR = exc
+else:
+    MCP_IMPORT_ERROR = None
+
 
 def _encode_message(payload: dict[str, object]) -> bytes:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -46,6 +53,7 @@ def _read_message(stream: object, timeout: float = 5.0) -> dict[str, object]:
     return json.loads(body.decode("utf-8"))
 
 
+@unittest.skipIf(MCP_IMPORT_ERROR is not None, f"runtime dependencies unavailable: {MCP_IMPORT_ERROR}")
 class TestMcpServerSmoke(unittest.TestCase):
     def setUp(self) -> None:
         self.db_path = f"/tmp/nestclaw-stage8-mcp-{uuid4().hex}.db"
@@ -116,8 +124,42 @@ class TestMcpServerSmoke(unittest.TestCase):
                 "approval.list",
                 "approval.approve",
                 "approval.reject",
+                "catalog.list",
+                "catalog.get",
             },
         )
+
+    def test_catalog_tools_return_registered_capabilities(self) -> None:
+        list_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 21,
+                "method": "tools/call",
+                "params": {
+                    "name": "catalog.list",
+                    "arguments": {"actor_id": "qa_user"},
+                },
+            }
+        )
+        list_payload = list_response["result"]["structuredContent"]
+        self.assertGreaterEqual(int(list_payload["count"]), 5)
+        tool_ids = {item["tool_id"] for item in list_payload["items"]}
+        self.assertIn("redmine.issue.create", tool_ids)
+
+        get_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 22,
+                "method": "tools/call",
+                "params": {
+                    "name": "catalog.get",
+                    "arguments": {"tool_id": "redmine.issue.create", "actor_id": "qa_user"},
+                },
+            }
+        )
+        get_payload = get_response["result"]["structuredContent"]
+        self.assertEqual(get_payload["adapter"], "redmine_mcp")
+        self.assertEqual(get_payload["method"], "issue.create")
 
     def test_agent_submit_and_status_tool_flow(self) -> None:
         response = self._request(

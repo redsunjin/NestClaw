@@ -12,7 +12,7 @@ if __package__ in {None, ""}:
 from fastapi import HTTPException
 
 from app.auth import ActorContext, VALID_ROLES
-from app.main import build_approval_service, build_orchestration_service
+from app.main import build_approval_service, build_orchestration_service, build_tool_catalog_service
 
 
 DEFAULT_ACTOR_ID = "user_cli"
@@ -22,6 +22,7 @@ VALID_INCIDENT_RUN_MODES = ("dry-run", "mcp-live", "live")
 
 CLI_ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=True)
 CLI_APPROVAL_SERVICE = build_approval_service(sync_execution=True)
+CLI_TOOL_CATALOG_SERVICE = build_tool_catalog_service()
 
 MENU_ACTOR_ID = DEFAULT_ACTOR_ID
 MENU_ACTOR_ROLE = DEFAULT_ACTOR_ROLE
@@ -135,6 +136,20 @@ def _reject_payload(
     return _invoke(CLI_APPROVAL_SERVICE.reject, queue_id, {"acted_by": acted_by, "comment": comment}, actor)
 
 
+def _tools_payload(
+    *,
+    actor_id: str,
+    actor_role: str,
+    tool_id: str | None = None,
+    capability_family: str | None = None,
+    external_system: str | None = None,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    if tool_id:
+        return _invoke(CLI_TOOL_CATALOG_SERVICE.get_tool, tool_id, actor)
+    return _invoke(CLI_TOOL_CATALOG_SERVICE.list_tools, capability_family, external_system, actor)
+
+
 def _print_status(payload: dict[str, Any]) -> None:
     print("\n[상태 보고]")
     print(f"- Task ID: {payload.get('task_id', '-')}")
@@ -177,9 +192,32 @@ def _print_approval_result(payload: dict[str, Any]) -> None:
     print()
 
 
+def _print_tools(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    if "items" in payload:
+        print("\n[도구 목록]")
+        for item in payload.get("items", []):
+            print(f"- {item.get('tool_id')}: {item.get('title')} ({item.get('external_system')}/{item.get('capability_family')})")
+        print()
+        return
+    print("\n[도구 상세]")
+    print(f"- Tool ID: {payload.get('tool_id', '-')}")
+    print(f"- 제목: {payload.get('title', '-')}")
+    print(f"- 외부 시스템: {payload.get('external_system', '-')}")
+    print(f"- 분류: {payload.get('capability_family', '-')}")
+    print(f"- 메서드: {payload.get('method', '-')}")
+    print(f"- Dry-run 지원: {payload.get('supports_dry_run', '-')}")
+    print()
+
+
 def _emit_payload(payload: dict[str, Any], *, as_json: bool, command: str) -> None:
     if as_json:
         print(json.dumps(payload, ensure_ascii=False))
+        return
+    if command == "tools":
+        _print_tools(payload)
         return
     if command == "events":
         _print_events(payload)
@@ -350,6 +388,14 @@ def build_parser() -> argparse.ArgumentParser:
     reject_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default="approver")
     reject_parser.add_argument("--json", action="store_true")
 
+    tools_parser = subparsers.add_parser("tools", help="list or inspect registered execution tools")
+    tools_parser.add_argument("--tool-id")
+    tools_parser.add_argument("--capability-family")
+    tools_parser.add_argument("--external-system")
+    tools_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    tools_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    tools_parser.add_argument("--json", action="store_true")
+
     return parser
 
 
@@ -413,6 +459,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             actor_role=args.actor_role,
         )
         _emit_payload(payload, as_json=args.json, command="reject")
+        return exit_code
+
+    if args.command == "tools":
+        payload, exit_code = _tools_payload(
+            actor_id=args.actor_id,
+            actor_role=args.actor_role,
+            tool_id=args.tool_id,
+            capability_family=args.capability_family,
+            external_system=args.external_system,
+        )
+        _emit_payload(payload, as_json=args.json, command="tools")
         return exit_code
 
     parser.print_help()

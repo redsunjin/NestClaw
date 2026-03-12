@@ -70,6 +70,13 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertIn("AGENT_ROUTED", event_types)
         self.assertIn("TASK_CREATED", event_types)
 
+    def test_tools_command_lists_registered_tools(self) -> None:
+        exit_code, payload = self._run_cli_json("tools", "--actor-id", "qa_user")
+        self.assertEqual(exit_code, 0)
+        self.assertGreaterEqual(int(payload["count"]), 5)
+        tool_ids = {item["tool_id"] for item in payload["items"]}
+        self.assertIn("redmine.issue.create", tool_ids)
+
     def test_approve_command_resumes_pending_task(self) -> None:
         exit_code, submit_payload = self._run_cli_json(
             "submit",
