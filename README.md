@@ -171,23 +171,26 @@
 
 ### 10.1 지금 실제로 할 수 있는 것
 - 하나의 agent 요청을 받아 일반 task 또는 incident workflow로 분기
+- `task_kind=auto` 요청을 LLM intent classifier + heuristic fallback으로 안전하게 분류
 - 회의요약 입력을 받아 액션 아이템 보고서 생성
 - incident 입력을 받아 context 집계, action card, 승인/실행, 보고서 흐름을 dry-run으로 재현
 - 승인 큐/이벤트 로그/audit/상태 조회를 일관된 경로로 처리
+- MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`를 호출 가능
 - Redmine MCP live bridge 및 rehearsal script를 통해 sandbox 연동 경로 준비
-- `configs/model_registry.yaml`를 runtime에서 읽고 provider selection을 status/event에 기록
+- `configs/model_registry.yaml`를 runtime에서 읽고 provider selection과 intent classification provenance를 status/event에 기록
 
 ### 10.2 아직 못 하는 것
-- LLM 기반 intent classification과 tool selection
+- LLM 기반 tool selection / multi-step planning
 - live RAG 기반 reasoning
-- MCP 표준 tool server 제공
+- production-ready MCP host packaging / remote transport hardening
 - 운영자용 전용 GUI 콘솔
 
 ### 10.3 다음 고도화 방향
 - `코어 서비스 -> HTTP/CLI/MCP 공통 표면` 구조로 재구성
 - menu형 CLI를 유지하되, 별도로 비대화형 tool CLI를 제공
 - MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`를 직접 호출 가능하게 확장
-- model registry 기반 provider selection은 연결됐지만, 실제 LLM 호출과 intent classifier는 아직 없다
+- 현재는 intent classifier까지만 live 시도하고 있으므로, 다음은 model registry selection을 실제 provider invocation에 연결해야 한다
+- 그 다음 단계는 action-card/tool planning 공통 루프와 최소 operator UI다
 - 상세 방향 문서: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
 
 코드 위치:
@@ -197,6 +200,7 @@
 - 도구 CLI: `app/cli.py`
 - MCP server: `app/mcp_server.py`
 - 모델 레지스트리: `app/model_registry.py`
+- intent classifier: `app/intent_classifier.py`
 - 의존성: `requirements.txt`
 
 ## 11) 로컬 실행 방법

@@ -152,9 +152,10 @@
 - [x] 비대화형 tool CLI 추가 (`submit/status/events/approve/reject --json`)
 - [x] MCP server 추가 (`agent.submit`, `agent.status`, `agent.events`, `approval.list/approve/reject`)
 - [x] `configs/model_registry.yaml` runtime loader 연결 및 provider selection logging 추가
-- [ ] `task_kind=auto`를 heuristic에서 LLM intent classifier로 고도화
+- [x] `task_kind=auto`를 heuristic에서 LLM intent classifier로 고도화
+- [ ] model registry selection을 실제 provider invocation에 연결
 - [ ] 최소 operator UI 설계 초안 작성
-- [ ] 방향 문서 고정 (`AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`)
+- [x] 방향 문서 고정 (`AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`)
 
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)

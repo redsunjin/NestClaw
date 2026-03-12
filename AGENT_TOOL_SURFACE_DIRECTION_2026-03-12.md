@@ -9,12 +9,13 @@
   - 일반 task와 incident workflow를 한 요청 경로에서 분기할 수 있다.
   - 회의요약 보고서 생성과 incident dry-run orchestration이 동작한다.
   - 승인 큐, RBAC, audit, retry, persistence, QA gate가 이미 들어가 있다.
+  - 비대화형 tool CLI가 있다. (`submit/status/events/approve/reject --json`)
+  - MCP server가 있다. (`agent.submit/status/events`, `approval.*`)
+  - model registry 기반 provider selection logging과 LLM intent classifier fallback 경로가 있다.
   - Redmine MCP live bridge 경로와 rehearsal script가 준비되어 있다.
 - 현재 한계:
-  - agent 판단은 아직 rule-based router 수준이다.
-  - 실제 LLM intent routing / planning / tool selection이 없다.
-  - CLI는 menu형 사용자 데모 도구이지, 비대화형 tool CLI가 아니다.
-  - MCP server가 없어 외부 AI가 표준 tool 호출 방식으로 붙을 수 없다.
+  - classifier는 `task` / `incident` 분기까지만 담당하고, 실제 tool planning은 아직 없다.
+  - model registry selection이 실제 provider invocation으로 이어지지 않는다.
   - RAG 어댑터는 여전히 dry-run 중심이다.
   - Stage 8 전체 readiness는 sandbox/live env 부재로 `7/8` 상태다.
 
@@ -28,7 +29,7 @@
 ## 아직 못 하는 일
 1. 자연어 요청만으로 LLM이 의도를 분류하고 tool을 스스로 고르는 범용 agent 동작
 2. 실제 live RAG를 통한 사내 지식/시스템 신호 기반 reasoning
-3. MCP 표준 tool server를 통한 외부 AI 직접 연동
+3. tool planning / execution card를 공통 루프로 돌리는 범용 agent 동작
 4. 운영자가 쓰는 전용 GUI 콘솔
 
 ## 권장 구조
@@ -87,38 +88,29 @@ MCP 원칙:
 - auth, approval, audit, idempotency는 HTTP/CLI와 동일 정책 사용
 
 ## 권장 실행 순서
-1. 서비스 계층 분리
-- `app/main.py`의 orchestration 로직을 `app/services/` 아래로 분리한다.
+1. 모델 라우팅 실제 연결
+- `configs/model_registry.yaml` selection을 실제 provider invocation으로 이어 붙인다.
 
-2. 비대화형 CLI 추가
-- 기존 `app/cli.py` menu 흐름과 별도로 tool-friendly CLI 엔트리포인트를 만든다.
+2. action-card / tool planning 공통 루프 정리
+- 현재 task/incident 분기 뒤의 실행 단계를 공통 planner/executor 계약으로 수렴시킨다.
 
-3. MCP server 추가
-- `agent.submit/status/events`, `approval.*`를 MCP tool로 노출한다.
+3. live RAG adapter 고도화
+- dry-run evidence를 실제 retrieval/provider 호출로 바꾼다.
 
-4. 모델 라우팅 실제 연결
-- `configs/model_registry.yaml`를 runtime에서 읽고 provider 선택 로그를 남긴다.
-
-5. rule-based router를 LLM router로 교체
-- `task_kind=auto` 분기를 heuristic에서 LLM intent classifier로 바꾼다.
-
-6. operator UI 추가
+4. operator UI 추가
 - 마지막 단계로 최소 운영 콘솔을 붙인다.
 
 ## 다음 MWU 후보
-1. `agent-s1-service-layer`
-- 목적: FastAPI handler에서 orchestration/service 로직 분리
+1. `agent-s6-provider-invocation`
+- 목적: model registry selection을 실제 provider adapter 호출로 연결
 
-2. `agent-s2-cli-tool`
-- 목적: 비대화형 CLI(`submit/status/events/approve/reject --json`) 추가
+2. `agent-s7-tool-planning-loop`
+- 목적: task/incident action-card를 공통 planner/executor 계약으로 수렴
 
-3. `agent-s3-mcp-server`
-- 목적: agent/approval tool을 MCP server로 노출
+3. `agent-s8-live-rag`
+- 목적: retrieval / signals adapter를 dry-run에서 실제 live 호출로 확장
 
-4. `agent-s4-model-routing`
-- 목적: model registry runtime loader + provider selection logging + intent classifier 연결
-
-5. `agent-s5-operator-ui`
+4. `agent-s9-operator-ui`
 - 목적: 최소 operator UI 설계/구현
 
 ## 판단 기준
