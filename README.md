@@ -193,6 +193,7 @@
 - 서비스 계층: `app/services/orchestration_service.py`
 - 승인 서비스 계층: `app/services/approval_service.py`
 - 도구 CLI: `app/cli.py`
+- MCP server: `app/mcp_server.py`
 - 의존성: `requirements.txt`
 
 ## 11) 로컬 실행 방법
@@ -217,6 +218,19 @@ python3 app/cli.py events --task-id <task_id> --actor-id qa_user --json
 ```bash
 python3 app/cli.py
 ```
+
+5. MCP stdio server 실행
+```bash
+python3 app/mcp_server.py
+```
+
+제공 tool:
+- `agent.submit`
+- `agent.status`
+- `agent.events`
+- `approval.list`
+- `approval.approve`
+- `approval.reject`
 
 3. 헬스체크
 ```bash

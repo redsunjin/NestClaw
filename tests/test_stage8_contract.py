@@ -36,10 +36,12 @@ class TestStage8Contract(unittest.TestCase):
         self.assertTrue(Path("app/incident_policy.py").is_file())
         self.assertTrue(Path("app/services/approval_service.py").is_file())
         self.assertTrue(Path("app/services/orchestration_service.py").is_file())
+        self.assertTrue(Path("app/mcp_server.py").is_file())
         self.assertTrue(Path("tests/test_incident_adapter_contract.py").is_file())
         self.assertTrue(Path("tests/test_agent_entrypoint_smoke.py").is_file())
         self.assertTrue(Path("tests/test_incident_runtime_smoke.py").is_file())
         self.assertTrue(Path("tests/test_tool_cli_smoke.py").is_file())
+        self.assertTrue(Path("tests/test_mcp_server_smoke.py").is_file())
         self.assertTrue(Path("tests/test_incident_policy_gate.py").is_file())
 
     def test_detailed_design_includes_required_contract_sections(self) -> None:
@@ -77,6 +79,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("tests.test_agent_entrypoint_smoke", source)
         self.assertIn("tests.test_incident_runtime_smoke", source)
         self.assertIn("tests.test_tool_cli_smoke", source)
+        self.assertIn("tests.test_mcp_server_smoke", source)
         self.assertIn("run_stage8_self_eval.sh", source)
         self.assertIn("run_stage8_sandbox_e2e.sh", source)
         self.assertIn("run_stage8_live_rehearsal.sh", source)
@@ -146,6 +149,18 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn('subparsers.add_parser("reject"', source)
         self.assertIn("build_orchestration_service(sync_execution=True)", source)
         self.assertIn("build_approval_service(sync_execution=True)", source)
+
+    def test_mcp_server_exposes_required_tools(self) -> None:
+        source = Path("app/mcp_server.py").read_text(encoding="utf-8")
+        self.assertIn("SUPPORTED_PROTOCOL_VERSIONS", source)
+        self.assertIn('"agent.submit"', source)
+        self.assertIn('"agent.status"', source)
+        self.assertIn('"agent.events"', source)
+        self.assertIn('"approval.list"', source)
+        self.assertIn('"approval.approve"', source)
+        self.assertIn('"approval.reject"', source)
+        self.assertIn('method == "tools/list"', source)
+        self.assertIn('method == "tools/call"', source)
 
     def test_live_rehearsal_runbook_mentions_http_bridge_contract(self) -> None:
         source = Path("STAGE8_LIVE_REHEARSAL_RUNBOOK_2026-03-07.md").read_text(encoding="utf-8")

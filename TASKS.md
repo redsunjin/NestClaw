@@ -150,7 +150,7 @@
 ### F) Agent Tool Surface Follow-up (2026-03-12)
 - [x] 서비스 계층 분리 (`app/main.py` -> `app/services/orchestration_service.py`)
 - [x] 비대화형 tool CLI 추가 (`submit/status/events/approve/reject --json`)
-- [ ] MCP server 추가 (`agent.submit`, `agent.status`, `agent.events`, `approval.list/approve/reject`)
+- [x] MCP server 추가 (`agent.submit`, `agent.status`, `agent.events`, `approval.list/approve/reject`)
 - [ ] `configs/model_registry.yaml` runtime loader 연결 및 provider selection logging 추가
 - [ ] `task_kind=auto`를 heuristic에서 LLM intent classifier로 고도화
 - [ ] 최소 operator UI 설계 초안 작성

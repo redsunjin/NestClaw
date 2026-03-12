@@ -171,6 +171,7 @@ check_stage_8() {
   run_optional_check "stage8 agent facade runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_agent_entrypoint_smoke
   run_optional_check "stage8 incident runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_incident_runtime_smoke
   run_optional_check "stage8 tool cli runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_tool_cli_smoke
+  run_optional_check "stage8 mcp server smoke tests (requires fastapi stack)" python3 -m unittest tests.test_mcp_server_smoke
   if is_truthy "${SKIP_STAGE8_SELF_EVAL}"; then
     skip "stage8 grouped self evaluation baseline"
     echo "  - reason: nested stage8 cycle requested self-eval skip" | tee -a "$REPORT_FILE"
