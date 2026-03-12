@@ -116,9 +116,10 @@
   - 기본 사용자 진입점을 `agent submit/status/events`로 통합 (`app/cli.py`, `API_CONTRACT.md`)
   - agent facade runtime smoke 및 QA cycle 고정 (`tests/test_agent_entrypoint_smoke.py`, `scripts/run_dev_qa_cycle.sh`)
   - `task_kind=auto` 경로를 LLM intent classifier + heuristic fallback으로 고도화 (`app/intent_classifier.py`)
+  - LM Studio local provider 등록 및 OpenAI-compatible local adapter 연결 (`http://localhost:1234`)
 - 현재 진단:
   - 현재 제품은 "오케스트레이션 백엔드 + 단일 facade + classifier" 수준이다.
-  - MCP server, model registry runtime selection logging, intent classification provenance까지는 연결됐다.
+  - MCP server, model registry runtime selection logging, intent classification provenance, LM Studio local adapter까지는 연결됐다.
   - 아직 실제 provider invocation, live RAG, 범용 tool planning, operator UI는 없다.
 - 다음 우선순위:
   1. model registry selection을 실제 provider invocation과 연결

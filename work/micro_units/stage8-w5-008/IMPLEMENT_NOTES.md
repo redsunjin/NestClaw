@@ -15,12 +15,12 @@
   - runtime provenance가 `local_lmstudio`로 기록되는지 검증 업데이트
 - [x] `tests/test_stage8_contract.py`
   - LM Studio env/helper/config wiring 계약 추가
-- [ ] `README.md`
-  - closeout 단계에서 사용법과 env 예시 반영 예정
-- [ ] `TASKS.md`
-  - closeout 단계에서 LM Studio provider support 완료 반영 예정
-- [ ] `NEXT_STAGE_PLAN_2026-02-24.md`
-  - closeout 단계에서 current diagnosis 업데이트 예정
+- [x] `README.md`
+  - LM Studio env 예시와 timeout/model autodiscovery 사용법 반영
+- [x] `TASKS.md`
+  - LM Studio local provider support 완료 반영
+- [x] `NEXT_STAGE_PLAN_2026-02-24.md`
+  - current diagnosis에 LM Studio local adapter 반영
 - [x] `work/micro_units/stage8-w5-008/*`
   - plan/review/implement/evaluate 자산 생성
 

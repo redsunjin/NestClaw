@@ -178,6 +178,7 @@
 - MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`를 호출 가능
 - Redmine MCP live bridge 및 rehearsal script를 통해 sandbox 연동 경로 준비
 - `configs/model_registry.yaml`를 runtime에서 읽고 provider selection과 intent classification provenance를 status/event에 기록
+- local LM Studio(`http://localhost:1234`)를 intent classifier provider로 등록해 사용할 수 있음
 
 ### 10.2 아직 못 하는 것
 - LLM 기반 tool selection / multi-step planning
@@ -230,6 +231,24 @@ python3 app/cli.py
 ```bash
 python3 app/mcp_server.py
 ```
+
+6. LM Studio intent classifier 사용
+```bash
+export NEWCLAW_ENABLE_LLM_INTENT=1
+export NEWCLAW_LMSTUDIO_BASE_URL=http://localhost:1234
+export NEWCLAW_INTENT_CLASSIFIER_TIMEOUT=20
+
+python3 app/cli.py submit \
+  --requested-by qa_user \
+  --task-kind auto \
+  --request-text "billing-api 장애 대응 티켓을 생성해줘" \
+  --metadata-json '{"service":"billing-api","severity":"low","time_window":"15m"}' \
+  --json
+```
+
+참고:
+- LM Studio provider는 `model: auto`로 등록되어 있어서 `/v1/models`의 첫 번째 loaded model을 사용한다.
+- loaded model 응답이 느리면 `intent_classification.source=llm_error_fallback`으로 떨어질 수 있으니 `NEWCLAW_INTENT_CLASSIFIER_TIMEOUT`을 늘리거나 더 작은 모델을 먼저 올리는 편이 낫다.
 
 제공 tool:
 - `agent.submit`

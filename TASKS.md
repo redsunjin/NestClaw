@@ -153,6 +153,7 @@
 - [x] MCP server 추가 (`agent.submit`, `agent.status`, `agent.events`, `approval.list/approve/reject`)
 - [x] `configs/model_registry.yaml` runtime loader 연결 및 provider selection logging 추가
 - [x] `task_kind=auto`를 heuristic에서 LLM intent classifier로 고도화
+- [x] LM Studio local provider 등록 및 intent classifier adapter 연결 (`http://localhost:1234`)
 - [ ] model registry selection을 실제 provider invocation에 연결
 - [ ] 최소 operator UI 설계 초안 작성
 - [x] 방향 문서 고정 (`AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`)
