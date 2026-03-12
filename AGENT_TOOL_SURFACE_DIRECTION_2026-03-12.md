@@ -16,7 +16,7 @@
 - 현재 한계:
   - classifier는 `task` / `incident` 분기까지만 담당하고, 실제 tool planning은 아직 없다.
   - tool registry / capability schema와 catalog 조회 표면은 생겼지만, planner가 그것을 아직 사용하지 않는다.
-  - model registry selection이 실제 provider invocation으로 이어지지 않는다.
+  - summary workflow를 제외하면 model registry selection이 아직 provider invocation으로 넓게 이어지지 않는다.
   - RAG 어댑터는 여전히 dry-run 중심이다.
   - Stage 8 전체 readiness는 sandbox/live env 부재로 `7/8` 상태다.
 
@@ -89,11 +89,11 @@ MCP 원칙:
 - auth, approval, audit, idempotency는 HTTP/CLI와 동일 정책 사용
 
 ## 권장 실행 순서
-1. 모델 라우팅 실제 연결
-- `configs/model_registry.yaml` selection을 실제 provider invocation으로 이어 붙인다.
-
-2. action-card / tool planning 공통 루프 정리
+1. action-card / tool planning 공통 루프 정리
 - 현재 task/incident 분기 뒤의 실행 단계를 공통 planner/executor 계약으로 수렴시킨다.
+
+2. incident workflow provider invocation 확장
+- 현재 summary path에만 붙은 live/fallback 호출을 incident planning/reporting 쪽으로 넓힌다.
 
 3. live RAG adapter 고도화
 - dry-run evidence를 실제 retrieval/provider 호출로 바꾼다.
@@ -102,16 +102,16 @@ MCP 원칙:
 - 마지막 단계로 최소 운영 콘솔을 붙인다.
 
 ## 다음 MWU 후보
-1. `agent-s6-provider-invocation`
-- 목적: model registry selection을 실제 provider adapter 호출로 연결
-
-2. `agent-s8-tool-planning-loop`
+1. `agent-s8-tool-planning-loop`
 - 목적: task/incident action-card를 공통 planner/executor 계약으로 수렴
 
-3. `agent-s9-live-rag`
+2. `agent-s9-incident-provider-invocation`
+- 목적: summary path에 한정된 provider invocation을 incident planning/reporting 쪽으로 확장
+
+3. `agent-s10-live-rag`
 - 목적: retrieval / signals adapter를 dry-run에서 실제 live 호출로 확장
 
-4. `agent-s10-operator-ui`
+4. `agent-s11-operator-ui`
 - 목적: 최소 operator UI 설계/구현
 
 ## 판단 기준

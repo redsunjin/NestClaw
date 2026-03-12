@@ -62,12 +62,17 @@ class TestModelRegistryRuntime(unittest.TestCase):
         selection = final_payload["provider_selection"]
         self.assertEqual(selection["provider_id"], "api_general")
         self.assertEqual(selection["task_type"], "summarize")
+        self.assertEqual(final_payload["provider_invocation"]["result_source"], "template_fallback")
+        self.assertEqual(final_payload["provider_invocation"]["fallback_reason"], "live_summary_disabled")
 
         events_response = self.client.get(f"/api/v1/agent/events/{task_id}", headers=self.reviewer_headers)
         self.assertEqual(events_response.status_code, 200)
         selected_events = [item for item in events_response.json()["items"] if item["event_type"] == "MODEL_PROVIDER_SELECTED"]
         self.assertEqual(len(selected_events), 1)
         self.assertEqual(selected_events[0]["provider_id"], "api_general")
+        invoked_events = [item for item in events_response.json()["items"] if item["event_type"] == "MODEL_PROVIDER_INVOKED"]
+        self.assertEqual(len(invoked_events), 1)
+        self.assertEqual(invoked_events[0]["result_source"], "template_fallback")
 
     def test_incident_status_and_events_include_provider_selection(self) -> None:
         response = self.client.post(

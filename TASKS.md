@@ -155,7 +155,7 @@
 - [x] `task_kind=auto`를 heuristic에서 LLM intent classifier로 고도화
 - [x] LM Studio local provider 등록 및 intent classifier adapter 연결 (`http://localhost:1234`)
 - [x] tool registry / capability schema 초안 작성 (`configs/tool_registry.yaml`, `app/tool_registry.py`, `catalog.*`)
-- [ ] model registry selection을 실제 provider invocation에 연결
+- [x] model registry selection을 실제 provider invocation에 연결 (`meeting_summary` path + safe fallback)
 - [ ] tool planning / execution adapter 공통 루프 정리
 - [ ] 최소 operator UI 설계 초안 작성
 - [x] 방향 문서 고정 (`AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`)

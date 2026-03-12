@@ -179,6 +179,7 @@
 - MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`를 호출 가능
 - Redmine MCP live bridge 및 rehearsal script를 통해 sandbox 연동 경로 준비
 - `configs/model_registry.yaml`를 runtime에서 읽고 provider selection과 intent classification provenance를 status/event에 기록
+- `meeting_summary` workflow는 provider selection 뒤 실제 provider invocation을 시도하고 실패 시 템플릿 renderer로 fallback
 - local LM Studio(`http://localhost:1234`)를 intent classifier provider로 등록해 사용할 수 있음
 
 ### 10.2 아직 못 하는 것
@@ -192,7 +193,8 @@
 - menu형 CLI를 유지하되, 별도로 비대화형 tool CLI를 제공
 - MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`, `catalog.*`를 직접 호출 가능하게 확장
 - `configs/tool_registry.yaml` 기반 execution tool catalog와 capability schema를 실제 실행 계층에 연결했다
-- 다음은 `model registry selection -> provider invocation`과 `tool planning / execution adapter` 공통 루프다
+- `model registry selection -> provider invocation`은 summary path에 연결했다
+- 다음은 `tool planning / execution adapter` 공통 루프와 incident/provider 확장이다
 - incident workflow는 broader execution agent의 첫 번째 high-risk vertical이며, 이후 일반 업무/운영 작업/티켓 처리 흐름으로 확장한다
 - 그 다음 단계는 action-card/tool planning 공통 루프와 최소 operator UI다
 - 상세 방향 문서: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
@@ -205,6 +207,7 @@
 - 도구 CLI: `app/cli.py`
 - MCP server: `app/mcp_server.py`
 - 모델 레지스트리: `app/model_registry.py`
+- provider invoker: `app/provider_invoker.py`
 - 도구 레지스트리: `app/tool_registry.py`
 - intent classifier: `app/intent_classifier.py`
 - 의존성: `requirements.txt`
@@ -254,6 +257,11 @@ python3 app/cli.py submit \
 참고:
 - LM Studio provider는 `model: auto`로 등록되어 있어서 `/v1/models`의 첫 번째 loaded model을 사용한다.
 - loaded model 응답이 느리면 `intent_classification.source=llm_error_fallback`으로 떨어질 수 있으니 `NEWCLAW_INTENT_CLASSIFIER_TIMEOUT`을 늘리거나 더 작은 모델을 먼저 올리는 편이 낫다.
+- summary path까지 local endpoint로 시험하려면:
+```bash
+export NEWCLAW_ENABLE_LLM_SUMMARY=1
+export NEWCLAW_OPENAI_BASE_URL=http://localhost:1234
+```
 
 제공 tool:
 - `agent.submit`

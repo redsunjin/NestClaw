@@ -26,6 +26,7 @@ from app.incident_rag import fetch_knowledge_evidence, fetch_system_signals
 from app.intent_classifier import IntentClassifier
 from app.model_registry import load_model_registry, select_provider
 from app.persistence import create_state_store
+from app.provider_invoker import ProviderInvoker
 from app.services import (
     ApprovalService,
     ApprovalServiceDeps,
@@ -139,6 +140,7 @@ def _build_incident_adapter_registry() -> dict[str, Any]:
 INCIDENT_ADAPTERS = _build_incident_adapter_registry()
 MODEL_REGISTRY = load_model_registry()
 TOOL_REGISTRY = load_tool_registry()
+PROVIDER_INVOKER = ProviderInvoker()
 INTENT_CLASSIFIER = IntentClassifier(MODEL_REGISTRY)
 
 
@@ -501,8 +503,7 @@ def _extract_points(notes: str, limit: int = 5) -> list[str]:
     return lines[:limit]
 
 
-def _render_meeting_summary(task: dict[str, Any]) -> str:
-    payload = task["input"]
+def _render_meeting_summary_from_input(payload: dict[str, Any]) -> str:
     points = _extract_points(str(payload["notes"]))
     if not points:
         raise ValueError("notes must include at least one meaningful line")
@@ -539,6 +540,10 @@ def _render_meeting_summary(task: dict[str, Any]) -> str:
         ]
     )
     return "\n".join(report).strip() + "\n"
+
+
+def _render_meeting_summary(task: dict[str, Any]) -> str:
+    return _render_meeting_summary_from_input(dict(task["input"]))
 
 
 def _create_approval_item(
@@ -647,18 +652,42 @@ def _execute_once(task_id: str) -> bool:
         template_type = task["template_type"]
         if template_type != "meeting_summary":
             raise ValueError(f"unsupported template_type at runtime: {template_type}")
-        report_text = _render_meeting_summary(task)
+        provider_selection = dict(task.get("provider_selection") or {})
+        task_input = dict(task["input"])
+
+    summary_result = PROVIDER_INVOKER.invoke_meeting_summary(
+        task_input=task_input,
+        provider_selection=provider_selection,
+        fallback_renderer=_render_meeting_summary_from_input,
+    )
+    report_text = summary_result.output_text
 
     report_path = _write_report(task_id, report_text)
 
     with STORE_LOCK:
         task = TASKS[task_id]
+        invocation = summary_result.invocation.as_dict()
+        task["provider_invocation"] = invocation
+        task["updated_at"] = _now_iso()
+        _persist_task(task)
+        _log_event(
+            task_id,
+            "MODEL_PROVIDER_INVOKED",
+            provider_id=invocation.get("provider_id"),
+            provider_type=invocation.get("provider_type"),
+            engine=invocation.get("engine"),
+            requested_model=invocation.get("requested_model"),
+            resolved_model=invocation.get("resolved_model"),
+            invoked=invocation.get("invoked"),
+            result_source=invocation.get("result_source"),
+            fallback_reason=invocation.get("fallback_reason"),
+        )
         _set_stage(task, "reviewer")
         if "# 회의 결과 요약" not in report_text:
             raise ValueError("review failed: report header missing")
 
         _set_stage(task, "reporter")
-        task["result"] = {"report_path": report_path}
+        task["result"] = {"report_path": report_path, "provider_invocation": invocation}
         task["completed_at"] = _now_iso()
         _set_status(task, TaskStatus.DONE, next_action="none")
     return True

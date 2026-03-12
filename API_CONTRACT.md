@@ -262,6 +262,7 @@ Task 이벤트 로그를 조회한다.
 - `task_kind=auto`는 현재 LLM intent classifier + heuristic fallback으로 분류한다.
 - execution tool catalog는 `configs/tool_registry.yaml` 기반으로 조회 가능하고, broader planner / execution adapter 일반화는 후속 단계 범위다.
 - broader tool registry / planner / execution adapter 비전 중 `tool registry`는 현재 구현됐고, planner / execution adapter 일반화는 후속 단계 범위다.
+- `meeting_summary`는 provider selection 이후 실제 provider invocation을 시도하고, 실패 시 템플릿 renderer로 fallback 한다.
 
 ## 4.10 GET `/api/v1/agent/status/{task_id}`
 workflow 종류를 몰라도 단일 경로로 상태를 조회한다.
@@ -275,7 +276,11 @@ workflow 종류를 몰라도 단일 경로로 상태를 조회한다.
   "status": "RUNNING",
   "current_stage": "executor",
   "last_event_at": "2026-03-11T03:00:04+00:00",
-  "next_action": "wait_for_completion"
+  "next_action": "wait_for_completion",
+  "provider_invocation": {
+    "result_source": "template_fallback",
+    "fallback_reason": "live_summary_disabled"
+  }
 }
 ```
 

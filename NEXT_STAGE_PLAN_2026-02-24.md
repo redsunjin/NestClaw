@@ -124,10 +124,11 @@
   - 현재 제품은 "오케스트레이션 백엔드 + 단일 facade + classifier" 수준이다.
   - MCP server, model registry runtime selection logging, intent classification provenance, LM Studio local adapter까지는 연결됐다.
   - tool registry/capability schema와 catalog surface(API/CLI/MCP)는 연결됐다.
-  - 아직 실제 provider invocation, live RAG, 범용 tool planning, operator UI는 없다.
+  - summary workflow는 실제 provider invocation + fallback까지 연결됐다.
+  - 아직 incident/provider 확장, live RAG, 범용 tool planning, operator UI는 없다.
 - 다음 우선순위:
-  1. model registry selection과 tool selection을 실제 provider/tool invocation과 연결
-  2. action-card / tool planning 공통 루프를 정리
+  1. action-card / tool planning 공통 루프를 정리
+  2. incident workflow에도 provider invocation을 연결
   3. live RAG adapter를 실제 retrieval/provider 호출로 확장
   4. 최소 operator UI 설계/구현
   5. sandbox/live rehearsal env를 넣어 운영 검증을 닫기
