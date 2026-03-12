@@ -22,14 +22,27 @@ class TestToolRegistryContract(unittest.TestCase):
         self.assertIn("project_id", capability.required_payload_fields)
         self.assertTrue(capability.supports_dry_run)
 
+    def test_load_tool_registry_contains_internal_summary_capability(self) -> None:
+        registry = load_tool_registry()
+        capability = get_tool_capability(registry, "internal.summary.generate")
+
+        self.assertEqual(capability.adapter, "provider_invoker")
+        self.assertEqual(capability.method, "summary.generate")
+        self.assertEqual(capability.external_system, "internal")
+        self.assertEqual(capability.capability_family, "content_generation")
+        self.assertIn("meeting_title", capability.required_payload_fields)
+        self.assertFalse(capability.supports_dry_run)
+
     def test_list_tool_capabilities_supports_filters(self) -> None:
         registry = load_tool_registry()
 
         redmine_tools = list_tool_capabilities(registry, external_system="redmine")
         ticketing_tools = list_tool_capabilities(registry, capability_family="ticketing")
+        internal_tools = list_tool_capabilities(registry, external_system="internal")
 
         self.assertGreaterEqual(len(redmine_tools), 5)
         self.assertEqual(len(redmine_tools), len(ticketing_tools))
+        self.assertEqual([item.tool_id for item in internal_tools], ["internal.summary.generate"])
 
 
 if __name__ == "__main__":

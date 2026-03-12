@@ -98,8 +98,13 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
         with main_module.STORE_LOCK:
             task = dict(main_module.TASKS[task_id])
         action_cards = list(task.get("action_cards") or [])
+        planned_actions = list(task.get("planned_actions") or [])
+        action_results = list(task.get("action_results") or [])
         self.assertEqual(action_cards[0]["tool_id"], "redmine.issue.create")
+        self.assertEqual(planned_actions[0]["tool_id"], "redmine.issue.create")
+        self.assertEqual(planned_actions[0]["execution_call"]["adapter"], "redmine_mcp")
         self.assertEqual(action_cards[0]["mcp_call"]["adapter"], "redmine_mcp")
+        self.assertEqual(action_results[0]["tool_id"], "redmine.issue.create")
 
         events_response = self.client.get(f"/api/v1/incident/events/{task_id}", headers=self.reviewer_headers)
         self.assertEqual(events_response.status_code, 200)
@@ -108,6 +113,7 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
         self.assertIn("INCIDENT_CREATED", event_types)
         self.assertIn("INCIDENT_CONTEXT_BUILT", event_types)
         self.assertIn("INCIDENT_ACTION_EXECUTED", event_types)
+        self.assertIn("PLANNED_ACTION_EXECUTED", event_types)
         executed_events = [item for item in events_payload["items"] if item["event_type"] == "INCIDENT_ACTION_EXECUTED"]
         self.assertEqual(executed_events[0]["tool_id"], "redmine.issue.create")
 

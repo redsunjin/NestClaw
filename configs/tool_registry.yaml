@@ -1,5 +1,17 @@
 version: 1
 tools:
+  - id: internal.summary.generate
+    title: Generate meeting summary report
+    description: Generate a markdown meeting summary report using the selected provider with safe fallback.
+    adapter: provider_invoker
+    method: summary.generate
+    action_type: internal_summary_generate
+    external_system: internal
+    capability_family: content_generation
+    default_risk_level: low
+    default_approval_required: false
+    supports_dry_run: false
+    required_payload_fields: meeting_title,meeting_date,participants,notes
   - id: redmine.issue.create
     title: Create Redmine incident issue
     description: Create an incident issue in Redmine for follow-up and coordination.

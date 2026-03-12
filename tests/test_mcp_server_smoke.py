@@ -142,8 +142,9 @@ class TestMcpServerSmoke(unittest.TestCase):
             }
         )
         list_payload = list_response["result"]["structuredContent"]
-        self.assertGreaterEqual(int(list_payload["count"]), 5)
+        self.assertGreaterEqual(int(list_payload["count"]), 6)
         tool_ids = {item["tool_id"] for item in list_payload["items"]}
+        self.assertIn("internal.summary.generate", tool_ids)
         self.assertIn("redmine.issue.create", tool_ids)
 
         get_response = self._request(

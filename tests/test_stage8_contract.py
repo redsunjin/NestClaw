@@ -224,7 +224,13 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("PROVIDER_INVOKER = ProviderInvoker()", main_source)
         self.assertIn("MODEL_PROVIDER_INVOKED", main_source)
         self.assertIn("invoke_meeting_summary", main_source)
+        self.assertIn("internal.summary.generate", main_source)
+        self.assertIn("planned_actions", main_source)
+        self.assertIn("execution_call", main_source)
+        self.assertIn("PLANNED_ACTION_EXECUTED", main_source)
         self.assertIn("provider_invocation", service_source)
+        self.assertIn("planned_actions", service_source)
+        self.assertIn("action_results", service_source)
         self.assertIn("NEWCLAW_ENABLE_LLM_SUMMARY", invoker_source)
         self.assertIn("result_source", invoker_source)
 
@@ -238,6 +244,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn('"tool_id": capability.tool_id', main_source)
         self.assertIn("CLI_TOOL_CATALOG_SERVICE", cli_source)
         self.assertIn("catalog.list", mcp_source)
+        self.assertIn("internal.summary.generate", registry_source)
         self.assertIn("redmine.issue.create", registry_source)
         self.assertIn("required_payload_fields", registry_source)
 

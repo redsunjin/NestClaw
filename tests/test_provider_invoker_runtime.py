@@ -57,6 +57,9 @@ class TestProviderInvokerRuntime(unittest.TestCase):
         payload = self._wait_agent_status(task_id, {"DONE"})
         self.assertIsNotNone(payload)
         self.assertEqual(payload["status"], "DONE")
+        self.assertEqual(payload["planned_actions"][0]["tool_id"], "internal.summary.generate")
+        self.assertEqual(payload["planned_actions"][0]["execution_call"]["adapter"], "provider_invoker")
+        self.assertEqual(payload["action_results"][0]["tool_id"], "internal.summary.generate")
         self.assertEqual(payload["provider_invocation"]["result_source"], "template_fallback")
         self.assertEqual(payload["provider_invocation"]["fallback_reason"], "live_summary_disabled")
 
@@ -86,6 +89,8 @@ class TestProviderInvokerRuntime(unittest.TestCase):
                 payload = self._wait_agent_status(task_id, {"DONE"})
         self.assertIsNotNone(payload)
         self.assertEqual(payload["status"], "DONE")
+        self.assertEqual(payload["planned_actions"][0]["tool_id"], "internal.summary.generate")
+        self.assertEqual(payload["action_results"][0]["mode"], "live_provider")
         self.assertEqual(payload["provider_invocation"]["result_source"], "live_provider")
         self.assertTrue(payload["provider_invocation"]["invoked"])
         report_path = payload["result"]["report_path"]

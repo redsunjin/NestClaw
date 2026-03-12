@@ -437,6 +437,39 @@ def _incident_ticket_tool_id() -> str:
     return tool_id or "redmine.issue.create"
 
 
+def _task_summary_tool_id() -> str:
+    tool_id = str(os.getenv("NEWCLAW_TASK_SUMMARY_TOOL_ID") or "internal.summary.generate").strip()
+    return tool_id or "internal.summary.generate"
+
+
+def _build_task_planned_actions(task: dict[str, Any]) -> list[dict[str, Any]]:
+    try:
+        capability = get_tool_capability(TOOL_REGISTRY, _task_summary_tool_id())
+    except ToolRegistryError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+    execution_call = {
+        "adapter": capability.adapter,
+        "method": capability.method,
+        "supports_dry_run": capability.supports_dry_run,
+        "payload": dict(task.get("input") or {}),
+    }
+    return [
+        {
+            "action_id": f"act_{uuid4().hex[:12]}",
+            "title": capability.title,
+            "action_type": capability.action_type,
+            "tool_id": capability.tool_id,
+            "tool_family": capability.capability_family,
+            "external_system": capability.external_system,
+            "risk_level": capability.default_risk_level,
+            "approval_required": capability.default_approval_required,
+            "tool_capability": capability.as_dict(),
+            "execution_call": execution_call,
+        }
+    ]
+
+
 def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
     incident = task.get("incident") or {}
     context = task.get("incident_context") or {}
@@ -456,6 +489,12 @@ def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
     }
     if str(incident.get("source") or "").strip().lower() == "simulate_mcp_timeout":
         payload["simulate_timeout"] = True
+    execution_call = {
+        "adapter": capability.adapter,
+        "method": capability.method,
+        "supports_dry_run": capability.supports_dry_run,
+        "payload": payload,
+    }
 
     return [
         {
@@ -470,12 +509,8 @@ def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
             "approval_required": capability.default_approval_required or _incident_requires_approval(risk_level),
             "evidence_links": evidence_links,
             "tool_capability": capability.as_dict(),
-            "mcp_call": {
-                "adapter": capability.adapter,
-                "method": capability.method,
-                "supports_dry_run": capability.supports_dry_run,
-                "payload": payload,
-            },
+            "execution_call": execution_call,
+            "mcp_call": dict(execution_call),
         }
     ]
 
@@ -617,6 +652,111 @@ def _write_report(task_id: str, report_text: str, *, filename: str = "report.md"
     return str(report_path)
 
 
+def _execution_call_for_action(planned_action: dict[str, Any]) -> dict[str, Any]:
+    call = dict(planned_action.get("execution_call") or {})
+    if call:
+        return call
+    return dict(planned_action.get("mcp_call") or {})
+
+
+def _dispatch_planned_action(
+    task: dict[str, Any],
+    planned_action: dict[str, Any],
+    *,
+    actor_context: dict[str, Any] | None = None,
+    mcp_dry_run: bool = True,
+) -> dict[str, Any]:
+    task_id = str(task.get("task_id") or "")
+    execution_call = _execution_call_for_action(planned_action)
+    adapter_name = str(execution_call.get("adapter") or "").strip()
+    method = str(execution_call.get("method") or "").strip()
+    payload = dict(execution_call.get("payload") or {})
+    if bool(payload.get("simulate_timeout")):
+        raise TimeoutError("simulated incident mcp timeout")
+
+    if adapter_name == "provider_invoker":
+        if method != "summary.generate":
+            raise RuntimeError(f"unsupported provider_invoker method: {method}")
+        summary_result = PROVIDER_INVOKER.invoke_meeting_summary(
+            task_input=payload,
+            provider_selection=dict(task.get("provider_selection") or {}),
+            fallback_renderer=_render_meeting_summary_from_input,
+        )
+        invocation = summary_result.invocation.as_dict()
+        _log_event(
+            task_id,
+            "MODEL_PROVIDER_INVOKED",
+            provider_id=invocation.get("provider_id"),
+            provider_type=invocation.get("provider_type"),
+            engine=invocation.get("engine"),
+            requested_model=invocation.get("requested_model"),
+            resolved_model=invocation.get("resolved_model"),
+            invoked=invocation.get("invoked"),
+            result_source=invocation.get("result_source"),
+            fallback_reason=invocation.get("fallback_reason"),
+        )
+        _log_event(
+            task_id,
+            "PLANNED_ACTION_EXECUTED",
+            action_id=planned_action.get("action_id"),
+            tool_id=planned_action.get("tool_id"),
+            adapter=adapter_name,
+            method=method,
+            mode=invocation.get("result_source"),
+        )
+        return {
+            "action_id": planned_action.get("action_id"),
+            "status": "generated",
+            "tool_id": planned_action.get("tool_id"),
+            "adapter": adapter_name,
+            "method": method,
+            "mode": invocation.get("result_source"),
+            "provider_invocation": invocation,
+            "output_text": summary_result.output_text,
+        }
+
+    adapter = INCIDENT_ADAPTERS.get(adapter_name)
+    if adapter is None:
+        raise RuntimeError(f"incident adapter not found: {adapter_name}")
+    action_actor_context = dict(actor_context or {"actor_id": task.get("requested_by"), "actor_role": "requester"})
+    mcp_result = adapter(
+        method=method,
+        payload=payload,
+        actor_context=action_actor_context,
+        dry_run=mcp_dry_run,
+        timeout_seconds=3.0,
+    )
+    result = {
+        "action_id": planned_action.get("action_id"),
+        "status": "dry-run" if mcp_dry_run else "executed",
+        "tool_id": planned_action.get("tool_id"),
+        "adapter": adapter_name,
+        "method": method,
+        "mode": mcp_result.get("mode"),
+        "external_ref": mcp_result.get("response", {}).get("external_ref"),
+    }
+    _log_event(
+        task_id,
+        "INCIDENT_ACTION_EXECUTED",
+        action_id=planned_action.get("action_id"),
+        tool_id=planned_action.get("tool_id"),
+        adapter=adapter_name,
+        method=method,
+        mode=mcp_result.get("mode"),
+        external_ref=mcp_result.get("response", {}).get("external_ref"),
+    )
+    _log_event(
+        task_id,
+        "PLANNED_ACTION_EXECUTED",
+        action_id=planned_action.get("action_id"),
+        tool_id=planned_action.get("tool_id"),
+        adapter=adapter_name,
+        method=method,
+        mode=mcp_result.get("mode"),
+    )
+    return result
+
+
 def _execute_once(task_id: str) -> bool:
     # Returns True when execution completed (DONE). False when it moved to approval.
     with STORE_LOCK:
@@ -632,6 +772,12 @@ def _execute_once(task_id: str) -> bool:
     with STORE_LOCK:
         task = TASKS[task_id]
         _record_provider_selection(task, selection_context=_task_selection_context(task))
+        planned_actions = _build_task_planned_actions(task)
+        task["planned_actions"] = planned_actions
+        task["updated_at"] = _now_iso()
+        _persist_task(task)
+        _log_event(task_id, "TASK_ACTIONS_PLANNED", count=len(planned_actions))
+        _log_event(task_id, "PLANNED_ACTIONS_BUILT", count=len(planned_actions))
         _set_stage(task, "executor")
         approved_reasons = set(task.get("approved_reasons", []))
         reason_code = _detect_policy_block(task["input"], approved_reasons)
@@ -648,46 +794,35 @@ def _execute_once(task_id: str) -> bool:
             return False
 
     with STORE_LOCK:
-        task = TASKS[task_id]
+        task = dict(TASKS[task_id])
         template_type = task["template_type"]
         if template_type != "meeting_summary":
             raise ValueError(f"unsupported template_type at runtime: {template_type}")
-        provider_selection = dict(task.get("provider_selection") or {})
-        task_input = dict(task["input"])
+        planned_actions = list(task.get("planned_actions") or [])
 
-    summary_result = PROVIDER_INVOKER.invoke_meeting_summary(
-        task_input=task_input,
-        provider_selection=provider_selection,
-        fallback_renderer=_render_meeting_summary_from_input,
-    )
-    report_text = summary_result.output_text
+    action_results = [_dispatch_planned_action(task, planned_action) for planned_action in planned_actions]
+    summary_result = action_results[0]
+    report_text = str(summary_result["output_text"])
 
     report_path = _write_report(task_id, report_text)
 
     with STORE_LOCK:
         task = TASKS[task_id]
-        invocation = summary_result.invocation.as_dict()
+        invocation = dict(summary_result.get("provider_invocation") or {})
         task["provider_invocation"] = invocation
+        task["action_results"] = [{key: value for key, value in item.items() if key != "output_text"} for item in action_results]
         task["updated_at"] = _now_iso()
         _persist_task(task)
-        _log_event(
-            task_id,
-            "MODEL_PROVIDER_INVOKED",
-            provider_id=invocation.get("provider_id"),
-            provider_type=invocation.get("provider_type"),
-            engine=invocation.get("engine"),
-            requested_model=invocation.get("requested_model"),
-            resolved_model=invocation.get("resolved_model"),
-            invoked=invocation.get("invoked"),
-            result_source=invocation.get("result_source"),
-            fallback_reason=invocation.get("fallback_reason"),
-        )
         _set_stage(task, "reviewer")
         if "# 회의 결과 요약" not in report_text:
             raise ValueError("review failed: report header missing")
 
         _set_stage(task, "reporter")
-        task["result"] = {"report_path": report_path, "provider_invocation": invocation}
+        task["result"] = {
+            "report_path": report_path,
+            "provider_invocation": invocation,
+            "actions_executed": len(action_results),
+        }
         task["completed_at"] = _now_iso()
         _set_status(task, TaskStatus.DONE, next_action="none")
     return True
@@ -746,9 +881,11 @@ def _execute_incident_once(task_id: str) -> bool:
         _set_stage(task, "executor")
         action_cards = _build_incident_action_cards(task)
         task["action_cards"] = action_cards
+        task["planned_actions"] = action_cards
         task["updated_at"] = _now_iso()
         _persist_task(task)
         _log_event(task_id, "INCIDENT_ACTIONS_PLANNED", count=len(action_cards))
+        _log_event(task_id, "PLANNED_ACTIONS_BUILT", count=len(action_cards))
 
         for action_card in action_cards:
             decision = _evaluate_incident_action_gate(task, action_card, approved_reasons)
@@ -806,45 +943,20 @@ def _execute_incident_once(task_id: str) -> bool:
 
     action_results: list[dict[str, Any]] = []
     for action_card in action_cards:
-        mcp_call = action_card.get("mcp_call", {})
-        adapter_name = str(mcp_call.get("adapter") or "redmine_mcp")
-        method = str(mcp_call.get("method") or "")
-        payload = dict(mcp_call.get("payload") or {})
-        if bool(payload.get("simulate_timeout")):
-            raise TimeoutError("simulated incident mcp timeout")
-        adapter = INCIDENT_ADAPTERS.get(adapter_name)
-        if adapter is None:
-            raise RuntimeError(f"incident adapter not found: {adapter_name}")
-        mcp_result = adapter(
-            method=method,
-            payload=payload,
-            actor_context=actor_context,
-            dry_run=mcp_dry_run,
-            timeout_seconds=3.0,
-        )
         action_results.append(
-            {
-                "action_id": action_card.get("action_id"),
-                "status": "dry-run" if mcp_dry_run else "executed",
-                "tool_id": action_card.get("tool_id"),
-                "adapter": adapter_name,
-                "method": method,
-                "external_ref": mcp_result.get("response", {}).get("external_ref"),
-            }
-        )
-        _log_event(
-            task_id,
-            "INCIDENT_ACTION_EXECUTED",
-            action_id=action_card.get("action_id"),
-            tool_id=action_card.get("tool_id"),
-            adapter=adapter_name,
-            method=method,
-            mode=mcp_result.get("mode"),
-            external_ref=mcp_result.get("response", {}).get("external_ref"),
+            _dispatch_planned_action(
+                task,
+                action_card,
+                actor_context=actor_context,
+                mcp_dry_run=mcp_dry_run,
+            )
         )
 
     with STORE_LOCK:
         task = TASKS[task_id]
+        task["action_results"] = action_results
+        task["updated_at"] = _now_iso()
+        _persist_task(task)
         report_text = _render_incident_report(task, action_results)
         _set_stage(task, "reviewer")
         if "# Incident Orchestration Report" not in report_text:

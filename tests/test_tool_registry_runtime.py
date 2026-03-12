@@ -40,8 +40,9 @@ class TestToolRegistryRuntime(unittest.TestCase):
         list_response = self.client.get("/api/v1/tools", headers=self.requester_headers)
         self.assertEqual(list_response.status_code, 200)
         list_payload = list_response.json()
-        self.assertGreaterEqual(list_payload["count"], 5)
+        self.assertGreaterEqual(list_payload["count"], 6)
         tool_ids = {item["tool_id"] for item in list_payload["items"]}
+        self.assertIn("internal.summary.generate", tool_ids)
         self.assertIn("redmine.issue.create", tool_ids)
 
         detail_response = self.client.get("/api/v1/tools/redmine.issue.create", headers=self.requester_headers)
@@ -81,11 +82,16 @@ class TestToolRegistryRuntime(unittest.TestCase):
         with main_module.STORE_LOCK:
             task = dict(main_module.TASKS[task_id])
         action_cards = list(task.get("action_cards") or [])
+        planned_actions = list(task.get("planned_actions") or [])
         self.assertEqual(len(action_cards), 1)
+        self.assertEqual(len(planned_actions), 1)
         self.assertEqual(action_cards[0]["tool_id"], "redmine.issue.create")
         self.assertEqual(action_cards[0]["tool_family"], "ticketing")
+        self.assertEqual(action_cards[0]["execution_call"]["adapter"], "redmine_mcp")
+        self.assertEqual(action_cards[0]["execution_call"]["method"], "issue.create")
         self.assertEqual(action_cards[0]["mcp_call"]["adapter"], "redmine_mcp")
         self.assertEqual(action_cards[0]["mcp_call"]["method"], "issue.create")
+        self.assertEqual(planned_actions[0]["tool_id"], "redmine.issue.create")
 
 
 if __name__ == "__main__":
