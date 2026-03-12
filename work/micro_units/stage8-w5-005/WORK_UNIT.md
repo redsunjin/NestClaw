@@ -4,7 +4,7 @@
 - goal: `Expose agent and approval workflows through a minimal MCP stdio server`
 - target_stage: `8`
 - created_at_utc: `20260312T072400Z`
-- status: `PLAN_PENDING`
+- status: `DONE`
 
 ## Roles
 - Plan Lead: A01 (Product Owner)
@@ -13,10 +13,10 @@
 - Evaluate Lead: A06 (QA Reliability)
 
 ## Phase Checklist
-- [ ] Plan gate passed
-- [ ] Review gate passed
-- [ ] Implement gate passed
-- [ ] Evaluate gate passed
+- [x] Plan gate passed
+- [x] Review gate passed
+- [x] Implement gate passed
+- [x] Evaluate gate passed
 
 ## Files
 - `PLAN_NOTES.md`
