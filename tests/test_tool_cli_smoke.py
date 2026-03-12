@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import subprocess
+import sys
 import unittest
 from contextlib import redirect_stdout
+from pathlib import Path
+from uuid import uuid4
 
 
 try:
@@ -144,6 +149,47 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(status_payload["status"], "DONE")
         self.assertEqual(status_payload["final_reason"], "rejected_by_human")
+
+    def test_script_entrypoint_executes_as_python_app_cli(self) -> None:
+        db_path = f"/tmp/nestclaw-stage8-tool-cli-{uuid4().hex}.db"
+        env = os.environ.copy()
+        env["NEWCLAW_DB_PATH"] = db_path
+        repo_root = Path(__file__).resolve().parents[1]
+
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "app/cli.py",
+                "submit",
+                "--requested-by",
+                "qa_user",
+                "--task-kind",
+                "task",
+                "--request-text",
+                "운영회의 요약",
+                "--metadata-json",
+                json.dumps(
+                    {
+                        "meeting_title": "ops sync",
+                        "meeting_date": "2026-03-12",
+                        "participants": ["Kim"],
+                        "notes": "internal only",
+                    },
+                    ensure_ascii=False,
+                ),
+                "--json",
+            ],
+            cwd=repo_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        payload = json.loads(completed.stdout.strip() or "{}")
+        self.assertEqual(payload["status"], "DONE")
+        self.assertEqual(payload["resolved_kind"], "task")
 
 
 if __name__ == "__main__":
