@@ -40,11 +40,11 @@ class OrchestrationServiceDeps:
     task_workflow: str
     incident_workflow: str
     agent_entrypoint: str
-    task_status_ready: str
-    task_status_running: str
-    task_status_failed_retryable: str
-    task_status_needs_human_approval: str
-    task_status_done: str
+    task_status_ready: Any
+    task_status_running: Any
+    task_status_failed_retryable: Any
+    task_status_needs_human_approval: Any
+    task_status_done: Any
     now_iso: Callable[[], str]
     error: Callable[..., None]
     authorize: Callable[..., str]
@@ -87,6 +87,9 @@ class OrchestrationService:
 
     def _string_value(self, value: Any) -> str:
         return str(getattr(value, "value", value))
+
+    def _status_value(self, value: Any) -> str:
+        return self._string_value(value)
 
     def _today_iso(self) -> str:
         return self.deps.now_iso().split("T", 1)[0]
@@ -235,14 +238,14 @@ class OrchestrationService:
             "last_event_at": task["updated_at"],
             "next_action": task.get("next_action"),
         }
-        if task["status"] == self.deps.task_status_failed_retryable:
+        if task["status"] == self._status_value(self.deps.task_status_failed_retryable):
             response["retry_count"] = task["retry_count"]
             response["last_error"] = task["last_error"]
-        if task["status"] == self.deps.task_status_needs_human_approval:
+        if task["status"] == self._status_value(self.deps.task_status_needs_human_approval):
             response["approval_reason"] = task.get("approval_reason")
             response["approval_queue_id"] = task.get("approval_queue_id")
             response["next_action"] = "approve_or_reject"
-        if task["status"] == self.deps.task_status_done:
+        if task["status"] == self._status_value(self.deps.task_status_done):
             if task.get("result"):
                 response["result"] = task["result"]
             if task.get("completed_at"):
@@ -299,7 +302,7 @@ class OrchestrationService:
                 "template_type": template_type,
                 "input": task_input,
                 "requested_by": requested_by,
-                "status": self.deps.task_status_ready,
+                "status": self._status_value(self.deps.task_status_ready),
                 "current_stage": None,
                 "next_action": "run_task",
                 "retry_count": 0,
@@ -317,7 +320,7 @@ class OrchestrationService:
             self.deps.persist_task(self.deps.tasks[task_id])
             self.deps.log_event(task_id, "TASK_CREATED", actor_id=actor.actor_id, actor_role=role, requested_by=requested_by)
 
-        return {"task_id": task_id, "status": self.deps.task_status_ready, "created_at": now}
+        return {"task_id": task_id, "status": self._status_value(self.deps.task_status_ready), "created_at": now}
 
     def run_task(self, req: Any, actor: ActorContext) -> dict[str, Any]:
         task_id = str(self._field(req, "task_id", "") or "")
@@ -351,7 +354,7 @@ class OrchestrationService:
                         "started_at": task["started_at"],
                     }
 
-            if task["status"] != self.deps.task_status_ready:
+            if task["status"] != self._status_value(self.deps.task_status_ready):
                 self.deps.error(409, "INVALID_TASK_STATE", f"task is not READY: {task['status']}")
 
             task["started_at"] = self.deps.now_iso()
@@ -364,7 +367,7 @@ class OrchestrationService:
             self.deps.log_event(task["task_id"], "RUN_REQUESTED", actor_id=actor.actor_id, actor_role=role)
 
         self.deps.start_pipeline(task_id)
-        return {"task_id": task_id, "status": self.deps.task_status_running, "started_at": started_at}
+        return {"task_id": task_id, "status": self._status_value(self.deps.task_status_running), "started_at": started_at}
 
     def task_status(self, task_id: str, actor: ActorContext) -> dict[str, Any]:
         with self.deps.store_lock:
@@ -437,7 +440,7 @@ class OrchestrationService:
                 "incident": incident_payload,
                 "incident_runtime": incident_runtime,
                 "requested_by": requested_by,
-                "status": self.deps.task_status_ready,
+                "status": self._status_value(self.deps.task_status_ready),
                 "current_stage": None,
                 "next_action": "run_incident",
                 "retry_count": 0,
@@ -465,7 +468,7 @@ class OrchestrationService:
         return {
             "task_id": task_id,
             "incident_id": str(self._field(req, "incident_id", "") or ""),
-            "status": self.deps.task_status_ready,
+            "status": self._status_value(self.deps.task_status_ready),
             "created_at": now,
         }
 
@@ -501,7 +504,7 @@ class OrchestrationService:
                         "started_at": task["started_at"],
                     }
 
-            if task["status"] != self.deps.task_status_ready:
+            if task["status"] != self._status_value(self.deps.task_status_ready):
                 self.deps.error(409, "INVALID_TASK_STATE", f"incident is not READY: {task['status']}")
 
             task["started_at"] = self.deps.now_iso()
@@ -522,7 +525,7 @@ class OrchestrationService:
             )
 
         self.deps.start_incident_pipeline(task_id)
-        return {"task_id": task_id, "status": self.deps.task_status_running, "started_at": started_at}
+        return {"task_id": task_id, "status": self._status_value(self.deps.task_status_running), "started_at": started_at}
 
     def incident_status(self, task_id: str, actor: ActorContext) -> dict[str, Any]:
         with self.deps.store_lock:

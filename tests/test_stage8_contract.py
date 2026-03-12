@@ -124,6 +124,14 @@ class TestStage8Contract(unittest.TestCase):
         source = Path("app/main.py").read_text(encoding="utf-8")
         self.assertIn("ORCHESTRATION_SERVICE", source)
         self.assertIn("OrchestrationServiceDeps", source)
+        self.assertIn("task_status_ready=TaskStatus.READY,", source)
+        self.assertIn("task_status_running=TaskStatus.RUNNING,", source)
+
+    def test_orchestration_service_normalizes_status_enum_to_string(self) -> None:
+        source = Path("app/services/orchestration_service.py").read_text(encoding="utf-8")
+        self.assertIn("def _status_value", source)
+        self.assertIn('self.deps.set_status(task, self.deps.task_status_running', source)
+        self.assertIn('"status": self._status_value(self.deps.task_status_ready)', source)
 
     def test_live_rehearsal_runbook_mentions_http_bridge_contract(self) -> None:
         source = Path("STAGE8_LIVE_REHEARSAL_RUNBOOK_2026-03-07.md").read_text(encoding="utf-8")
