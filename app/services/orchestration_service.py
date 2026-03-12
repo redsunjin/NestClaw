@@ -56,6 +56,7 @@ class OrchestrationServiceDeps:
     apply_incident_run_mode: Callable[[dict[str, Any], str | None], dict[str, Any]]
     incident_runtime_snapshot: Callable[[dict[str, Any]], dict[str, Any]]
     normalize_incident_run_mode: Callable[[str | None], str]
+    classify_agent_intent: Callable[[str, dict[str, Any]], dict[str, Any]]
     start_pipeline: Callable[[str], None]
     start_incident_pipeline: Callable[[str], None]
     persist_task: Callable[[dict[str, Any]], None]
@@ -102,21 +103,6 @@ class OrchestrationService:
             self.deps.error(400, "INVALID_REQUEST", f"unsupported task_kind: {raw_kind}")
         return kind
 
-    def _flatten_agent_text(self, value: Any) -> str:
-        if value is None:
-            return ""
-        if isinstance(value, Mapping):
-            return " ".join(self._flatten_agent_text(item) for item in value.values())
-        if isinstance(value, list):
-            return " ".join(self._flatten_agent_text(item) for item in value)
-        return str(value).strip()
-
-    def _looks_like_incident(self, request_text: str, metadata: Mapping[str, Any]) -> bool:
-        if any(key in metadata for key in ("incident_id", "service", "severity", "policy_profile", "time_window")):
-            return True
-        haystack = f"{request_text} {self._flatten_agent_text(dict(metadata))}".lower()
-        return any(token in haystack for token in AGENT_INCIDENT_HINTS)
-
     def _infer_incident_severity(self, request_text: str, metadata: Mapping[str, Any]) -> str:
         raw = str(metadata.get("severity") or "").strip().lower()
         if raw in {"low", "medium", "high", "critical"}:
@@ -131,18 +117,41 @@ class OrchestrationService:
             return "medium"
         return "low"
 
-    def detect_agent_workflow(self, req: Any) -> str:
+    def _flatten_agent_text(self, value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, Mapping):
+            return " ".join(self._flatten_agent_text(item) for item in value.values())
+        if isinstance(value, list):
+            return " ".join(self._flatten_agent_text(item) for item in value)
+        return str(value).strip()
+
+    def _requested_kind_classification(self, kind: str) -> dict[str, Any]:
+        resolved_kind = AGENT_TASK_KIND_INCIDENT if kind == AGENT_TASK_KIND_INCIDENT else AGENT_TASK_KIND_TASK
+        return {
+            "resolved_kind": resolved_kind,
+            "source": "requested_kind",
+            "confidence": 1.0,
+            "rationale": f"explicit task_kind={kind}",
+            "provider_selection": None,
+            "fallback_reason": None,
+        }
+
+    def detect_agent_workflow(self, req: Any) -> tuple[str, dict[str, Any]]:
         kind = self._normalize_agent_task_kind(self._field(req, "task_kind"))
         if kind == AGENT_TASK_KIND_INCIDENT:
-            return self.deps.incident_workflow
+            return self.deps.incident_workflow, self._requested_kind_classification(kind)
         if kind == AGENT_TASK_KIND_TASK:
-            return self.deps.task_workflow
+            return self.deps.task_workflow, self._requested_kind_classification(kind)
 
         request_text = str(self._field(req, "request_text", "") or "")
         metadata = dict(self._field(req, "metadata", {}) or {})
-        if self._looks_like_incident(request_text, metadata):
-            return self.deps.incident_workflow
-        return self.deps.task_workflow
+        classification = dict(self.deps.classify_agent_intent(request_text, metadata))
+        resolved_kind = str(classification.get("resolved_kind") or AGENT_TASK_KIND_TASK).strip().lower()
+        if resolved_kind not in {AGENT_TASK_KIND_TASK, AGENT_TASK_KIND_INCIDENT}:
+            self.deps.error(500, "INTENT_CLASSIFIER_ERROR", f"unsupported resolved_kind: {resolved_kind}")
+        workflow = self.deps.incident_workflow if resolved_kind == AGENT_TASK_KIND_INCIDENT else self.deps.task_workflow
+        return workflow, classification
 
     def _coerce_participants(self, value: Any, requested_by: str) -> list[str]:
         items: list[str] = []
@@ -208,7 +217,7 @@ class OrchestrationService:
     def _resolved_kind_for_task(self, task: dict[str, Any]) -> str:
         return self._resolved_kind_from_workflow(self.deps.workflow_type(task))
 
-    def annotate_agent_task(self, task_id: str, req: Any, workflow: str) -> None:
+    def annotate_agent_task(self, task_id: str, req: Any, workflow: str, classification: Mapping[str, Any]) -> None:
         with self.deps.store_lock:
             task = self.deps.tasks.get(task_id)
             if not task:
@@ -221,13 +230,24 @@ class OrchestrationService:
                 "metadata": dict(self._field(req, "metadata", {}) or {}),
             }
             task["agent_route"] = self._resolved_kind_from_workflow(workflow)
+            task["intent_classification"] = dict(classification)
             task["updated_at"] = self.deps.now_iso()
             self.deps.persist_task(task)
+            provider_selection = dict((classification.get("provider_selection") or {}))
+            self.deps.log_event(
+                task_id,
+                "INTENT_CLASSIFIED",
+                resolved_kind=task["agent_route"],
+                source=classification.get("source"),
+                confidence=classification.get("confidence"),
+                provider_id=provider_selection.get("provider_id"),
+            )
             self.deps.log_event(
                 task_id,
                 "AGENT_ROUTED",
                 resolved_kind=task["agent_route"],
                 requested_kind=task["agent_request"]["task_kind"],
+                classification_source=classification.get("source"),
             )
 
     def build_task_status_payload(self, task: dict[str, Any]) -> dict[str, Any]:
@@ -273,6 +293,8 @@ class OrchestrationService:
             response = self.build_task_status_payload(task)
         response["entrypoint"] = self.deps.agent_entrypoint
         response["resolved_kind"] = str(task.get("agent_route") or self._resolved_kind_for_task(task))
+        if task.get("intent_classification"):
+            response["intent_classification"] = task["intent_classification"]
         request_text = str((task.get("agent_request") or {}).get("request_text") or task.get("title") or "").strip()
         if request_text:
             response["request_summary"] = request_text[:240]
@@ -570,14 +592,14 @@ class OrchestrationService:
             return self.build_events_payload(task_id)
 
     def submit_agent(self, req: Any, actor: ActorContext) -> dict[str, Any]:
-        workflow = self.detect_agent_workflow(req)
+        workflow, classification = self.detect_agent_workflow(req)
         auto_run = bool(self._field(req, "auto_run", True))
         idempotency_key = self._field(req, "idempotency_key")
 
         if workflow == self.deps.incident_workflow:
             created = self.create_incident(self.build_agent_incident_request(req), actor)
             task_id = str(created["task_id"])
-            self.annotate_agent_task(task_id, req, workflow)
+            self.annotate_agent_task(task_id, req, workflow, classification)
             if auto_run:
                 self.run_incident(
                     {
@@ -590,7 +612,7 @@ class OrchestrationService:
         else:
             created = self.create_task(self.build_agent_task_request(req), actor)
             task_id = str(created["task_id"])
-            self.annotate_agent_task(task_id, req, workflow)
+            self.annotate_agent_task(task_id, req, workflow, classification)
             if auto_run:
                 self.run_task(
                     {

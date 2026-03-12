@@ -23,6 +23,7 @@ from app.incident_policy import (
     requires_human_approval,
 )
 from app.incident_rag import fetch_knowledge_evidence, fetch_system_signals
+from app.intent_classifier import IntentClassifier
 from app.model_registry import load_model_registry, select_provider
 from app.persistence import create_state_store
 from app.services import ApprovalService, ApprovalServiceDeps, OrchestrationService, OrchestrationServiceDeps
@@ -129,6 +130,7 @@ def _build_incident_adapter_registry() -> dict[str, Any]:
 
 INCIDENT_ADAPTERS = _build_incident_adapter_registry()
 MODEL_REGISTRY = load_model_registry()
+INTENT_CLASSIFIER = IntentClassifier(MODEL_REGISTRY)
 
 
 def _now_iso() -> str:
@@ -391,6 +393,10 @@ def _record_provider_selection(task: dict[str, Any], *, selection_context: dict[
         requires_human_approval=selection.get("requires_human_approval"),
     )
     return selection
+
+
+def _classify_agent_intent(request_text: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+    return INTENT_CLASSIFIER.classify(request_text, metadata or {}).as_dict()
 
 
 def _collect_incident_evidence(context: dict[str, Any]) -> list[str]:
@@ -928,6 +934,7 @@ def build_orchestration_service(*, sync_execution: bool = False) -> Orchestratio
             apply_incident_run_mode=_apply_incident_run_mode,
             incident_runtime_snapshot=_incident_runtime_snapshot,
             normalize_incident_run_mode=_normalize_incident_run_mode,
+            classify_agent_intent=_classify_agent_intent,
             start_pipeline=_run_pipeline if sync_execution else _start_pipeline,
             start_incident_pipeline=_run_incident_pipeline if sync_execution else _start_incident_pipeline,
             persist_task=_persist_task,

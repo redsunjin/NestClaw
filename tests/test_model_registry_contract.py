@@ -11,7 +11,7 @@ class TestModelRegistryContract(unittest.TestCase):
 
         self.assertEqual(registry.version, 1)
         self.assertEqual(len(registry.providers), 2)
-        self.assertEqual(len(registry.routing_rules), 3)
+        self.assertEqual(len(registry.routing_rules), 4)
 
     def test_selects_api_provider_for_low_summarize(self) -> None:
         registry = load_model_registry()
@@ -21,6 +21,14 @@ class TestModelRegistryContract(unittest.TestCase):
         self.assertEqual(selection.provider_id, "api_general")
         self.assertEqual(selection.selection_source, "routing_rule")
         self.assertFalse(selection.requires_human_approval)
+
+    def test_selects_local_provider_for_intent_classification(self) -> None:
+        registry = load_model_registry()
+
+        selection = select_provider(registry, sensitivity="low", task_type="classify_intent", external_send=False)
+
+        self.assertEqual(selection.provider_id, "local_primary")
+        self.assertEqual(selection.selection_source, "routing_rule")
 
     def test_selects_local_provider_for_high_sensitivity(self) -> None:
         registry = load_model_registry()

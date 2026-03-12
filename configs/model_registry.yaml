@@ -17,6 +17,10 @@ providers:
 
 routing_rules:
   - when:
+      task_type: classify_intent
+    use_provider: local_primary
+
+  - when:
       sensitivity: high
     use_provider: local_primary
 
