@@ -12,7 +12,7 @@ if __package__ in {None, ""}:
 from fastapi import HTTPException
 
 from app.auth import ActorContext, VALID_ROLES
-from app.main import build_approval_service, build_orchestration_service, build_tool_catalog_service
+from app.main import build_approval_service, build_orchestration_service, build_tool_catalog_service, build_tool_draft_service
 
 
 SERVER_NAME = "newclaw-mcp"
@@ -66,6 +66,7 @@ class NewClawMcpServer:
         self.orchestration_service = build_orchestration_service(sync_execution=True)
         self.approval_service = build_approval_service(sync_execution=True)
         self.tool_catalog_service = build_tool_catalog_service()
+        self.tool_draft_service = build_tool_draft_service()
         self.initialized = False
         self.tools = self._build_tools()
 
@@ -211,6 +212,51 @@ class NewClawMcpServer:
                 },
                 handler=self._handle_catalog_get,
             ),
+            "catalog.create_draft": ToolSpec(
+                name="catalog.create_draft",
+                title="Create Tool Registration Draft",
+                description="Create a reviewable draft for a new execution tool capability.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "requested_by": {"type": "string"},
+                        "request_text": {"type": "string"},
+                        "tool_id": {"type": "string"},
+                        "title": {"type": "string"},
+                        "description": {"type": "string"},
+                        "adapter": {"type": "string"},
+                        "method": {"type": "string"},
+                        "action_type": {"type": "string"},
+                        "external_system": {"type": "string"},
+                        "capability_family": {"type": "string"},
+                        "required_payload_fields": {"type": "array", "items": {"type": "string"}},
+                        "default_risk_level": {"type": "string"},
+                        "default_approval_required": {"type": "boolean"},
+                        "supports_dry_run": {"type": "boolean"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["requested_by", "actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_catalog_create_draft,
+            ),
+            "catalog.get_draft": ToolSpec(
+                name="catalog.get_draft",
+                title="Get Tool Registration Draft",
+                description="Fetch a previously generated tool registration draft.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "draft_id": {"type": "string"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["draft_id", "actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_catalog_get_draft,
+            ),
         }
 
     def _tool_result(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -291,6 +337,14 @@ class NewClawMcpServer:
     def _handle_catalog_get(self, arguments: dict[str, Any]) -> dict[str, Any]:
         actor = self._tool_actor(arguments, default_role="requester")
         return _invoke(self.tool_catalog_service.get_tool, str(arguments.get("tool_id") or ""), actor)
+
+    def _handle_catalog_create_draft(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="requester")
+        return _invoke(self.tool_draft_service.create_draft, dict(arguments), actor)
+
+    def _handle_catalog_get_draft(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="requester")
+        return _invoke(self.tool_draft_service.get_draft, str(arguments.get("draft_id") or ""), actor)
 
     def process_message(self, message: dict[str, Any]) -> dict[str, Any] | None:
         method = str(message.get("method") or "")

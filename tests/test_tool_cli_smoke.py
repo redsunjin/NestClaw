@@ -77,6 +77,23 @@ class TestToolCliSmoke(unittest.TestCase):
         tool_ids = {item["tool_id"] for item in payload["items"]}
         self.assertIn("internal.summary.generate", tool_ids)
         self.assertIn("redmine.issue.create", tool_ids)
+        self.assertIn("slack.message.send", tool_ids)
+
+    def test_tool_draft_command_creates_reviewable_slack_draft(self) -> None:
+        exit_code, payload = self._run_cli_json(
+            "tool-draft",
+            "--requested-by",
+            "qa_user",
+            "--request-text",
+            "Slack 알림 도구를 추가하고 싶다",
+            "--actor-id",
+            "qa_user",
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["status"], "DRAFT_REVIEW_REQUIRED")
+        self.assertEqual(payload["tool"]["external_system"], "slack")
+        self.assertEqual(payload["tool"]["adapter"], "slack_api")
+        self.assertEqual(payload["tool"]["method"], "message.send")
 
     def test_approve_command_resumes_pending_task(self) -> None:
         exit_code, submit_payload = self._run_cli_json(

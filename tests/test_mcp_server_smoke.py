@@ -126,6 +126,8 @@ class TestMcpServerSmoke(unittest.TestCase):
                 "approval.reject",
                 "catalog.list",
                 "catalog.get",
+                "catalog.create_draft",
+                "catalog.get_draft",
             },
         )
 
@@ -146,6 +148,7 @@ class TestMcpServerSmoke(unittest.TestCase):
         tool_ids = {item["tool_id"] for item in list_payload["items"]}
         self.assertIn("internal.summary.generate", tool_ids)
         self.assertIn("redmine.issue.create", tool_ids)
+        self.assertIn("slack.message.send", tool_ids)
 
         get_response = self._request(
             {
@@ -161,6 +164,43 @@ class TestMcpServerSmoke(unittest.TestCase):
         get_payload = get_response["result"]["structuredContent"]
         self.assertEqual(get_payload["adapter"], "redmine_mcp")
         self.assertEqual(get_payload["method"], "issue.create")
+
+    def test_catalog_draft_tools_create_and_fetch_draft(self) -> None:
+        create_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 23,
+                "method": "tools/call",
+                "params": {
+                    "name": "catalog.create_draft",
+                    "arguments": {
+                        "requested_by": "qa_user",
+                        "actor_id": "qa_user",
+                        "request_text": "Slack 알림 도구를 등록하고 싶다",
+                    },
+                },
+            }
+        )
+        create_payload = create_response["result"]["structuredContent"]
+        self.assertEqual(create_payload["status"], "DRAFT_REVIEW_REQUIRED")
+        self.assertEqual(create_payload["tool"]["external_system"], "slack")
+
+        get_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 24,
+                "method": "tools/call",
+                "params": {
+                    "name": "catalog.get_draft",
+                    "arguments": {
+                        "draft_id": create_payload["draft_id"],
+                        "actor_id": "qa_user",
+                    },
+                },
+            }
+        )
+        get_payload = get_response["result"]["structuredContent"]
+        self.assertIn("slack_api", get_payload["content"])
 
     def test_agent_submit_and_status_tool_flow(self) -> None:
         response = self._request(

@@ -176,11 +176,13 @@
 - 회의요약 입력을 받아 액션 아이템 보고서 생성
 - incident 입력을 받아 context 집계, action card, 승인/실행, 보고서 흐름을 dry-run으로 재현
 - 승인 큐/이벤트 로그/audit/상태 조회를 일관된 경로로 처리
-- MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`를 호출 가능
+- MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`, `catalog.*`를 호출 가능
 - Redmine MCP live bridge 및 rehearsal script를 통해 sandbox 연동 경로 준비
 - `configs/model_registry.yaml`를 runtime에서 읽고 provider selection과 intent classification provenance를 status/event에 기록
 - `meeting_summary` workflow는 provider selection 뒤 실제 provider invocation을 시도하고 실패 시 템플릿 renderer로 fallback
 - local LM Studio(`http://localhost:1234`)를 intent classifier provider로 등록해 사용할 수 있음
+- `slack.message.send` tool capability를 catalog에 등록했고 incident workflow에서 `notify_channel` 입력 시 함께 계획/실행할 수 있음
+- `/api/v1/tool-drafts`, `tool-draft`, `catalog.create_draft/get_draft`를 통해 reviewable tool registration draft를 생성할 수 있음
 
 ### 10.2 아직 못 하는 것
 - LLM 기반 tool selection / multi-step planning
@@ -194,7 +196,8 @@
 - MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`, `catalog.*`를 직접 호출 가능하게 확장
 - `configs/tool_registry.yaml` 기반 execution tool catalog와 capability schema를 실제 실행 계층에 연결했다
 - `model registry selection -> provider invocation`은 summary path에 연결했다
-- 다음은 `tool planning / execution adapter` 공통 루프와 incident/provider 확장이다
+- `planned_actions -> execution_call -> adapter dispatch` 공통 루프를 task/incident에 적용했다
+- 다음은 planner가 registry를 보고 여러 도구를 고르는 multi-step tool planning이다
 - incident workflow는 broader execution agent의 첫 번째 high-risk vertical이며, 이후 일반 업무/운영 작업/티켓 처리 흐름으로 확장한다
 - 그 다음 단계는 action-card/tool planning 공통 루프와 최소 operator UI다
 - 상세 방향 문서: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
@@ -204,11 +207,13 @@
 - 서비스 계층: `app/services/orchestration_service.py`
 - 승인 서비스 계층: `app/services/approval_service.py`
 - 도구 카탈로그 서비스 계층: `app/services/tool_catalog_service.py`
+- 도구 draft 서비스 계층: `app/services/tool_draft_service.py`
 - 도구 CLI: `app/cli.py`
 - MCP server: `app/mcp_server.py`
 - 모델 레지스트리: `app/model_registry.py`
 - provider invoker: `app/provider_invoker.py`
 - 도구 레지스트리: `app/tool_registry.py`
+- Slack adapter: `app/slack_adapter.py`
 - intent classifier: `app/intent_classifier.py`
 - 의존성: `requirements.txt`
 

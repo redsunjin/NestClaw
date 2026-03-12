@@ -44,6 +44,7 @@ class TestToolRegistryRuntime(unittest.TestCase):
         tool_ids = {item["tool_id"] for item in list_payload["items"]}
         self.assertIn("internal.summary.generate", tool_ids)
         self.assertIn("redmine.issue.create", tool_ids)
+        self.assertIn("slack.message.send", tool_ids)
 
         detail_response = self.client.get("/api/v1/tools/redmine.issue.create", headers=self.requester_headers)
         self.assertEqual(detail_response.status_code, 200)
@@ -92,6 +93,44 @@ class TestToolRegistryRuntime(unittest.TestCase):
         self.assertEqual(action_cards[0]["mcp_call"]["adapter"], "redmine_mcp")
         self.assertEqual(action_cards[0]["mcp_call"]["method"], "issue.create")
         self.assertEqual(planned_actions[0]["tool_id"], "redmine.issue.create")
+
+    def test_incident_runtime_plans_slack_notification_when_channel_is_present(self) -> None:
+        create_response = self.client.post(
+            "/api/v1/incident/create",
+            json={
+                "incident_id": f"inc-{uuid4().hex[:8]}",
+                "service": "billing-api",
+                "severity": "low",
+                "detected_at": "2026-03-12T12:00:00Z",
+                "source": "monitoring",
+                "summary": "billing latency increased but remains internal only",
+                "time_window": "15m",
+                "requested_by": "qa_user",
+                "policy_profile": "default",
+                "dry_run": True,
+                "notify_channel": "#ops-alerts",
+            },
+            headers=self.requester_headers,
+        )
+        self.assertEqual(create_response.status_code, 201)
+        task_id = create_response.json()["task_id"]
+
+        run_response = self.client.post(
+            "/api/v1/incident/run",
+            json={"task_id": task_id, "idempotency_key": f"tool-slack-{uuid4().hex[:10]}", "run_mode": "dry-run"},
+            headers=self.requester_headers,
+        )
+        self.assertEqual(run_response.status_code, 202)
+        final_payload = self._wait_incident_status(task_id, {"DONE"})
+        self.assertIsNotNone(final_payload)
+        self.assertEqual(final_payload["result"]["actions_executed"], 2)
+
+        with main_module.STORE_LOCK:
+            task = dict(main_module.TASKS[task_id])
+        planned_actions = list(task.get("planned_actions") or [])
+        tool_ids = [item["tool_id"] for item in planned_actions]
+        self.assertEqual(tool_ids, ["redmine.issue.create", "slack.message.send"])
+        self.assertEqual(planned_actions[1]["execution_call"]["adapter"], "slack_api")
 
 
 if __name__ == "__main__":

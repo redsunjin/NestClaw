@@ -27,6 +27,7 @@ from app.intent_classifier import IntentClassifier
 from app.model_registry import load_model_registry, select_provider
 from app.persistence import create_state_store
 from app.provider_invoker import ProviderInvoker
+from app.slack_adapter import execute_slack_action
 from app.services import (
     ApprovalService,
     ApprovalServiceDeps,
@@ -34,6 +35,8 @@ from app.services import (
     OrchestrationServiceDeps,
     ToolCatalogService,
     ToolCatalogServiceDeps,
+    ToolDraftService,
+    ToolDraftServiceDeps,
 )
 from app.tool_registry import ToolRegistryError, get_tool_capability, load_tool_registry
 
@@ -84,6 +87,7 @@ class CreateIncidentRequest(BaseModel):
     requested_by: str = Field(min_length=1, max_length=100)
     policy_profile: str = Field(min_length=1, max_length=100)
     dry_run: bool = True
+    notify_channel: str | None = Field(default=None, max_length=120)
 
 
 class RunIncidentRequest(BaseModel):
@@ -108,6 +112,23 @@ class ApprovalDecisionRequest(BaseModel):
     comment: str | None = None
 
 
+class CreateToolDraftRequest(BaseModel):
+    requested_by: str = Field(min_length=1, max_length=100)
+    request_text: str | None = Field(default=None, max_length=2000)
+    tool_id: str | None = Field(default=None, max_length=200)
+    title: str | None = Field(default=None, max_length=200)
+    description: str | None = Field(default=None, max_length=1000)
+    adapter: str | None = Field(default=None, max_length=100)
+    method: str | None = Field(default=None, max_length=100)
+    action_type: str | None = Field(default=None, max_length=120)
+    external_system: str | None = Field(default=None, max_length=100)
+    capability_family: str | None = Field(default=None, max_length=100)
+    required_payload_fields: list[str] = Field(default_factory=list)
+    default_risk_level: str = Field(default="medium", max_length=32)
+    default_approval_required: bool = True
+    supports_dry_run: bool = True
+
+
 APP = FastAPI(title="Local Work Delegation Orchestrator", version="0.1.0")
 
 STORE_LOCK = Lock()
@@ -115,6 +136,7 @@ STATE_STORE = create_state_store()
 TASKS, TASK_EVENTS, APPROVAL_QUEUE, APPROVAL_ACTIONS, RUN_IDEMPOTENCY = STATE_STORE.load_state()
 
 REPORTS_ROOT = Path("reports")
+TOOL_DRAFTS_ROOT = Path("work/tool_drafts")
 MAX_RETRY = 1
 
 TEMPLATE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
@@ -134,6 +156,7 @@ def _build_incident_adapter_registry() -> dict[str, Any]:
         "knowledge_rag": fetch_knowledge_evidence,
         "system_rag": fetch_system_signals,
         "redmine_mcp": execute_redmine_action,
+        "slack_api": execute_slack_action,
     }
 
 
@@ -437,6 +460,11 @@ def _incident_ticket_tool_id() -> str:
     return tool_id or "redmine.issue.create"
 
 
+def _incident_slack_tool_id() -> str:
+    tool_id = str(os.getenv("NEWCLAW_INCIDENT_SLACK_TOOL_ID") or "slack.message.send").strip()
+    return tool_id or "slack.message.send"
+
+
 def _task_summary_tool_id() -> str:
     tool_id = str(os.getenv("NEWCLAW_TASK_SUMMARY_TOOL_ID") or "internal.summary.generate").strip()
     return tool_id or "internal.summary.generate"
@@ -470,12 +498,19 @@ def _build_task_planned_actions(task: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _incident_notify_channel(task: dict[str, Any]) -> str | None:
+    incident = dict(task.get("incident") or {})
+    channel = str(incident.get("notify_channel") or os.getenv("NEWCLAW_INCIDENT_SLACK_CHANNEL") or "").strip()
+    return channel or None
+
+
 def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
     incident = task.get("incident") or {}
     context = task.get("incident_context") or {}
     risk_level = _incident_risk_level(task)
     evidence_links = _collect_incident_evidence(context)
     summary = _incident_summary(task)
+    actions: list[dict[str, Any]] = []
     try:
         capability = get_tool_capability(TOOL_REGISTRY, _incident_ticket_tool_id())
     except ToolRegistryError as exc:
@@ -495,8 +530,7 @@ def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
         "supports_dry_run": capability.supports_dry_run,
         "payload": payload,
     }
-
-    return [
+    actions.append(
         {
             "action_id": f"act_{uuid4().hex[:12]}",
             "incident_id": incident.get("incident_id"),
@@ -512,7 +546,48 @@ def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
             "execution_call": execution_call,
             "mcp_call": dict(execution_call),
         }
-    ]
+    )
+
+    notify_channel = _incident_notify_channel(task)
+    if notify_channel:
+        try:
+            slack_capability = get_tool_capability(TOOL_REGISTRY, _incident_slack_tool_id())
+        except ToolRegistryError as exc:
+            raise RuntimeError(str(exc)) from exc
+        slack_payload = {
+            "channel": notify_channel,
+            "text": (
+                f"[Incident] {incident.get('service', 'unknown-service')} "
+                f"severity={incident.get('severity', 'unknown')} "
+                f"incident_id={incident.get('incident_id', 'N/A')} "
+                f"summary={summary}"
+            ),
+        }
+        slack_call = {
+            "adapter": slack_capability.adapter,
+            "method": slack_capability.method,
+            "supports_dry_run": slack_capability.supports_dry_run,
+            "payload": slack_payload,
+        }
+        actions.append(
+            {
+                "action_id": f"act_{uuid4().hex[:12]}",
+                "incident_id": incident.get("incident_id"),
+                "title": slack_capability.title,
+                "action_type": slack_capability.action_type,
+                "tool_id": slack_capability.tool_id,
+                "tool_family": slack_capability.capability_family,
+                "external_system": slack_capability.external_system,
+                "risk_level": risk_level,
+                "approval_required": slack_capability.default_approval_required or _incident_requires_approval(risk_level),
+                "evidence_links": evidence_links,
+                "tool_capability": slack_capability.as_dict(),
+                "execution_call": slack_call,
+                "mcp_call": dict(slack_call),
+            }
+        )
+
+    return actions
 
 
 def _evaluate_incident_action_gate(
@@ -1150,9 +1225,21 @@ def build_tool_catalog_service() -> ToolCatalogService:
     )
 
 
+def build_tool_draft_service() -> ToolDraftService:
+    return ToolDraftService(
+        ToolDraftServiceDeps(
+            authorize=_authorize,
+            error=_error,
+            now_iso=_now_iso,
+            drafts_root=TOOL_DRAFTS_ROOT,
+        )
+    )
+
+
 ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=False)
 APPROVAL_SERVICE = build_approval_service(sync_execution=False)
 TOOL_CATALOG_SERVICE = build_tool_catalog_service()
+TOOL_DRAFT_SERVICE = build_tool_draft_service()
 
 
 @APP.get("/health")
@@ -1199,6 +1286,22 @@ def get_tool(
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
     return TOOL_CATALOG_SERVICE.get_tool(tool_id, actor)
+
+
+@APP.post("/api/v1/tool-drafts", status_code=201)
+def create_tool_draft(
+    req: CreateToolDraftRequest,
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return TOOL_DRAFT_SERVICE.create_draft(req, actor)
+
+
+@APP.get("/api/v1/tool-drafts/{draft_id}")
+def get_tool_draft(
+    draft_id: str,
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return TOOL_DRAFT_SERVICE.get_draft(draft_id, actor)
 
 
 @APP.post("/api/v1/task/create", status_code=201)

@@ -195,6 +195,7 @@ class OrchestrationService:
         time_window = str(metadata.get("time_window") or "15m").strip() or "15m"
         policy_profile = str(metadata.get("policy_profile") or "default").strip() or "default"
         incident_id = str(metadata.get("incident_id") or f"inc-{uuid4().hex[:8]}").strip() or f"inc-{uuid4().hex[:8]}"
+        notify_channel = str(metadata.get("notify_channel") or "").strip() or None
 
         return {
             "incident_id": incident_id,
@@ -207,6 +208,7 @@ class OrchestrationService:
             "requested_by": str(self._field(req, "requested_by", "") or ""),
             "policy_profile": policy_profile,
             "dry_run": run_mode != "live",
+            "notify_channel": notify_channel,
         }
 
     def _resolved_kind_from_workflow(self, workflow: str) -> str:

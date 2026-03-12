@@ -12,7 +12,7 @@ if __package__ in {None, ""}:
 from fastapi import HTTPException
 
 from app.auth import ActorContext, VALID_ROLES
-from app.main import build_approval_service, build_orchestration_service, build_tool_catalog_service
+from app.main import build_approval_service, build_orchestration_service, build_tool_catalog_service, build_tool_draft_service
 
 
 DEFAULT_ACTOR_ID = "user_cli"
@@ -23,6 +23,7 @@ VALID_INCIDENT_RUN_MODES = ("dry-run", "mcp-live", "live")
 CLI_ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=True)
 CLI_APPROVAL_SERVICE = build_approval_service(sync_execution=True)
 CLI_TOOL_CATALOG_SERVICE = build_tool_catalog_service()
+CLI_TOOL_DRAFT_SERVICE = build_tool_draft_service()
 
 MENU_ACTOR_ID = DEFAULT_ACTOR_ID
 MENU_ACTOR_ROLE = DEFAULT_ACTOR_ROLE
@@ -150,6 +151,48 @@ def _tools_payload(
     return _invoke(CLI_TOOL_CATALOG_SERVICE.list_tools, capability_family, external_system, actor)
 
 
+def _tool_draft_payload(
+    *,
+    requested_by: str,
+    request_text: str | None,
+    actor_id: str,
+    actor_role: str,
+    tool_id: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+    adapter: str | None = None,
+    method: str | None = None,
+    action_type: str | None = None,
+    external_system: str | None = None,
+    capability_family: str | None = None,
+    required_payload_fields: list[str] | None = None,
+    default_risk_level: str = "medium",
+    default_approval_required: bool = True,
+    supports_dry_run: bool = True,
+    draft_id: str | None = None,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    if draft_id:
+        return _invoke(CLI_TOOL_DRAFT_SERVICE.get_draft, draft_id, actor)
+    payload = {
+        "requested_by": requested_by,
+        "request_text": request_text,
+        "tool_id": tool_id,
+        "title": title,
+        "description": description,
+        "adapter": adapter,
+        "method": method,
+        "action_type": action_type,
+        "external_system": external_system,
+        "capability_family": capability_family,
+        "required_payload_fields": list(required_payload_fields or []),
+        "default_risk_level": default_risk_level,
+        "default_approval_required": default_approval_required,
+        "supports_dry_run": supports_dry_run,
+    }
+    return _invoke(CLI_TOOL_DRAFT_SERVICE.create_draft, payload, actor)
+
+
 def _print_status(payload: dict[str, Any]) -> None:
     print("\n[상태 보고]")
     print(f"- Task ID: {payload.get('task_id', '-')}")
@@ -212,12 +255,30 @@ def _print_tools(payload: dict[str, Any]) -> None:
     print()
 
 
+def _print_tool_draft(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    print("\n[도구 등록 초안]")
+    print(f"- Draft ID: {payload.get('draft_id', '-')}")
+    print(f"- 파일: {payload.get('path', '-')}")
+    tool = payload.get("tool") or {}
+    if tool:
+        print(f"- Tool ID: {tool.get('tool_id', '-')}")
+        print(f"- Adapter: {tool.get('adapter', '-')}")
+        print(f"- Method: {tool.get('method', '-')}")
+    print()
+
+
 def _emit_payload(payload: dict[str, Any], *, as_json: bool, command: str) -> None:
     if as_json:
         print(json.dumps(payload, ensure_ascii=False))
         return
     if command == "tools":
         _print_tools(payload)
+        return
+    if command == "tool-draft":
+        _print_tool_draft(payload)
         return
     if command == "events":
         _print_events(payload)
@@ -396,6 +457,26 @@ def build_parser() -> argparse.ArgumentParser:
     tools_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
     tools_parser.add_argument("--json", action="store_true")
 
+    tool_draft_parser = subparsers.add_parser("tool-draft", help="create or fetch a tool registration draft")
+    tool_draft_parser.add_argument("--draft-id")
+    tool_draft_parser.add_argument("--requested-by", default=DEFAULT_ACTOR_ID)
+    tool_draft_parser.add_argument("--request-text")
+    tool_draft_parser.add_argument("--tool-id")
+    tool_draft_parser.add_argument("--title")
+    tool_draft_parser.add_argument("--description")
+    tool_draft_parser.add_argument("--adapter")
+    tool_draft_parser.add_argument("--method")
+    tool_draft_parser.add_argument("--action-type")
+    tool_draft_parser.add_argument("--external-system")
+    tool_draft_parser.add_argument("--capability-family")
+    tool_draft_parser.add_argument("--required-field", action="append", dest="required_fields", default=[])
+    tool_draft_parser.add_argument("--default-risk-level", default="medium")
+    tool_draft_parser.add_argument("--default-approval-required", action=argparse.BooleanOptionalAction, default=None)
+    tool_draft_parser.add_argument("--supports-dry-run", action=argparse.BooleanOptionalAction, default=None)
+    tool_draft_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    tool_draft_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    tool_draft_parser.add_argument("--json", action="store_true")
+
     return parser
 
 
@@ -470,6 +551,29 @@ def main(argv: Sequence[str] | None = None) -> int:
             external_system=args.external_system,
         )
         _emit_payload(payload, as_json=args.json, command="tools")
+        return exit_code
+
+    if args.command == "tool-draft":
+        payload, exit_code = _tool_draft_payload(
+            requested_by=args.requested_by,
+            request_text=args.request_text,
+            actor_id=args.actor_id,
+            actor_role=args.actor_role,
+            tool_id=args.tool_id,
+            title=args.title,
+            description=args.description,
+            adapter=args.adapter,
+            method=args.method,
+            action_type=args.action_type,
+            external_system=args.external_system,
+            capability_family=args.capability_family,
+            required_payload_fields=args.required_fields,
+            default_risk_level=args.default_risk_level,
+            default_approval_required=args.default_approval_required,
+            supports_dry_run=args.supports_dry_run,
+            draft_id=args.draft_id,
+        )
+        _emit_payload(payload, as_json=args.json, command="tool-draft")
         return exit_code
 
     parser.print_help()

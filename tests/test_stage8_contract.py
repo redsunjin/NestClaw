@@ -193,9 +193,11 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn('subparsers.add_parser("approve"', source)
         self.assertIn('subparsers.add_parser("reject"', source)
         self.assertIn('subparsers.add_parser("tools"', source)
+        self.assertIn('subparsers.add_parser("tool-draft"', source)
         self.assertIn("build_orchestration_service(sync_execution=True)", source)
         self.assertIn("build_approval_service(sync_execution=True)", source)
         self.assertIn("build_tool_catalog_service()", source)
+        self.assertIn("build_tool_draft_service()", source)
 
     def test_mcp_server_exposes_required_tools(self) -> None:
         source = Path("app/mcp_server.py").read_text(encoding="utf-8")
@@ -208,6 +210,8 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn('"approval.reject"', source)
         self.assertIn('"catalog.list"', source)
         self.assertIn('"catalog.get"', source)
+        self.assertIn('"catalog.create_draft"', source)
+        self.assertIn('"catalog.get_draft"', source)
         self.assertIn('method == "tools/list"', source)
         self.assertIn('method == "tools/call"', source)
 
@@ -241,12 +245,24 @@ class TestStage8Contract(unittest.TestCase):
         registry_source = Path("configs/tool_registry.yaml").read_text(encoding="utf-8")
         self.assertIn("TOOL_REGISTRY = load_tool_registry()", main_source)
         self.assertIn('"/api/v1/tools"', main_source)
+        self.assertIn('"/api/v1/tool-drafts"', main_source)
         self.assertIn('"tool_id": capability.tool_id', main_source)
         self.assertIn("CLI_TOOL_CATALOG_SERVICE", cli_source)
+        self.assertIn("CLI_TOOL_DRAFT_SERVICE", cli_source)
         self.assertIn("catalog.list", mcp_source)
+        self.assertIn("catalog.create_draft", mcp_source)
         self.assertIn("internal.summary.generate", registry_source)
         self.assertIn("redmine.issue.create", registry_source)
+        self.assertIn("slack.message.send", registry_source)
         self.assertIn("required_payload_fields", registry_source)
+
+    def test_slack_adapter_and_tool_draft_service_exist(self) -> None:
+        slack_source = Path("app/slack_adapter.py").read_text(encoding="utf-8")
+        service_source = Path("app/services/tool_draft_service.py").read_text(encoding="utf-8")
+        self.assertIn("def execute_slack_action", slack_source)
+        self.assertIn("NEWCLAW_ENABLE_SLACK_LIVE", slack_source)
+        self.assertIn("class ToolDraftService", service_source)
+        self.assertIn("DRAFT_REVIEW_REQUIRED", service_source)
 
     def test_intent_classifier_is_connected_to_agent_runtime(self) -> None:
         main_source = Path("app/main.py").read_text(encoding="utf-8")

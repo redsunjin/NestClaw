@@ -309,7 +309,7 @@ workflow 종류를 몰라도 단일 경로로 이벤트 로그를 조회한다.
 응답:
 ```json
 {
-  "count": 5,
+  "count": 7,
   "items": [
     {
       "tool_id": "redmine.issue.create",
@@ -334,6 +334,47 @@ workflow 종류를 몰라도 단일 경로로 이벤트 로그를 조회한다.
   "action_type": "redmine_issue_create",
   "supports_dry_run": true,
   "required_payload_fields": ["project_id", "subject", "description", "priority"]
+}
+```
+
+## 4.14 POST `/api/v1/tool-drafts`
+새 도구를 production registry에 바로 반영하지 않고, reviewable draft로 생성한다.
+
+권한:
+- 허용 role: `requester`, `approver`, `reviewer`, `admin`
+
+요청:
+```json
+{
+  "requested_by": "qa_user",
+  "request_text": "Slack 알림 도구를 추가하고 싶다"
+}
+```
+
+응답:
+```json
+{
+  "draft_id": "tooldraft_ab12cd34ef",
+  "status": "DRAFT_REVIEW_REQUIRED",
+  "path": "work/tool_drafts/tooldraft_ab12cd34ef.yaml",
+  "tool": {
+    "tool_id": "slack.messaging.custom",
+    "adapter": "slack_api",
+    "method": "message.send",
+    "external_system": "slack"
+  }
+}
+```
+
+## 4.15 GET `/api/v1/tool-drafts/{draft_id}`
+생성된 tool registration draft 내용을 조회한다.
+
+응답:
+```json
+{
+  "draft_id": "tooldraft_ab12cd34ef",
+  "path": "work/tool_drafts/tooldraft_ab12cd34ef.yaml",
+  "content": "draft_id: ..."
 }
 ```
 

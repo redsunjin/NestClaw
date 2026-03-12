@@ -33,6 +33,17 @@ class TestToolRegistryContract(unittest.TestCase):
         self.assertIn("meeting_title", capability.required_payload_fields)
         self.assertFalse(capability.supports_dry_run)
 
+    def test_load_tool_registry_contains_slack_capability(self) -> None:
+        registry = load_tool_registry()
+        capability = get_tool_capability(registry, "slack.message.send")
+
+        self.assertEqual(capability.adapter, "slack_api")
+        self.assertEqual(capability.method, "message.send")
+        self.assertEqual(capability.external_system, "slack")
+        self.assertEqual(capability.capability_family, "messaging")
+        self.assertIn("channel", capability.required_payload_fields)
+        self.assertTrue(capability.supports_dry_run)
+
     def test_list_tool_capabilities_supports_filters(self) -> None:
         registry = load_tool_registry()
 
