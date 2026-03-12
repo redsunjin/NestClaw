@@ -131,6 +131,7 @@
 - Stage 8 자체평가 그룹: `STAGE8_SELF_EVAL_GROUPS_2026-03-05.md`
 - Stage 8 종료 요약: `STAGE8_CLOSEOUT_SUMMARY_2026-03-06.md`
 - Stage 8 live rehearsal runbook: `STAGE8_LIVE_REHEARSAL_RUNBOOK_2026-03-07.md`
+- Agent tool surface 방향: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
 - Stage 8 마이크로 작업 프로토콜: `MICRO_AGENT_WORKFLOW.md`
 
 ## 10) 현재 구현 상태
@@ -164,6 +165,25 @@
 - 현재 사용자 진입점:
   - 기본 진입점은 `agent submit/status/events`
   - `task/*`, `incident/*`는 하위 호환 및 세부 검증용
+
+### 10.1 지금 실제로 할 수 있는 것
+- 하나의 agent 요청을 받아 일반 task 또는 incident workflow로 분기
+- 회의요약 입력을 받아 액션 아이템 보고서 생성
+- incident 입력을 받아 context 집계, action card, 승인/실행, 보고서 흐름을 dry-run으로 재현
+- 승인 큐/이벤트 로그/audit/상태 조회를 일관된 경로로 처리
+- Redmine MCP live bridge 및 rehearsal script를 통해 sandbox 연동 경로 준비
+
+### 10.2 아직 못 하는 것
+- LLM 기반 intent classification과 tool selection
+- live RAG 기반 reasoning
+- MCP 표준 tool server 제공
+- 운영자용 전용 GUI 콘솔
+
+### 10.3 다음 고도화 방향
+- `코어 서비스 -> HTTP/CLI/MCP 공통 표면` 구조로 재구성
+- menu형 CLI를 유지하되, 별도로 비대화형 tool CLI 추가
+- MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`를 직접 호출 가능하게 확장
+- 상세 방향 문서: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
 
 코드 위치:
 - 서버: `app/main.py`

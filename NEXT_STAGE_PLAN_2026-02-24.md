@@ -110,6 +110,24 @@
   - 외부 sandbox credential이 있는 QA worktree에서 live rehearsal `PASS` 증적 확보
   - 파일럿 대상 서비스/팀 확정 및 Go/No-Go 패키지 작성
 
+## Agent 제품화 방향 업데이트 (2026-03-12)
+- 완료:
+  - 단일 agent facade 경로 추가 (`app/main.py`)
+  - 기본 사용자 진입점을 `agent submit/status/events`로 통합 (`app/cli.py`, `API_CONTRACT.md`)
+  - agent facade runtime smoke 및 QA cycle 고정 (`tests/test_agent_entrypoint_smoke.py`, `scripts/run_dev_qa_cycle.sh`)
+- 현재 진단:
+  - 현재 제품은 "오케스트레이션 백엔드 + 단일 facade" 수준이다.
+  - 아직 LLM 기반 intent routing, MCP server, live RAG, operator UI는 없다.
+  - `configs/model_registry.yaml`는 존재하지만 runtime provider routing은 미연결 상태다.
+- 다음 우선순위:
+  1. `app/main.py` 내부 orchestration 로직을 `app/services/` 계층으로 분리
+  2. 비대화형 tool CLI(`submit/status/events/approve/reject --json`) 추가
+  3. MCP server 추가 (`agent.submit`, `agent.status`, `agent.events`, `approval.*`)
+  4. model registry runtime loader + provider selection logging + intent classifier 연결
+  5. 최소 operator UI 설계/구현
+- 기준 문서:
+  - `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
+
 ## 리스크
 - 네트워크 제약 환경에서 런타임 테스트 일부 skip 가능
 - DB 전환 시 기존 API 응답 포맷 회귀 위험

@@ -147,6 +147,15 @@
 - [x] live rehearsal runbook/script 추가 (`STAGE8_LIVE_REHEARSAL_RUNBOOK_2026-03-07.md`, `scripts/run_stage8_live_rehearsal.sh`)
 - [ ] 외부 sandbox credential 기반 live rehearsal PASS 증적 확보 (QA worktree)
 
+### F) Agent Tool Surface Follow-up (2026-03-12)
+- [ ] 서비스 계층 분리 (`app/main.py` -> `app/services/agent_service.py`, `task_service.py`, `incident_service.py`)
+- [ ] 비대화형 tool CLI 추가 (`submit/status/events/approve/reject --json`)
+- [ ] MCP server 추가 (`agent.submit`, `agent.status`, `agent.events`, `approval.list/approve/reject`)
+- [ ] `configs/model_registry.yaml` runtime loader 연결 및 provider selection logging 추가
+- [ ] `task_kind=auto`를 heuristic에서 LLM intent classifier로 고도화
+- [ ] 최소 operator UI 설계 초안 작성
+- [ ] 방향 문서 고정 (`AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`)
+
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)
 2. [x] 상태 전이 다이어그램 작성 (`STATE_MACHINE.md`)
