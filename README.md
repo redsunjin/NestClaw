@@ -184,13 +184,15 @@
 
 ### 10.3 다음 고도화 방향
 - `코어 서비스 -> HTTP/CLI/MCP 공통 표면` 구조로 재구성
-- menu형 CLI를 유지하되, 별도로 비대화형 tool CLI 추가
+- menu형 CLI를 유지하되, 별도로 비대화형 tool CLI를 제공
 - MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`를 직접 호출 가능하게 확장
 - 상세 방향 문서: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
 
 코드 위치:
 - 서버: `app/main.py`
 - 서비스 계층: `app/services/orchestration_service.py`
+- 승인 서비스 계층: `app/services/approval_service.py`
+- 도구 CLI: `app/cli.py`
 - 의존성: `requirements.txt`
 
 ## 11) 로컬 실행 방법
@@ -202,6 +204,18 @@ python3 -m pip install -r requirements.txt
 2. 서버 실행
 ```bash
 uvicorn app.main:APP --reload --port 8000
+```
+
+3. 로컬 tool CLI 실행
+```bash
+python3 app/cli.py submit --requested-by qa_user --task-kind task --request-text "운영회의 요약" --metadata-json '{"meeting_title":"ops sync","meeting_date":"2026-03-12","participants":["Kim"],"notes":"internal only"}' --json
+python3 app/cli.py status --task-id <task_id> --actor-id qa_user --json
+python3 app/cli.py events --task-id <task_id> --actor-id qa_user --json
+```
+
+4. interactive menu CLI 실행
+```bash
+python3 app/cli.py
 ```
 
 3. 헬스체크

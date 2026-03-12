@@ -34,10 +34,12 @@ class TestStage8Contract(unittest.TestCase):
         self.assertTrue(Path("app/incident_rag.py").is_file())
         self.assertTrue(Path("app/incident_mcp.py").is_file())
         self.assertTrue(Path("app/incident_policy.py").is_file())
+        self.assertTrue(Path("app/services/approval_service.py").is_file())
         self.assertTrue(Path("app/services/orchestration_service.py").is_file())
         self.assertTrue(Path("tests/test_incident_adapter_contract.py").is_file())
         self.assertTrue(Path("tests/test_agent_entrypoint_smoke.py").is_file())
         self.assertTrue(Path("tests/test_incident_runtime_smoke.py").is_file())
+        self.assertTrue(Path("tests/test_tool_cli_smoke.py").is_file())
         self.assertTrue(Path("tests/test_incident_policy_gate.py").is_file())
 
     def test_detailed_design_includes_required_contract_sections(self) -> None:
@@ -74,6 +76,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("tests.test_incident_policy_gate", source)
         self.assertIn("tests.test_agent_entrypoint_smoke", source)
         self.assertIn("tests.test_incident_runtime_smoke", source)
+        self.assertIn("tests.test_tool_cli_smoke", source)
         self.assertIn("run_stage8_self_eval.sh", source)
         self.assertIn("run_stage8_sandbox_e2e.sh", source)
         self.assertIn("run_stage8_live_rehearsal.sh", source)
@@ -123,6 +126,7 @@ class TestStage8Contract(unittest.TestCase):
     def test_main_uses_orchestration_service_layer(self) -> None:
         source = Path("app/main.py").read_text(encoding="utf-8")
         self.assertIn("ORCHESTRATION_SERVICE", source)
+        self.assertIn("APPROVAL_SERVICE", source)
         self.assertIn("OrchestrationServiceDeps", source)
         self.assertIn("task_status_ready=TaskStatus.READY,", source)
         self.assertIn("task_status_running=TaskStatus.RUNNING,", source)
@@ -132,6 +136,16 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("def _status_value", source)
         self.assertIn('self.deps.set_status(task, self.deps.task_status_running', source)
         self.assertIn('"status": self._status_value(self.deps.task_status_ready)', source)
+
+    def test_cli_supports_non_interactive_tool_commands(self) -> None:
+        source = Path("app/cli.py").read_text(encoding="utf-8")
+        self.assertIn('subparsers.add_parser("submit"', source)
+        self.assertIn('subparsers.add_parser("status"', source)
+        self.assertIn('subparsers.add_parser("events"', source)
+        self.assertIn('subparsers.add_parser("approve"', source)
+        self.assertIn('subparsers.add_parser("reject"', source)
+        self.assertIn("build_orchestration_service(sync_execution=True)", source)
+        self.assertIn("build_approval_service(sync_execution=True)", source)
 
     def test_live_rehearsal_runbook_mentions_http_bridge_contract(self) -> None:
         source = Path("STAGE8_LIVE_REHEARSAL_RUNBOOK_2026-03-07.md").read_text(encoding="utf-8")

@@ -120,11 +120,9 @@
   - 아직 LLM 기반 intent routing, MCP server, live RAG, operator UI는 없다.
   - `configs/model_registry.yaml`는 존재하지만 runtime provider routing은 미연결 상태다.
 - 다음 우선순위:
-  1. `app/main.py` 내부 orchestration 로직을 `app/services/` 계층으로 분리
-  2. 비대화형 tool CLI(`submit/status/events/approve/reject --json`) 추가
-  3. MCP server 추가 (`agent.submit`, `agent.status`, `agent.events`, `approval.*`)
-  4. model registry runtime loader + provider selection logging + intent classifier 연결
-  5. 최소 operator UI 설계/구현
+  1. MCP server 추가 (`agent.submit`, `agent.status`, `agent.events`, `approval.*`)
+  2. model registry runtime loader + provider selection logging + intent classifier 연결
+  3. 최소 operator UI 설계/구현
 - 기준 문서:
   - `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
 

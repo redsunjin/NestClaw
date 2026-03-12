@@ -24,7 +24,7 @@ from app.incident_policy import (
 )
 from app.incident_rag import fetch_knowledge_evidence, fetch_system_signals
 from app.persistence import create_state_store
-from app.services import OrchestrationService, OrchestrationServiceDeps
+from app.services import ApprovalService, ApprovalServiceDeps, OrchestrationService, OrchestrationServiceDeps
 
 
 class TaskStatus(str, Enum):
@@ -823,38 +823,75 @@ def _start_pipeline_for_workflow(task: dict[str, Any]) -> None:
     _start_pipeline(task["task_id"])
 
 
-ORCHESTRATION_SERVICE = OrchestrationService(
-    OrchestrationServiceDeps(
-        store_lock=STORE_LOCK,
-        tasks=TASKS,
-        task_events=TASK_EVENTS,
-        run_idempotency=RUN_IDEMPOTENCY,
-        state_store=STATE_STORE,
-        task_workflow=TASK_WORKFLOW,
-        incident_workflow=INCIDENT_WORKFLOW,
-        agent_entrypoint=AGENT_ENTRYPOINT,
-        task_status_ready=TaskStatus.READY,
-        task_status_running=TaskStatus.RUNNING,
-        task_status_failed_retryable=TaskStatus.FAILED_RETRYABLE,
-        task_status_needs_human_approval=TaskStatus.NEEDS_HUMAN_APPROVAL,
-        task_status_done=TaskStatus.DONE,
-        now_iso=_now_iso,
-        error=_error,
-        authorize=_authorize,
-        authorize_task_access=_authorize_task_access,
-        ensure_workflow=_ensure_workflow,
-        validate_task_input=_validate_task_input,
-        set_status=_set_status,
-        workflow_type=_workflow_type,
-        apply_incident_run_mode=_apply_incident_run_mode,
-        incident_runtime_snapshot=_incident_runtime_snapshot,
-        normalize_incident_run_mode=_normalize_incident_run_mode,
-        start_pipeline=_start_pipeline,
-        start_incident_pipeline=_start_incident_pipeline,
-        persist_task=_persist_task,
-        log_event=_log_event,
+def _run_pipeline_for_workflow_sync(task: dict[str, Any]) -> None:
+    workflow = _workflow_type(task)
+    if workflow == INCIDENT_WORKFLOW:
+        _run_incident_pipeline(task["task_id"])
+        return
+    _run_pipeline(task["task_id"])
+
+
+def build_orchestration_service(*, sync_execution: bool = False) -> OrchestrationService:
+    return OrchestrationService(
+        OrchestrationServiceDeps(
+            store_lock=STORE_LOCK,
+            tasks=TASKS,
+            task_events=TASK_EVENTS,
+            run_idempotency=RUN_IDEMPOTENCY,
+            state_store=STATE_STORE,
+            task_workflow=TASK_WORKFLOW,
+            incident_workflow=INCIDENT_WORKFLOW,
+            agent_entrypoint=AGENT_ENTRYPOINT,
+            task_status_ready=TaskStatus.READY,
+            task_status_running=TaskStatus.RUNNING,
+            task_status_failed_retryable=TaskStatus.FAILED_RETRYABLE,
+            task_status_needs_human_approval=TaskStatus.NEEDS_HUMAN_APPROVAL,
+            task_status_done=TaskStatus.DONE,
+            now_iso=_now_iso,
+            error=_error,
+            authorize=_authorize,
+            authorize_task_access=_authorize_task_access,
+            ensure_workflow=_ensure_workflow,
+            validate_task_input=_validate_task_input,
+            set_status=_set_status,
+            workflow_type=_workflow_type,
+            apply_incident_run_mode=_apply_incident_run_mode,
+            incident_runtime_snapshot=_incident_runtime_snapshot,
+            normalize_incident_run_mode=_normalize_incident_run_mode,
+            start_pipeline=_run_pipeline if sync_execution else _start_pipeline,
+            start_incident_pipeline=_run_incident_pipeline if sync_execution else _start_incident_pipeline,
+            persist_task=_persist_task,
+            log_event=_log_event,
+        )
     )
-)
+
+
+def build_approval_service(*, sync_execution: bool = False) -> ApprovalService:
+    return ApprovalService(
+        ApprovalServiceDeps(
+            store_lock=STORE_LOCK,
+            tasks=TASKS,
+            approval_queue=APPROVAL_QUEUE,
+            approval_actions=APPROVAL_ACTIONS,
+            approval_status_pending=ApprovalStatus.PENDING.value,
+            approval_status_approved=ApprovalStatus.APPROVED.value,
+            approval_status_rejected=ApprovalStatus.REJECTED.value,
+            task_status_running=TaskStatus.RUNNING,
+            task_status_done=TaskStatus.DONE,
+            now_iso=_now_iso,
+            error=_error,
+            authorize=_authorize,
+            persist_approval=_persist_approval,
+            persist_approval_action=_persist_approval_action,
+            set_status=_set_status,
+            log_event=_log_event,
+            start_pipeline_for_workflow=_run_pipeline_for_workflow_sync if sync_execution else _start_pipeline_for_workflow,
+        )
+    )
+
+
+ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=False)
+APPROVAL_SERVICE = build_approval_service(sync_execution=False)
 
 
 @APP.get("/health")
@@ -956,14 +993,7 @@ def list_approvals(
     approver_group: str | None = Query(default=None),
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    _authorize(actor.actor_role, {"approver", "admin"}, "list_approvals")
-    with STORE_LOCK:
-        items = list(APPROVAL_QUEUE.values())
-        if status:
-            items = [item for item in items if item["status"] == status]
-        if approver_group:
-            items = [item for item in items if item["approver_group"] == approver_group]
-        return {"items": items, "count": len(items)}
+    return APPROVAL_SERVICE.list_approvals(status, approver_group, actor)
 
 
 @APP.post("/api/v1/approvals/{queue_id}/approve")
@@ -972,44 +1002,7 @@ def approve_queue_item(
     req: ApprovalDecisionRequest,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    role = _authorize(actor.actor_role, {"approver", "admin"}, "approve_queue_item")
-    if req.acted_by != actor.actor_id:
-        _error(403, "FORBIDDEN", "acted_by must match authenticated actor")
-    with STORE_LOCK:
-        queue_item = APPROVAL_QUEUE.get(queue_id)
-        if not queue_item:
-            _error(404, "APPROVAL_NOT_FOUND", f"approval queue item not found: {queue_id}")
-        if queue_item["status"] != ApprovalStatus.PENDING.value:
-            _error(409, "INVALID_APPROVAL_STATE", f"approval item is not PENDING: {queue_item['status']}")
-
-        queue_item["status"] = ApprovalStatus.APPROVED.value
-        queue_item["resolved_at"] = _now_iso()
-        _persist_approval(queue_item)
-
-        action = {
-            "action_id": f"aa_{uuid4().hex}",
-            "queue_id": queue_id,
-            "task_id": queue_item["task_id"],
-            "action": "APPROVE",
-            "acted_by": actor.actor_id,
-            "comment": req.comment,
-            "created_at": _now_iso(),
-        }
-        APPROVAL_ACTIONS.append(action)
-        _persist_approval_action(action)
-
-        task = TASKS.get(queue_item["task_id"])
-        if not task:
-            _error(404, "TASK_NOT_FOUND", f"task not found: {queue_item['task_id']}")
-
-        approved_reasons = set(task.get("approved_reasons", []))
-        approved_reasons.add(queue_item["reason_code"])
-        task["approved_reasons"] = sorted(approved_reasons)
-        _set_status(task, TaskStatus.RUNNING, next_action="wait_for_completion")
-        _log_event(task["task_id"], "HUMAN_APPROVED", queue_id=queue_id, acted_by=actor.actor_id, actor_role=role)
-
-    _start_pipeline_for_workflow(task)
-    return {"queue_id": queue_id, "status": ApprovalStatus.APPROVED.value, "task_status": TaskStatus.RUNNING.value}
+    return APPROVAL_SERVICE.approve(queue_id, req, actor)
 
 
 @APP.post("/api/v1/approvals/{queue_id}/reject")
@@ -1018,41 +1011,7 @@ def reject_queue_item(
     req: ApprovalDecisionRequest,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    role = _authorize(actor.actor_role, {"approver", "admin"}, "reject_queue_item")
-    if req.acted_by != actor.actor_id:
-        _error(403, "FORBIDDEN", "acted_by must match authenticated actor")
-    with STORE_LOCK:
-        queue_item = APPROVAL_QUEUE.get(queue_id)
-        if not queue_item:
-            _error(404, "APPROVAL_NOT_FOUND", f"approval queue item not found: {queue_id}")
-        if queue_item["status"] != ApprovalStatus.PENDING.value:
-            _error(409, "INVALID_APPROVAL_STATE", f"approval item is not PENDING: {queue_item['status']}")
-
-        queue_item["status"] = ApprovalStatus.REJECTED.value
-        queue_item["resolved_at"] = _now_iso()
-        _persist_approval(queue_item)
-
-        action = {
-            "action_id": f"aa_{uuid4().hex}",
-            "queue_id": queue_id,
-            "task_id": queue_item["task_id"],
-            "action": "REJECT",
-            "acted_by": actor.actor_id,
-            "comment": req.comment,
-            "created_at": _now_iso(),
-        }
-        APPROVAL_ACTIONS.append(action)
-        _persist_approval_action(action)
-
-        task = TASKS.get(queue_item["task_id"])
-        if not task:
-            _error(404, "TASK_NOT_FOUND", f"task not found: {queue_item['task_id']}")
-        # Set completion timestamp before status persistence so DB state is consistent after restart.
-        task["completed_at"] = _now_iso()
-        _set_status(task, TaskStatus.DONE, next_action="none", final_reason="rejected_by_human")
-        _log_event(task["task_id"], "HUMAN_REJECTED", queue_id=queue_id, acted_by=actor.actor_id, actor_role=role)
-
-    return {"queue_id": queue_id, "status": ApprovalStatus.REJECTED.value, "task_status": TaskStatus.DONE.value}
+    return APPROVAL_SERVICE.reject(queue_id, req, actor)
 
 
 @APP.get("/api/v1/audit/summary")

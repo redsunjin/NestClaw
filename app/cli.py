@@ -1,61 +1,138 @@
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
-from urllib import error, request
+from typing import Any, Sequence
+
+from fastapi import HTTPException
+
+from app.auth import ActorContext, VALID_ROLES
+from app.main import build_approval_service, build_orchestration_service
 
 
-BASE_URL = "http://127.0.0.1:8000"
-ACTOR_ID = "user_cli"
-ACTOR_ROLE = "requester"
+DEFAULT_ACTOR_ID = "user_cli"
+DEFAULT_ACTOR_ROLE = "requester"
+VALID_TASK_KINDS = ("auto", "task", "incident")
+VALID_INCIDENT_RUN_MODES = ("dry-run", "mcp-live", "live")
+
+CLI_ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=True)
+CLI_APPROVAL_SERVICE = build_approval_service(sync_execution=True)
+
+MENU_ACTOR_ID = DEFAULT_ACTOR_ID
+MENU_ACTOR_ROLE = DEFAULT_ACTOR_ROLE
 
 
-def _http_json(
-    method: str,
-    path: str,
-    payload: dict[str, Any] | None = None,
-    *,
-    actor_id: str | None = None,
-    actor_role: str | None = None,
-) -> dict[str, Any]:
-    url = f"{BASE_URL}{path}"
-    data = None
-    headers = {"Content-Type": "application/json"}
-    if actor_id:
-        headers["X-Actor-Id"] = actor_id
-    if actor_role:
-        headers["X-Actor-Role"] = actor_role
-    if payload is not None:
-        data = json.dumps(payload).encode("utf-8")
+def _error_payload(code: str, message: str, *, status_code: int = 1) -> dict[str, Any]:
+    return {"error": {"code": code, "message": message, "status_code": status_code}}
 
-    req = request.Request(url, method=method, headers=headers, data=data)
+
+def _coerce_http_error(exc: HTTPException) -> dict[str, Any]:
+    if isinstance(exc.detail, dict):
+        return exc.detail
+    return _error_payload("HTTP_ERROR", str(exc.detail), status_code=exc.status_code)
+
+
+def _actor_context(actor_id: str, actor_role: str, *, source: str = "cli") -> ActorContext:
+    normalized_role = actor_role.strip().lower()
+    if normalized_role not in VALID_ROLES:
+        raise ValueError(f"unsupported actor_role: {actor_role}")
+    return ActorContext(actor_id=actor_id.strip(), actor_role=normalized_role, source=source)
+
+
+def _invoke(callable_obj: Any, *args: Any) -> tuple[dict[str, Any], int]:
     try:
-        with request.urlopen(req, timeout=10) as resp:
-            body = resp.read().decode("utf-8")
-            return json.loads(body) if body else {}
-    except error.HTTPError as exc:
-        detail = exc.read().decode("utf-8")
+        payload = callable_obj(*args)
+    except HTTPException as exc:
+        return _coerce_http_error(exc), 1
+    except ValueError as exc:
+        return _error_payload("INVALID_REQUEST", str(exc)), 1
+    except Exception as exc:  # pragma: no cover - defensive
+        return _error_payload("CLI_ERROR", str(exc)), 1
+    return payload, 0
+
+
+def _load_metadata(metadata_json: str | None, metadata_file: str | None) -> tuple[dict[str, Any], int]:
+    if metadata_json and metadata_file:
+        return _error_payload("INVALID_REQUEST", "use only one of --metadata-json or --metadata-file"), 1
+    raw = metadata_json
+    if metadata_file:
         try:
-            parsed = json.loads(detail)
-        except Exception:
-            parsed = {"error": {"code": "HTTP_ERROR", "message": detail or str(exc)}}
-        return parsed
-    except Exception as exc:
-        return {"error": {"code": "NETWORK_ERROR", "message": str(exc)}}
+            raw = Path(metadata_file).read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return _error_payload("INVALID_REQUEST", f"metadata file not found: {metadata_file}"), 1
+    if not raw:
+        return {}, 0
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return _error_payload("INVALID_REQUEST", f"invalid metadata json: {exc}"), 1
+    if not isinstance(payload, dict):
+        return _error_payload("INVALID_REQUEST", "metadata must be a JSON object"), 1
+    return payload, 0
 
 
-def _input_required(label: str) -> str:
-    while True:
-        value = input(f"{label}: ").strip()
-        if value:
-            return value
-        print("필수 입력입니다.")
+def _submit_payload(
+    *,
+    request_text: str,
+    requested_by: str,
+    task_kind: str = "auto",
+    title: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    auto_run: bool = True,
+    incident_run_mode: str = "dry-run",
+    actor_id: str | None = None,
+    actor_role: str = DEFAULT_ACTOR_ROLE,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id or requested_by, actor_role)
+    payload = {
+        "title": title,
+        "task_kind": task_kind,
+        "request_text": request_text,
+        "metadata": dict(metadata or {}),
+        "requested_by": requested_by,
+        "auto_run": auto_run,
+        "incident_run_mode": incident_run_mode,
+    }
+    return _invoke(CLI_ORCHESTRATION_SERVICE.submit_agent, payload, actor)
+
+
+def _status_payload(task_id: str, *, actor_id: str, actor_role: str) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    return _invoke(CLI_ORCHESTRATION_SERVICE.agent_status, task_id, actor)
+
+
+def _events_payload(task_id: str, *, actor_id: str, actor_role: str) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    return _invoke(CLI_ORCHESTRATION_SERVICE.agent_events, task_id, actor)
+
+
+def _approve_payload(
+    queue_id: str,
+    *,
+    acted_by: str,
+    comment: str | None,
+    actor_id: str | None = None,
+    actor_role: str = "approver",
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id or acted_by, actor_role)
+    return _invoke(CLI_APPROVAL_SERVICE.approve, queue_id, {"acted_by": acted_by, "comment": comment}, actor)
+
+
+def _reject_payload(
+    queue_id: str,
+    *,
+    acted_by: str,
+    comment: str | None,
+    actor_id: str | None = None,
+    actor_role: str = "approver",
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id or acted_by, actor_role)
+    return _invoke(CLI_APPROVAL_SERVICE.reject, queue_id, {"acted_by": acted_by, "comment": comment}, actor)
 
 
 def _print_status(payload: dict[str, Any]) -> None:
-    # Standardized status message for non-IT users.
     print("\n[상태 보고]")
     print(f"- Task ID: {payload.get('task_id', '-')}")
     if payload.get("resolved_kind"):
@@ -76,8 +153,50 @@ def _print_status(payload: dict[str, Any]) -> None:
     print()
 
 
-def submit_agent_request() -> None:
-    global ACTOR_ID, ACTOR_ROLE
+def _print_events(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    print("\n[이벤트]")
+    for item in payload.get("items", [])[-10:]:
+        print(f"- {item.get('created_at', '-')}: {item.get('event_type', '-')}")
+    print()
+
+
+def _print_approval_result(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    print("\n[승인 처리]")
+    print(f"- Queue ID: {payload.get('queue_id', '-')}")
+    print(f"- 승인 상태: {payload.get('status', '-')}")
+    print(f"- Task 상태: {payload.get('task_status', '-')}")
+    print()
+
+
+def _emit_payload(payload: dict[str, Any], *, as_json: bool, command: str) -> None:
+    if as_json:
+        print(json.dumps(payload, ensure_ascii=False))
+        return
+    if command == "events":
+        _print_events(payload)
+        return
+    if command in {"approve", "reject"}:
+        _print_approval_result(payload)
+        return
+    _print_status(payload)
+
+
+def _input_required(label: str) -> str:
+    while True:
+        value = input(f"{label}: ").strip()
+        if value:
+            return value
+        print("필수 입력입니다.")
+
+
+def _menu_submit() -> None:
+    global MENU_ACTOR_ID, MENU_ACTOR_ROLE
     print("\n[Agent Submit]")
     task_kind = input("요청 유형 (auto/task/incident, 기본: auto): ").strip().lower() or "auto"
     title = input("작업 제목 (선택): ").strip() or None
@@ -90,7 +209,7 @@ def submit_agent_request() -> None:
         metadata["meeting_title"] = input("회의 제목 (선택): ").strip() or title or "Agent Request"
         metadata["meeting_date"] = input("회의 날짜 (YYYY-MM-DD, 기본: 오늘): ").strip()
         participants_raw = input("참석자 (쉼표 구분, 기본: 요청자): ").strip()
-        metadata["participants"] = [x.strip() for x in participants_raw.split(",") if x.strip()] if participants_raw else [requested_by]
+        metadata["participants"] = [item.strip() for item in participants_raw.split(",") if item.strip()] if participants_raw else [requested_by]
         metadata["notes"] = input("회의 메모 (비우면 요청 내용 사용): ").strip() or request_text
         task_kind = "task"
     elif task_kind == "incident":
@@ -101,90 +220,67 @@ def submit_agent_request() -> None:
         metadata["policy_profile"] = input("정책 프로필 (기본: default): ").strip() or "default"
         run_mode = input("incident run_mode (dry-run/mcp-live/live, 기본: dry-run): ").strip().lower() or "dry-run"
 
-    payload = {
-        "title": title,
-        "task_kind": task_kind,
-        "request_text": request_text,
-        "metadata": metadata,
-        "requested_by": requested_by,
-        "auto_run": True,
-        "incident_run_mode": run_mode,
-    }
-    ACTOR_ID = requested_by
-    ACTOR_ROLE = "requester"
-    resp = _http_json(
-        "POST",
-        "/api/v1/agent/submit",
-        payload,
-        actor_id=ACTOR_ID,
-        actor_role=ACTOR_ROLE,
+    MENU_ACTOR_ID = requested_by
+    MENU_ACTOR_ROLE = "requester"
+    payload, _ = _submit_payload(
+        request_text=request_text,
+        requested_by=requested_by,
+        task_kind=task_kind,
+        title=title,
+        metadata=metadata,
+        auto_run=True,
+        incident_run_mode=run_mode,
+        actor_id=MENU_ACTOR_ID,
+        actor_role=MENU_ACTOR_ROLE,
     )
-    _print_status(resp)
+    _print_status(payload)
 
 
-def show_status() -> None:
-    global ACTOR_ID, ACTOR_ROLE
-    task_id = _input_required("조회할 Task ID")
-    resp = _http_json("GET", f"/api/v1/agent/status/{task_id}", actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
-    _print_status(resp)
+def _menu_status() -> None:
+    payload, _ = _status_payload(_input_required("조회할 Task ID"), actor_id=MENU_ACTOR_ID, actor_role=MENU_ACTOR_ROLE)
+    _print_status(payload)
 
 
-def show_events() -> None:
-    global ACTOR_ID, ACTOR_ROLE
-    task_id = _input_required("이벤트 조회할 Task ID")
-    resp = _http_json("GET", f"/api/v1/agent/events/{task_id}", actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
-    if "error" in resp:
-        _print_status(resp)
+def _menu_events() -> None:
+    payload, _ = _events_payload(_input_required("이벤트 조회할 Task ID"), actor_id=MENU_ACTOR_ID, actor_role=MENU_ACTOR_ROLE)
+    _print_events(payload)
+
+
+def _menu_result() -> None:
+    payload, _ = _status_payload(_input_required("결과 확인할 Task ID"), actor_id=MENU_ACTOR_ID, actor_role=MENU_ACTOR_ROLE)
+    _print_status(payload)
+    if payload.get("status") != "DONE":
         return
-    print("\n[이벤트]")
-    for item in resp.get("items", [])[-10:]:
-        print(f"- {item.get('created_at', '-')}: {item.get('event_type', '-')}")
-    print()
-
-
-def show_result() -> None:
-    global ACTOR_ID, ACTOR_ROLE
-    task_id = _input_required("결과 확인할 Task ID")
-    resp = _http_json("GET", f"/api/v1/agent/status/{task_id}", actor_id=ACTOR_ID, actor_role=ACTOR_ROLE)
-    _print_status(resp)
-    if resp.get("status") != "DONE":
-        return
-    result = resp.get("result") or {}
-    report_path = result.get("report_path")
+    report_path = ((payload.get("result") or {}).get("report_path"))
     if not report_path:
         return
-    path = Path(report_path)
+    path = Path(str(report_path))
     if not path.exists():
         print("결과 파일이 아직 로컬에 없습니다.\n")
         return
     print("[결과 미리보기]")
-    preview = path.read_text(encoding="utf-8").splitlines()[:20]
-    for line in preview:
+    for line in path.read_text(encoding="utf-8").splitlines()[:20]:
         print(line)
     print()
 
 
-def main() -> int:
-    global ACTOR_ID, ACTOR_ROLE
-    actor_id_input = input("작업자 ID (기본: user_cli): ").strip()
-    if actor_id_input:
-        ACTOR_ID = actor_id_input
-    actor_role_input = input("작업자 Role (requester/reviewer/approver/admin, 기본: requester): ").strip().lower()
-    if actor_role_input in {"requester", "reviewer", "approver", "admin"}:
-        ACTOR_ROLE = actor_role_input
+def run_menu(*, actor_id: str = DEFAULT_ACTOR_ID, actor_role: str = DEFAULT_ACTOR_ROLE) -> int:
+    global MENU_ACTOR_ID, MENU_ACTOR_ROLE
+    MENU_ACTOR_ID = actor_id
+    MENU_ACTOR_ROLE = actor_role
 
     menu = {
-        "1": ("Agent 요청 제출", submit_agent_request),
-        "2": ("상태 조회", show_status),
-        "3": ("이벤트 조회", show_events),
-        "4": ("결과 확인", show_result),
+        "1": ("Agent 요청 제출", _menu_submit),
+        "2": ("상태 조회", _menu_status),
+        "3": ("이벤트 조회", _menu_events),
+        "4": ("결과 확인", _menu_result),
         "5": ("종료", None),
     }
 
     print("NewClaw Agent CLI")
-    print(f"- API: {BASE_URL}\n")
-    print(f"- Actor ID: {ACTOR_ID}")
-    print(f"- Actor Role: {ACTOR_ROLE}\n")
+    print("- Mode: local sync service\n")
+    print(f"- Actor ID: {MENU_ACTOR_ID}")
+    print(f"- Actor Role: {MENU_ACTOR_ROLE}\n")
 
     while True:
         print("메뉴:")
@@ -199,6 +295,125 @@ def main() -> int:
             print("올바른 번호를 선택하세요.\n")
             continue
         action()
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="newclaw", description="NewClaw local tool CLI")
+    subparsers = parser.add_subparsers(dest="command")
+
+    menu_parser = subparsers.add_parser("menu", help="run interactive menu mode")
+    menu_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    menu_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+
+    submit_parser = subparsers.add_parser("submit", help="submit an agent request")
+    submit_parser.add_argument("--request-text", required=True)
+    submit_parser.add_argument("--requested-by", required=True)
+    submit_parser.add_argument("--task-kind", choices=VALID_TASK_KINDS, default="auto")
+    submit_parser.add_argument("--title")
+    metadata_group = submit_parser.add_mutually_exclusive_group()
+    metadata_group.add_argument("--metadata-json")
+    metadata_group.add_argument("--metadata-file")
+    submit_parser.add_argument("--actor-id")
+    submit_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    submit_parser.add_argument("--incident-run-mode", choices=VALID_INCIDENT_RUN_MODES, default="dry-run")
+    submit_parser.add_argument("--no-auto-run", action="store_true")
+    submit_parser.add_argument("--json", action="store_true")
+
+    status_parser = subparsers.add_parser("status", help="show agent status")
+    status_parser.add_argument("--task-id", required=True)
+    status_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    status_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    status_parser.add_argument("--json", action="store_true")
+
+    events_parser = subparsers.add_parser("events", help="show agent events")
+    events_parser.add_argument("--task-id", required=True)
+    events_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    events_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    events_parser.add_argument("--json", action="store_true")
+
+    approve_parser = subparsers.add_parser("approve", help="approve a pending queue item")
+    approve_parser.add_argument("--queue-id", required=True)
+    approve_parser.add_argument("--acted-by", required=True)
+    approve_parser.add_argument("--comment")
+    approve_parser.add_argument("--actor-id")
+    approve_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default="approver")
+    approve_parser.add_argument("--json", action="store_true")
+
+    reject_parser = subparsers.add_parser("reject", help="reject a pending queue item")
+    reject_parser.add_argument("--queue-id", required=True)
+    reject_parser.add_argument("--acted-by", required=True)
+    reject_parser.add_argument("--comment")
+    reject_parser.add_argument("--actor-id")
+    reject_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default="approver")
+    reject_parser.add_argument("--json", action="store_true")
+
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args_list = list(argv) if argv is not None else sys.argv[1:]
+    if not args_list:
+        return run_menu()
+
+    parser = build_parser()
+    args = parser.parse_args(args_list)
+
+    if args.command == "menu":
+        return run_menu(actor_id=args.actor_id, actor_role=args.actor_role)
+
+    if args.command == "submit":
+        metadata, metadata_rc = _load_metadata(args.metadata_json, args.metadata_file)
+        if metadata_rc != 0:
+            _emit_payload(metadata, as_json=args.json, command="submit")
+            return metadata_rc
+        payload, exit_code = _submit_payload(
+            request_text=args.request_text,
+            requested_by=args.requested_by,
+            task_kind=args.task_kind,
+            title=args.title,
+            metadata=metadata,
+            auto_run=not args.no_auto_run,
+            incident_run_mode=args.incident_run_mode,
+            actor_id=args.actor_id,
+            actor_role=args.actor_role,
+        )
+        _emit_payload(payload, as_json=args.json, command="submit")
+        return exit_code
+
+    if args.command == "status":
+        payload, exit_code = _status_payload(args.task_id, actor_id=args.actor_id, actor_role=args.actor_role)
+        _emit_payload(payload, as_json=args.json, command="status")
+        return exit_code
+
+    if args.command == "events":
+        payload, exit_code = _events_payload(args.task_id, actor_id=args.actor_id, actor_role=args.actor_role)
+        _emit_payload(payload, as_json=args.json, command="events")
+        return exit_code
+
+    if args.command == "approve":
+        payload, exit_code = _approve_payload(
+            args.queue_id,
+            acted_by=args.acted_by,
+            comment=args.comment,
+            actor_id=args.actor_id,
+            actor_role=args.actor_role,
+        )
+        _emit_payload(payload, as_json=args.json, command="approve")
+        return exit_code
+
+    if args.command == "reject":
+        payload, exit_code = _reject_payload(
+            args.queue_id,
+            acted_by=args.acted_by,
+            comment=args.comment,
+            actor_id=args.actor_id,
+            actor_role=args.actor_role,
+        )
+        _emit_payload(payload, as_json=args.json, command="reject")
+        return exit_code
+
+    parser.print_help()
+    return 2
 
 
 if __name__ == "__main__":
