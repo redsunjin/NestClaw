@@ -3,6 +3,7 @@
 ## 1) 목적
 로컬 업무 위임 오케스트레이션의 최소 API 계약을 고정한다.
 사용자 진입점은 `agent submit/status/events`를 기본으로 하고, 하위 호환을 위해 `task/*`, `incident/*` 직접 엔드포인트를 유지한다.
+현재 v0.1 구현 범위의 workflow family는 `task`와 `incident`이며, broader execution agent의 추가 tool/workflow family는 후속 단계에서 확장한다.
 
 ## 2) 공통 규칙
 - Base Path: `/api/v1`
@@ -221,7 +222,7 @@ Task 이벤트 로그를 조회한다.
 ```
 
 ## 4.9 POST `/api/v1/agent/submit`
-단일 요청 진입점이다. 규칙 기반으로 `task` 또는 `incident` workflow로 라우팅하고 기본값으로 즉시 실행한다.
+단일 요청 진입점이다. 현재 v0.1에서는 `task` 또는 `incident` workflow family로 라우팅하고 기본값으로 즉시 실행한다.
 
 권한:
 - 허용 role: `requester`, `admin`
@@ -258,8 +259,8 @@ Task 이벤트 로그를 조회한다.
 ```
 
 비고:
-- `task_kind=auto`는 규칙 기반 힌트로만 분류한다.
-- 실제 LLM intent classification은 아직 범위 밖이다.
+- `task_kind=auto`는 현재 LLM intent classifier + heuristic fallback으로 분류한다.
+- broader tool registry / planner / execution adapter는 후속 단계 범위다.
 
 ## 4.10 GET `/api/v1/agent/status/{task_id}`
 workflow 종류를 몰라도 단일 경로로 상태를 조회한다.

@@ -1,12 +1,12 @@
 # Agent Tool Surface Direction (2026-03-12)
 
 ## 목적
-현재 프로젝트를 "HTTP 중심 백엔드 PoC"에서 "AI/운영자/스크립트가 공통으로 사용할 수 있는 오케스트레이션 에이전트"로 고도화하기 위한 방향을 고정한다.
+현재 프로젝트를 "HTTP 중심 백엔드 PoC"에서 "AI/운영자/스크립트가 공통으로 사용할 수 있고, 다양한 도구를 정책적으로 사용하는 실행형 에이전트"로 고도화하기 위한 방향을 고정한다.
 
 ## 현재 냉정한 상태
 - 현재 강점:
   - 단일 agent 진입점이 있다. (`POST /api/v1/agent/submit`, `GET /api/v1/agent/status/{task_id}`, `GET /api/v1/agent/events/{task_id}`)
-  - 일반 task와 incident workflow를 한 요청 경로에서 분기할 수 있다.
+  - 현재 구현된 workflow family(`task`, `incident`)를 한 요청 경로에서 분기할 수 있다.
   - 회의요약 보고서 생성과 incident dry-run orchestration이 동작한다.
   - 승인 큐, RBAC, audit, retry, persistence, QA gate가 이미 들어가 있다.
   - 비대화형 tool CLI가 있다. (`submit/status/events/approve/reject --json`)
@@ -15,6 +15,7 @@
   - Redmine MCP live bridge 경로와 rehearsal script가 준비되어 있다.
 - 현재 한계:
   - classifier는 `task` / `incident` 분기까지만 담당하고, 실제 tool planning은 아직 없다.
+  - 다양한 도구를 설명하는 tool registry / capability schema가 아직 없다.
   - model registry selection이 실제 provider invocation으로 이어지지 않는다.
   - RAG 어댑터는 여전히 dry-run 중심이다.
   - Stage 8 전체 readiness는 sandbox/live env 부재로 `7/8` 상태다.
@@ -29,7 +30,7 @@
 ## 아직 못 하는 일
 1. 자연어 요청만으로 LLM이 의도를 분류하고 tool을 스스로 고르는 범용 agent 동작
 2. 실제 live RAG를 통한 사내 지식/시스템 신호 기반 reasoning
-3. tool planning / execution card를 공통 루프로 돌리는 범용 agent 동작
+3. tool registry / capability schema 기반으로 여러 도구를 선택하는 범용 agent 동작
 4. 운영자가 쓰는 전용 GUI 콘솔
 
 ## 권장 구조
@@ -91,26 +92,32 @@ MCP 원칙:
 1. 모델 라우팅 실제 연결
 - `configs/model_registry.yaml` selection을 실제 provider invocation으로 이어 붙인다.
 
-2. action-card / tool planning 공통 루프 정리
+2. tool registry / capability schema 고정
+- 어떤 도구를 어떤 입력/승인조건/출력계약으로 사용할지 표준화한다.
+
+3. action-card / tool planning 공통 루프 정리
 - 현재 task/incident 분기 뒤의 실행 단계를 공통 planner/executor 계약으로 수렴시킨다.
 
-3. live RAG adapter 고도화
+4. live RAG adapter 고도화
 - dry-run evidence를 실제 retrieval/provider 호출로 바꾼다.
 
-4. operator UI 추가
+5. operator UI 추가
 - 마지막 단계로 최소 운영 콘솔을 붙인다.
 
 ## 다음 MWU 후보
 1. `agent-s6-provider-invocation`
 - 목적: model registry selection을 실제 provider adapter 호출로 연결
 
-2. `agent-s7-tool-planning-loop`
+2. `agent-s7-tool-registry`
+- 목적: 다양한 도구를 capability/approval schema로 고정
+
+3. `agent-s8-tool-planning-loop`
 - 목적: task/incident action-card를 공통 planner/executor 계약으로 수렴
 
-3. `agent-s8-live-rag`
+4. `agent-s9-live-rag`
 - 목적: retrieval / signals adapter를 dry-run에서 실제 live 호출로 확장
 
-4. `agent-s9-operator-ui`
+5. `agent-s10-operator-ui`
 - 목적: 최소 operator UI 설계/구현
 
 ## 판단 기준

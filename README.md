@@ -9,7 +9,8 @@
 
 ## 1) 프로젝트 목적
 ### 1.1 핵심 목적
-- 로컬 환경에서 안전하게 동작하는 **직장 동료형 업무 위임 오케스트레이션**을 구현한다.
+- 로컬 환경에서 안전하게 동작하는 **정책·승인·감사를 갖춘 사내 업무 실행 오케스트레이션 에이전트**를 구현한다.
+- 이 에이전트는 하나의 요청을 받아 다양한 도구를 사용하는 업무 실행 서비스를 지향하며, 필요한 승인과 감사로그를 남기면서 실제 업무 처리까지 이어지는 것을 목표로 한다.
 - 사용자는 지시자, 시스템은 계획/실행/검토/보고를 수행한다.
 
 ### 1.2 운영 원칙
@@ -170,7 +171,7 @@
   - agent/task/incident orchestration은 `app/services/orchestration_service.py`로 분리
 
 ### 10.1 지금 실제로 할 수 있는 것
-- 하나의 agent 요청을 받아 일반 task 또는 incident workflow로 분기
+- 하나의 agent 요청을 받아 현재 구현된 workflow family(`task`, `incident`) 중 하나로 분기
 - `task_kind=auto` 요청을 LLM intent classifier + heuristic fallback으로 안전하게 분류
 - 회의요약 입력을 받아 액션 아이템 보고서 생성
 - incident 입력을 받아 context 집계, action card, 승인/실행, 보고서 흐름을 dry-run으로 재현
@@ -181,6 +182,7 @@
 - local LM Studio(`http://localhost:1234`)를 intent classifier provider로 등록해 사용할 수 있음
 
 ### 10.2 아직 못 하는 것
+- tool registry / capability schema 기반의 범용 도구 선택
 - LLM 기반 tool selection / multi-step planning
 - live RAG 기반 reasoning
 - production-ready MCP host packaging / remote transport hardening
@@ -190,7 +192,8 @@
 - `코어 서비스 -> HTTP/CLI/MCP 공통 표면` 구조로 재구성
 - menu형 CLI를 유지하되, 별도로 비대화형 tool CLI를 제공
 - MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`를 직접 호출 가능하게 확장
-- 현재는 intent classifier까지만 live 시도하고 있으므로, 다음은 model registry selection을 실제 provider invocation에 연결해야 한다
+- 현재는 intent classifier까지만 live 시도하고 있으므로, 다음은 `tool registry + capability schema + provider/tool invocation`을 실제 실행 계층에 연결해야 한다
+- incident workflow는 broader execution agent의 첫 번째 high-risk vertical이며, 이후 일반 업무/운영 작업/티켓 처리 흐름으로 확장한다
 - 그 다음 단계는 action-card/tool planning 공통 루프와 최소 operator UI다
 - 상세 방향 문서: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
 

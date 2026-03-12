@@ -75,6 +75,29 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("Stage 8 실행 스케줄 업데이트", source)
         self.assertIn("2026-04-13 ~ 2026-04-24", source)
 
+    def test_product_definition_aligns_with_tool_using_execution_agent(self) -> None:
+        readme_source = Path("README.md").read_text(encoding="utf-8")
+        onepager_source = Path("IDEATION_ONEPAGER.md").read_text(encoding="utf-8")
+        direction_source = Path("AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md").read_text(encoding="utf-8")
+        self.assertIn("다양한 도구를 사용하는 업무 실행", readme_source)
+        self.assertIn("다양한 도구를 사용하는 업무 실행 에이전트", onepager_source)
+        self.assertIn("다양한 도구를 정책적으로 사용하는 실행형 에이전트", direction_source)
+
+    def test_stage8_docs_position_incident_as_first_vertical(self) -> None:
+        plan_source = Path("INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md").read_text(encoding="utf-8")
+        closeout_source = Path("STAGE8_CLOSEOUT_SUMMARY_2026-03-06.md").read_text(encoding="utf-8")
+        tasks_source = Path("TASKS.md").read_text(encoding="utf-8")
+        self.assertIn("첫 번째 vertical", plan_source)
+        self.assertIn("broader execution agent", plan_source)
+        self.assertIn("첫 번째 high-risk vertical", closeout_source)
+        self.assertIn("첫 번째 vertical: 운영장애 대응 오케스트레이션", tasks_source)
+
+    def test_api_contract_documents_current_workflow_family_scope(self) -> None:
+        source = Path("API_CONTRACT.md").read_text(encoding="utf-8")
+        self.assertIn("현재 v0.1 구현 범위의 workflow family는 `task`와 `incident`", source)
+        self.assertIn("LLM intent classifier + heuristic fallback", source)
+        self.assertIn("broader tool registry / planner / execution adapter", source)
+
     def test_dev_qa_cycle_supports_stage8(self) -> None:
         source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         self.assertIn("target-stage: 1..8", source)

@@ -93,7 +93,7 @@
 - [x] IdP 키 회전 리허설 자동화 스크립트 추가 (`scripts/run_idp_key_rotation_rehearsal.sh`)
 - [x] 로컬 Postgres 안전 운영 스크립트 추가 (`scripts/manage_local_postgres.sh`)
 
-## Stage 8 착수 (킬러 컨텐츠: 운영장애 대응 오케스트레이션)
+## Stage 8 착수 (첫 번째 vertical: 운영장애 대응 오케스트레이션)
 ### A) 설계/계약 고정 (완료: 2026-03-04)
 - [x] Stage 8 목표/범위/성공지표 고정 (`INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`)
 - [x] 외부 업무지식 RAG 연동 계약 고정 (입력/출력/신뢰도 필드, `STAGE8_DETAILED_DESIGN_2026-03-04.md`)
@@ -154,7 +154,9 @@
 - [x] `configs/model_registry.yaml` runtime loader 연결 및 provider selection logging 추가
 - [x] `task_kind=auto`를 heuristic에서 LLM intent classifier로 고도화
 - [x] LM Studio local provider 등록 및 intent classifier adapter 연결 (`http://localhost:1234`)
+- [ ] tool registry / capability schema 초안 작성
 - [ ] model registry selection을 실제 provider invocation에 연결
+- [ ] tool planning / execution adapter 공통 루프 정리
 - [ ] 최소 operator UI 설계 초안 작성
 - [x] 방향 문서 고정 (`AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`)
 

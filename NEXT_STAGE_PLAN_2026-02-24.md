@@ -111,6 +111,9 @@
   - 파일럿 대상 서비스/팀 확정 및 Go/No-Go 패키지 작성
 
 ## Agent 제품화 방향 업데이트 (2026-03-12)
+- 제품 정의:
+  - NestClaw는 `다양한 도구를 정책·승인·감사 하에 사용하는 실행형 에이전트`를 목표로 한다.
+  - incident orchestration은 그 전체 제품의 첫 번째 high-risk vertical이다.
 - 완료:
   - 단일 agent facade 경로 추가 (`app/main.py`)
   - 기본 사용자 진입점을 `agent submit/status/events`로 통합 (`app/cli.py`, `API_CONTRACT.md`)
@@ -120,12 +123,13 @@
 - 현재 진단:
   - 현재 제품은 "오케스트레이션 백엔드 + 단일 facade + classifier" 수준이다.
   - MCP server, model registry runtime selection logging, intent classification provenance, LM Studio local adapter까지는 연결됐다.
-  - 아직 실제 provider invocation, live RAG, 범용 tool planning, operator UI는 없다.
+  - 아직 tool registry/capability schema, 실제 provider invocation, live RAG, 범용 tool planning, operator UI는 없다.
 - 다음 우선순위:
-  1. model registry selection을 실제 provider invocation과 연결
-  2. action-card / tool planning 공통 루프를 정리
-  3. 최소 operator UI 설계/구현
-  4. sandbox/live rehearsal env를 넣어 운영 검증을 닫기
+  1. tool registry / capability schema를 정의
+  2. model registry selection과 tool selection을 실제 provider/tool invocation과 연결
+  3. action-card / tool planning 공통 루프를 정리
+  4. 최소 operator UI 설계/구현
+  5. sandbox/live rehearsal env를 넣어 운영 검증을 닫기
 - 기준 문서:
   - `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
 
