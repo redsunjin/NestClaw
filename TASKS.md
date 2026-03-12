@@ -148,7 +148,7 @@
 - [ ] 외부 sandbox credential 기반 live rehearsal PASS 증적 확보 (QA worktree)
 
 ### F) Agent Tool Surface Follow-up (2026-03-12)
-- [ ] 서비스 계층 분리 (`app/main.py` -> `app/services/agent_service.py`, `task_service.py`, `incident_service.py`)
+- [x] 서비스 계층 분리 (`app/main.py` -> `app/services/orchestration_service.py`)
 - [ ] 비대화형 tool CLI 추가 (`submit/status/events/approve/reject --json`)
 - [ ] MCP server 추가 (`agent.submit`, `agent.status`, `agent.events`, `approval.list/approve/reject`)
 - [ ] `configs/model_registry.yaml` runtime loader 연결 및 provider selection logging 추가

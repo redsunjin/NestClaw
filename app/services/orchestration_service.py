@@ -1,0 +1,635 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Callable, Mapping
+from uuid import uuid4
+
+from app.auth import ActorContext
+
+
+AGENT_TASK_KIND_AUTO = "auto"
+AGENT_TASK_KIND_TASK = "task"
+AGENT_TASK_KIND_INCIDENT = "incident"
+AGENT_TASK_KINDS = {AGENT_TASK_KIND_AUTO, AGENT_TASK_KIND_TASK, AGENT_TASK_KIND_INCIDENT}
+AGENT_INCIDENT_HINTS = {
+    "incident",
+    "outage",
+    "sev1",
+    "sev2",
+    "sev-1",
+    "sev-2",
+    "degraded",
+    "downtime",
+    "latency",
+    "on-call",
+    "rollback",
+    "alarm",
+    "장애",
+    "알람",
+    "장애대응",
+}
+
+
+@dataclass
+class OrchestrationServiceDeps:
+    store_lock: Any
+    tasks: dict[str, dict[str, Any]]
+    task_events: list[dict[str, Any]]
+    run_idempotency: dict[tuple[str, str], str]
+    state_store: Any
+    task_workflow: str
+    incident_workflow: str
+    agent_entrypoint: str
+    task_status_ready: str
+    task_status_running: str
+    task_status_failed_retryable: str
+    task_status_needs_human_approval: str
+    task_status_done: str
+    now_iso: Callable[[], str]
+    error: Callable[..., None]
+    authorize: Callable[..., str]
+    authorize_task_access: Callable[..., str]
+    ensure_workflow: Callable[..., None]
+    validate_task_input: Callable[[str, dict[str, Any]], None]
+    set_status: Callable[..., None]
+    workflow_type: Callable[[dict[str, Any]], str]
+    apply_incident_run_mode: Callable[[dict[str, Any], str | None], dict[str, Any]]
+    incident_runtime_snapshot: Callable[[dict[str, Any]], dict[str, Any]]
+    normalize_incident_run_mode: Callable[[str | None], str]
+    start_pipeline: Callable[[str], None]
+    start_incident_pipeline: Callable[[str], None]
+    persist_task: Callable[[dict[str, Any]], None]
+    log_event: Callable[..., None]
+
+
+class OrchestrationService:
+    def __init__(self, deps: OrchestrationServiceDeps) -> None:
+        self.deps = deps
+
+    def _field(self, req: Any, name: str, default: Any = None) -> Any:
+        if isinstance(req, Mapping):
+            return req.get(name, default)
+        return getattr(req, name, default)
+
+    def _request_mapping(self, req: Any) -> dict[str, Any]:
+        if isinstance(req, Mapping):
+            return dict(req)
+        model_dump = getattr(req, "model_dump", None)
+        if callable(model_dump):
+            try:
+                return dict(model_dump(mode="json"))
+            except TypeError:
+                return dict(model_dump())
+        raw = getattr(req, "__dict__", None)
+        if isinstance(raw, dict):
+            return {key: value for key, value in raw.items() if not str(key).startswith("_")}
+        return {}
+
+    def _string_value(self, value: Any) -> str:
+        return str(getattr(value, "value", value))
+
+    def _today_iso(self) -> str:
+        return self.deps.now_iso().split("T", 1)[0]
+
+    def _normalize_agent_task_kind(self, raw_kind: str | None) -> str:
+        kind = str(raw_kind or AGENT_TASK_KIND_AUTO).strip().lower()
+        if kind in {"meeting", "meeting_summary"}:
+            return AGENT_TASK_KIND_TASK
+        if kind not in AGENT_TASK_KINDS:
+            self.deps.error(400, "INVALID_REQUEST", f"unsupported task_kind: {raw_kind}")
+        return kind
+
+    def _flatten_agent_text(self, value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, Mapping):
+            return " ".join(self._flatten_agent_text(item) for item in value.values())
+        if isinstance(value, list):
+            return " ".join(self._flatten_agent_text(item) for item in value)
+        return str(value).strip()
+
+    def _looks_like_incident(self, request_text: str, metadata: Mapping[str, Any]) -> bool:
+        if any(key in metadata for key in ("incident_id", "service", "severity", "policy_profile", "time_window")):
+            return True
+        haystack = f"{request_text} {self._flatten_agent_text(dict(metadata))}".lower()
+        return any(token in haystack for token in AGENT_INCIDENT_HINTS)
+
+    def _infer_incident_severity(self, request_text: str, metadata: Mapping[str, Any]) -> str:
+        raw = str(metadata.get("severity") or "").strip().lower()
+        if raw in {"low", "medium", "high", "critical"}:
+            return raw
+
+        haystack = f"{request_text} {self._flatten_agent_text(dict(metadata))}".lower()
+        if any(token in haystack for token in ("critical", "sev0", "sev-0", "sev1", "sev-1", "전면장애")):
+            return "critical"
+        if any(token in haystack for token in ("high", "major", "customer-facing", "customer facing", "outage", "장애")):
+            return "high"
+        if any(token in haystack for token in ("medium", "degraded", "latency", "warning", "slow")):
+            return "medium"
+        return "low"
+
+    def detect_agent_workflow(self, req: Any) -> str:
+        kind = self._normalize_agent_task_kind(self._field(req, "task_kind"))
+        if kind == AGENT_TASK_KIND_INCIDENT:
+            return self.deps.incident_workflow
+        if kind == AGENT_TASK_KIND_TASK:
+            return self.deps.task_workflow
+
+        request_text = str(self._field(req, "request_text", "") or "")
+        metadata = dict(self._field(req, "metadata", {}) or {})
+        if self._looks_like_incident(request_text, metadata):
+            return self.deps.incident_workflow
+        return self.deps.task_workflow
+
+    def _coerce_participants(self, value: Any, requested_by: str) -> list[str]:
+        items: list[str] = []
+        if isinstance(value, list):
+            items = [str(item).strip() for item in value if str(item).strip()]
+        elif isinstance(value, str):
+            items = [item.strip() for item in value.split(",") if item.strip()]
+        if not items:
+            items = [requested_by]
+        return items
+
+    def build_agent_task_request(self, req: Any) -> dict[str, Any]:
+        metadata = dict(self._field(req, "metadata", {}) or {})
+        requested_by = str(self._field(req, "requested_by", "") or "")
+        request_text = str(self._field(req, "request_text", "") or "")
+        title = self._field(req, "title")
+        meeting_title = str(metadata.get("meeting_title") or title or "Agent Request").strip()
+        meeting_date = str(metadata.get("meeting_date") or self._today_iso()).strip() or self._today_iso()
+        notes = str(metadata.get("notes") or request_text).strip() or request_text
+        template_type = str(metadata.get("template_type") or "meeting_summary").strip() or "meeting_summary"
+
+        return {
+            "title": str(title or meeting_title or "회의요약 생성").strip() or "회의요약 생성",
+            "template_type": template_type,
+            "input": {
+                "meeting_title": meeting_title or "Agent Request",
+                "meeting_date": meeting_date,
+                "participants": self._coerce_participants(metadata.get("participants"), requested_by),
+                "notes": notes,
+            },
+            "requested_by": requested_by,
+        }
+
+    def build_agent_incident_request(self, req: Any) -> dict[str, Any]:
+        metadata = dict(self._field(req, "metadata", {}) or {})
+        request_text = str(self._field(req, "request_text", "") or "")
+        run_mode = self.deps.normalize_incident_run_mode(self._field(req, "incident_run_mode"))
+        summary = str(metadata.get("summary") or request_text).strip() or request_text
+        service = str(metadata.get("service") or metadata.get("component") or "unknown-service").strip() or "unknown-service"
+        source = str(metadata.get("source") or "agent").strip() or "agent"
+        time_window = str(metadata.get("time_window") or "15m").strip() or "15m"
+        policy_profile = str(metadata.get("policy_profile") or "default").strip() or "default"
+        incident_id = str(metadata.get("incident_id") or f"inc-{uuid4().hex[:8]}").strip() or f"inc-{uuid4().hex[:8]}"
+
+        return {
+            "incident_id": incident_id,
+            "service": service,
+            "severity": self._infer_incident_severity(request_text, metadata),
+            "detected_at": str(metadata.get("detected_at") or self.deps.now_iso()).strip() or self.deps.now_iso(),
+            "source": source,
+            "summary": summary,
+            "time_window": time_window,
+            "requested_by": str(self._field(req, "requested_by", "") or ""),
+            "policy_profile": policy_profile,
+            "dry_run": run_mode != "live",
+        }
+
+    def _resolved_kind_from_workflow(self, workflow: str) -> str:
+        if workflow == self.deps.incident_workflow:
+            return AGENT_TASK_KIND_INCIDENT
+        return AGENT_TASK_KIND_TASK
+
+    def _resolved_kind_for_task(self, task: dict[str, Any]) -> str:
+        return self._resolved_kind_from_workflow(self.deps.workflow_type(task))
+
+    def annotate_agent_task(self, task_id: str, req: Any, workflow: str) -> None:
+        with self.deps.store_lock:
+            task = self.deps.tasks.get(task_id)
+            if not task:
+                return
+            task["entrypoint"] = self.deps.agent_entrypoint
+            task["agent_request"] = {
+                "request_text": self._field(req, "request_text"),
+                "task_kind": self._normalize_agent_task_kind(self._field(req, "task_kind")),
+                "title": self._field(req, "title"),
+                "metadata": dict(self._field(req, "metadata", {}) or {}),
+            }
+            task["agent_route"] = self._resolved_kind_from_workflow(workflow)
+            task["updated_at"] = self.deps.now_iso()
+            self.deps.persist_task(task)
+            self.deps.log_event(
+                task_id,
+                "AGENT_ROUTED",
+                resolved_kind=task["agent_route"],
+                requested_kind=task["agent_request"]["task_kind"],
+            )
+
+    def build_task_status_payload(self, task: dict[str, Any]) -> dict[str, Any]:
+        response: dict[str, Any] = {
+            "task_id": task["task_id"],
+            "status": task["status"],
+            "current_stage": task["current_stage"],
+            "last_event_at": task["updated_at"],
+            "next_action": task.get("next_action"),
+        }
+        if task["status"] == self.deps.task_status_failed_retryable:
+            response["retry_count"] = task["retry_count"]
+            response["last_error"] = task["last_error"]
+        if task["status"] == self.deps.task_status_needs_human_approval:
+            response["approval_reason"] = task.get("approval_reason")
+            response["approval_queue_id"] = task.get("approval_queue_id")
+            response["next_action"] = "approve_or_reject"
+        if task["status"] == self.deps.task_status_done:
+            if task.get("result"):
+                response["result"] = task["result"]
+            if task.get("completed_at"):
+                response["completed_at"] = task["completed_at"]
+            if task.get("final_reason"):
+                response["final_reason"] = task["final_reason"]
+        return response
+
+    def build_incident_status_payload(self, task: dict[str, Any]) -> dict[str, Any]:
+        response = self.build_task_status_payload(task)
+        response["incident_id"] = task.get("incident", {}).get("incident_id")
+        response["run_mode"] = self.deps.incident_runtime_snapshot(dict(task.get("incident_runtime") or {}))["run_mode"]
+        return response
+
+    def build_events_payload(self, task_id: str) -> dict[str, Any]:
+        items = [event for event in self.deps.task_events if event.get("task_id") == task_id]
+        return {"task_id": task_id, "items": items, "count": len(items)}
+
+    def build_agent_status_payload(self, task: dict[str, Any]) -> dict[str, Any]:
+        if self.deps.workflow_type(task) == self.deps.incident_workflow:
+            response = self.build_incident_status_payload(task)
+        else:
+            response = self.build_task_status_payload(task)
+        response["entrypoint"] = self.deps.agent_entrypoint
+        response["resolved_kind"] = str(task.get("agent_route") or self._resolved_kind_for_task(task))
+        request_text = str((task.get("agent_request") or {}).get("request_text") or task.get("title") or "").strip()
+        if request_text:
+            response["request_summary"] = request_text[:240]
+        return response
+
+    def build_agent_events_payload(self, task: dict[str, Any]) -> dict[str, Any]:
+        response = self.build_events_payload(task["task_id"])
+        response["entrypoint"] = self.deps.agent_entrypoint
+        response["resolved_kind"] = str(task.get("agent_route") or self._resolved_kind_for_task(task))
+        return response
+
+    def create_task(self, req: Any, actor: ActorContext) -> dict[str, Any]:
+        role = self.deps.authorize(actor.actor_role, {"requester", "admin"}, "create_task")
+        requested_by = str(self._field(req, "requested_by", "") or "")
+        if role == "requester" and actor.actor_id != requested_by:
+            self.deps.error(403, "FORBIDDEN", "requester must match requested_by")
+
+        template_type = str(self._field(req, "template_type", "") or "")
+        task_input = dict(self._field(req, "input", {}) or {})
+        self.deps.validate_task_input(template_type, task_input)
+        task_id = f"task_{uuid4()}"
+        now = self.deps.now_iso()
+
+        with self.deps.store_lock:
+            self.deps.tasks[task_id] = {
+                "task_id": task_id,
+                "workflow_type": self.deps.task_workflow,
+                "title": str(self._field(req, "title", "") or ""),
+                "template_type": template_type,
+                "input": task_input,
+                "requested_by": requested_by,
+                "status": self.deps.task_status_ready,
+                "current_stage": None,
+                "next_action": "run_task",
+                "retry_count": 0,
+                "approved_reasons": [],
+                "approval_queue_id": None,
+                "approval_reason": None,
+                "last_error": None,
+                "result": None,
+                "created_at": now,
+                "updated_at": now,
+                "started_at": None,
+                "completed_at": None,
+                "final_reason": None,
+            }
+            self.deps.persist_task(self.deps.tasks[task_id])
+            self.deps.log_event(task_id, "TASK_CREATED", actor_id=actor.actor_id, actor_role=role, requested_by=requested_by)
+
+        return {"task_id": task_id, "status": self.deps.task_status_ready, "created_at": now}
+
+    def run_task(self, req: Any, actor: ActorContext) -> dict[str, Any]:
+        task_id = str(self._field(req, "task_id", "") or "")
+        started_at = None
+
+        with self.deps.store_lock:
+            task = self.deps.tasks.get(task_id)
+            if not task:
+                self.deps.error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
+            self.deps.ensure_workflow(
+                task,
+                self.deps.task_workflow,
+                not_found_code="TASK_NOT_FOUND",
+                not_found_message=f"task not found: {task_id}",
+            )
+            role = self.deps.authorize_task_access(
+                task,
+                actor.actor_id,
+                actor.actor_role,
+                allowed_roles={"requester", "admin"},
+                action="run_task",
+            )
+
+            idempotency_key = self._field(req, "idempotency_key")
+            if idempotency_key:
+                key = (task_id, str(idempotency_key))
+                if key in self.deps.run_idempotency:
+                    return {
+                        "task_id": task_id,
+                        "status": task["status"],
+                        "started_at": task["started_at"],
+                    }
+
+            if task["status"] != self.deps.task_status_ready:
+                self.deps.error(409, "INVALID_TASK_STATE", f"task is not READY: {task['status']}")
+
+            task["started_at"] = self.deps.now_iso()
+            started_at = task["started_at"]
+            self.deps.set_status(task, self.deps.task_status_running, next_action="wait_for_completion")
+            if idempotency_key:
+                key = (task_id, str(idempotency_key))
+                self.deps.run_idempotency[key] = task_id
+                self.deps.state_store.save_idempotency(task_id, str(idempotency_key), task_id)
+            self.deps.log_event(task["task_id"], "RUN_REQUESTED", actor_id=actor.actor_id, actor_role=role)
+
+        self.deps.start_pipeline(task_id)
+        return {"task_id": task_id, "status": self.deps.task_status_running, "started_at": started_at}
+
+    def task_status(self, task_id: str, actor: ActorContext) -> dict[str, Any]:
+        with self.deps.store_lock:
+            task = self.deps.tasks.get(task_id)
+            if not task:
+                self.deps.error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
+            self.deps.ensure_workflow(
+                task,
+                self.deps.task_workflow,
+                not_found_code="TASK_NOT_FOUND",
+                not_found_message=f"task not found: {task_id}",
+            )
+            self.deps.authorize_task_access(
+                task,
+                actor.actor_id,
+                actor.actor_role,
+                allowed_roles={"requester", "reviewer", "approver", "admin"},
+                action="task_status",
+            )
+            return self.build_task_status_payload(task)
+
+    def task_events(self, task_id: str, actor: ActorContext) -> dict[str, Any]:
+        with self.deps.store_lock:
+            task = self.deps.tasks.get(task_id)
+            if not task:
+                self.deps.error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
+            self.deps.ensure_workflow(
+                task,
+                self.deps.task_workflow,
+                not_found_code="TASK_NOT_FOUND",
+                not_found_message=f"task not found: {task_id}",
+            )
+            self.deps.authorize_task_access(
+                task,
+                actor.actor_id,
+                actor.actor_role,
+                allowed_roles={"requester", "reviewer", "approver", "admin"},
+                action="task_events",
+            )
+            return self.build_events_payload(task_id)
+
+    def create_incident(self, req: Any, actor: ActorContext) -> dict[str, Any]:
+        role = self.deps.authorize(actor.actor_role, {"requester", "admin"}, "create_incident")
+        requested_by = str(self._field(req, "requested_by", "") or "")
+        if role == "requester" and actor.actor_id != requested_by:
+            self.deps.error(403, "FORBIDDEN", "requester must match requested_by")
+
+        task_id = f"incident_{uuid4()}"
+        now = self.deps.now_iso()
+        incident_payload = self._request_mapping(req)
+        service_name = str(self._field(req, "service", "") or "")
+        severity = self._string_value(self._field(req, "severity", ""))
+        title = f"[incident] {service_name} {severity}"
+
+        with self.deps.store_lock:
+            incident_runtime = self.deps.apply_incident_run_mode(
+                {},
+                "dry-run" if bool(self._field(req, "dry_run", True)) else "live",
+            )
+            self.deps.tasks[task_id] = {
+                "task_id": task_id,
+                "workflow_type": self.deps.incident_workflow,
+                "title": title,
+                "template_type": "incident_orchestration",
+                "input": {
+                    "summary": str(self._field(req, "summary", "") or ""),
+                    "service": service_name,
+                    "severity": severity,
+                },
+                "incident": incident_payload,
+                "incident_runtime": incident_runtime,
+                "requested_by": requested_by,
+                "status": self.deps.task_status_ready,
+                "current_stage": None,
+                "next_action": "run_incident",
+                "retry_count": 0,
+                "approved_reasons": [],
+                "approval_queue_id": None,
+                "approval_reason": None,
+                "last_error": None,
+                "result": None,
+                "created_at": now,
+                "updated_at": now,
+                "started_at": None,
+                "completed_at": None,
+                "final_reason": None,
+            }
+            self.deps.persist_task(self.deps.tasks[task_id])
+            self.deps.log_event(
+                task_id,
+                "INCIDENT_CREATED",
+                actor_id=actor.actor_id,
+                actor_role=role,
+                requested_by=requested_by,
+                incident_id=str(self._field(req, "incident_id", "") or ""),
+            )
+
+        return {
+            "task_id": task_id,
+            "incident_id": str(self._field(req, "incident_id", "") or ""),
+            "status": self.deps.task_status_ready,
+            "created_at": now,
+        }
+
+    def run_incident(self, req: Any, actor: ActorContext) -> dict[str, Any]:
+        task_id = str(self._field(req, "task_id", "") or "")
+        started_at = None
+
+        with self.deps.store_lock:
+            task = self.deps.tasks.get(task_id)
+            if not task:
+                self.deps.error(404, "INCIDENT_NOT_FOUND", f"incident not found: {task_id}")
+            self.deps.ensure_workflow(
+                task,
+                self.deps.incident_workflow,
+                not_found_code="INCIDENT_NOT_FOUND",
+                not_found_message=f"incident not found: {task_id}",
+            )
+            role = self.deps.authorize_task_access(
+                task,
+                actor.actor_id,
+                actor.actor_role,
+                allowed_roles={"requester", "admin"},
+                action="run_incident",
+            )
+
+            idempotency_key = self._field(req, "idempotency_key")
+            if idempotency_key:
+                key = (task_id, str(idempotency_key))
+                if key in self.deps.run_idempotency:
+                    return {
+                        "task_id": task_id,
+                        "status": task["status"],
+                        "started_at": task["started_at"],
+                    }
+
+            if task["status"] != self.deps.task_status_ready:
+                self.deps.error(409, "INVALID_TASK_STATE", f"incident is not READY: {task['status']}")
+
+            task["started_at"] = self.deps.now_iso()
+            started_at = task["started_at"]
+            self.deps.set_status(task, self.deps.task_status_running, next_action="wait_for_completion")
+            runtime = dict(task.get("incident_runtime") or {})
+            task["incident_runtime"] = self.deps.apply_incident_run_mode(runtime, self._field(req, "run_mode"))
+            if idempotency_key:
+                key = (task_id, str(idempotency_key))
+                self.deps.run_idempotency[key] = task_id
+                self.deps.state_store.save_idempotency(task_id, str(idempotency_key), task_id)
+            self.deps.log_event(
+                task["task_id"],
+                "INCIDENT_RUN_REQUESTED",
+                actor_id=actor.actor_id,
+                actor_role=role,
+                run_mode=task["incident_runtime"]["run_mode"],
+            )
+
+        self.deps.start_incident_pipeline(task_id)
+        return {"task_id": task_id, "status": self.deps.task_status_running, "started_at": started_at}
+
+    def incident_status(self, task_id: str, actor: ActorContext) -> dict[str, Any]:
+        with self.deps.store_lock:
+            task = self.deps.tasks.get(task_id)
+            if not task:
+                self.deps.error(404, "INCIDENT_NOT_FOUND", f"incident not found: {task_id}")
+            self.deps.ensure_workflow(
+                task,
+                self.deps.incident_workflow,
+                not_found_code="INCIDENT_NOT_FOUND",
+                not_found_message=f"incident not found: {task_id}",
+            )
+            self.deps.authorize_task_access(
+                task,
+                actor.actor_id,
+                actor.actor_role,
+                allowed_roles={"requester", "reviewer", "approver", "admin"},
+                action="incident_status",
+            )
+            return self.build_incident_status_payload(task)
+
+    def incident_events(self, task_id: str, actor: ActorContext) -> dict[str, Any]:
+        with self.deps.store_lock:
+            task = self.deps.tasks.get(task_id)
+            if not task:
+                self.deps.error(404, "INCIDENT_NOT_FOUND", f"incident not found: {task_id}")
+            self.deps.ensure_workflow(
+                task,
+                self.deps.incident_workflow,
+                not_found_code="INCIDENT_NOT_FOUND",
+                not_found_message=f"incident not found: {task_id}",
+            )
+            self.deps.authorize_task_access(
+                task,
+                actor.actor_id,
+                actor.actor_role,
+                allowed_roles={"requester", "reviewer", "approver", "admin"},
+                action="incident_events",
+            )
+            return self.build_events_payload(task_id)
+
+    def submit_agent(self, req: Any, actor: ActorContext) -> dict[str, Any]:
+        workflow = self.detect_agent_workflow(req)
+        auto_run = bool(self._field(req, "auto_run", True))
+        idempotency_key = self._field(req, "idempotency_key")
+
+        if workflow == self.deps.incident_workflow:
+            created = self.create_incident(self.build_agent_incident_request(req), actor)
+            task_id = str(created["task_id"])
+            self.annotate_agent_task(task_id, req, workflow)
+            if auto_run:
+                self.run_incident(
+                    {
+                        "task_id": task_id,
+                        "idempotency_key": idempotency_key,
+                        "run_mode": self._field(req, "incident_run_mode", "dry-run"),
+                    },
+                    actor,
+                )
+        else:
+            created = self.create_task(self.build_agent_task_request(req), actor)
+            task_id = str(created["task_id"])
+            self.annotate_agent_task(task_id, req, workflow)
+            if auto_run:
+                self.run_task(
+                    {
+                        "task_id": task_id,
+                        "idempotency_key": idempotency_key,
+                        "run_mode": "standard",
+                    },
+                    actor,
+                )
+
+        with self.deps.store_lock:
+            task = self.deps.tasks.get(task_id)
+            if not task:
+                self.deps.error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
+            response = self.build_agent_status_payload(task)
+            response["created_at"] = task["created_at"]
+            response["started_at"] = task.get("started_at")
+            response["auto_run"] = auto_run
+            return response
+
+    def agent_status(self, task_id: str, actor: ActorContext) -> dict[str, Any]:
+        with self.deps.store_lock:
+            task = self.deps.tasks.get(task_id)
+            if not task:
+                self.deps.error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
+            self.deps.authorize_task_access(
+                task,
+                actor.actor_id,
+                actor.actor_role,
+                allowed_roles={"requester", "reviewer", "approver", "admin"},
+                action="agent_status",
+            )
+            return self.build_agent_status_payload(task)
+
+    def agent_events(self, task_id: str, actor: ActorContext) -> dict[str, Any]:
+        with self.deps.store_lock:
+            task = self.deps.tasks.get(task_id)
+            if not task:
+                self.deps.error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
+            self.deps.authorize_task_access(
+                task,
+                actor.actor_id,
+                actor.actor_role,
+                allowed_roles={"requester", "reviewer", "approver", "admin"},
+                action="agent_events",
+            )
+            return self.build_agent_events_payload(task)

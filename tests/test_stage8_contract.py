@@ -34,6 +34,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertTrue(Path("app/incident_rag.py").is_file())
         self.assertTrue(Path("app/incident_mcp.py").is_file())
         self.assertTrue(Path("app/incident_policy.py").is_file())
+        self.assertTrue(Path("app/services/orchestration_service.py").is_file())
         self.assertTrue(Path("tests/test_incident_adapter_contract.py").is_file())
         self.assertTrue(Path("tests/test_agent_entrypoint_smoke.py").is_file())
         self.assertTrue(Path("tests/test_incident_runtime_smoke.py").is_file())
@@ -118,6 +119,11 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("mcp-live", source)
         self.assertIn("context_dry_run", source)
         self.assertIn("mcp_dry_run", source)
+
+    def test_main_uses_orchestration_service_layer(self) -> None:
+        source = Path("app/main.py").read_text(encoding="utf-8")
+        self.assertIn("ORCHESTRATION_SERVICE", source)
+        self.assertIn("OrchestrationServiceDeps", source)
 
     def test_live_rehearsal_runbook_mentions_http_bridge_contract(self) -> None:
         source = Path("STAGE8_LIVE_REHEARSAL_RUNBOOK_2026-03-07.md").read_text(encoding="utf-8")

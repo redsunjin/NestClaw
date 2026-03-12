@@ -165,6 +165,9 @@
 - 현재 사용자 진입점:
   - 기본 진입점은 `agent submit/status/events`
   - `task/*`, `incident/*`는 하위 호환 및 세부 검증용
+- 현재 내부 구조:
+  - FastAPI route는 얇은 adapter로 유지
+  - agent/task/incident orchestration은 `app/services/orchestration_service.py`로 분리
 
 ### 10.1 지금 실제로 할 수 있는 것
 - 하나의 agent 요청을 받아 일반 task 또는 incident workflow로 분기
@@ -187,6 +190,7 @@
 
 코드 위치:
 - 서버: `app/main.py`
+- 서비스 계층: `app/services/orchestration_service.py`
 - 의존성: `requirements.txt`
 
 ## 11) 로컬 실행 방법

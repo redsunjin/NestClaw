@@ -24,6 +24,7 @@ from app.incident_policy import (
 )
 from app.incident_rag import fetch_knowledge_evidence, fetch_system_signals
 from app.persistence import create_state_store
+from app.services import OrchestrationService, OrchestrationServiceDeps
 
 
 class TaskStatus(str, Enum):
@@ -113,27 +114,6 @@ TASK_WORKFLOW = "task"
 INCIDENT_WORKFLOW = "incident"
 INCIDENT_RUN_MODES = {"dry-run", "mcp-live", "live"}
 AGENT_ENTRYPOINT = "agent"
-AGENT_TASK_KIND_AUTO = "auto"
-AGENT_TASK_KIND_TASK = "task"
-AGENT_TASK_KIND_INCIDENT = "incident"
-AGENT_TASK_KINDS = {AGENT_TASK_KIND_AUTO, AGENT_TASK_KIND_TASK, AGENT_TASK_KIND_INCIDENT}
-AGENT_INCIDENT_HINTS = {
-    "incident",
-    "outage",
-    "sev1",
-    "sev2",
-    "sev-1",
-    "sev-2",
-    "degraded",
-    "downtime",
-    "latency",
-    "on-call",
-    "rollback",
-    "alarm",
-    "장애",
-    "알람",
-    "장애대응",
-}
 
 
 def _build_incident_adapter_registry() -> dict[str, Any]:
@@ -325,147 +305,6 @@ def _validate_task_input(template_type: str, payload: dict[str, Any]) -> None:
     missing = [field for field in required if field not in payload or payload[field] in (None, "")]
     if missing:
         _error(400, "INVALID_REQUEST", f"missing required input fields: {', '.join(missing)}")
-
-
-def _today_iso() -> str:
-    return _now_iso().split("T", 1)[0]
-
-
-def _normalize_agent_task_kind(raw_kind: str | None) -> str:
-    kind = str(raw_kind or AGENT_TASK_KIND_AUTO).strip().lower()
-    if kind in {"meeting", "meeting_summary"}:
-        return AGENT_TASK_KIND_TASK
-    if kind not in AGENT_TASK_KINDS:
-        _error(400, "INVALID_REQUEST", f"unsupported task_kind: {raw_kind}")
-    return kind
-
-
-def _flatten_agent_text(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, dict):
-        return " ".join(_flatten_agent_text(item) for item in value.values())
-    if isinstance(value, list):
-        return " ".join(_flatten_agent_text(item) for item in value)
-    return str(value).strip()
-
-
-def _looks_like_incident(request_text: str, metadata: dict[str, Any]) -> bool:
-    if any(key in metadata for key in ("incident_id", "service", "severity", "policy_profile", "time_window")):
-        return True
-    haystack = f"{request_text} {_flatten_agent_text(metadata)}".lower()
-    return any(token in haystack for token in AGENT_INCIDENT_HINTS)
-
-
-def _infer_incident_severity(request_text: str, metadata: dict[str, Any]) -> IncidentSeverity:
-    raw = str(metadata.get("severity") or "").strip().lower()
-    for severity in IncidentSeverity:
-        if raw == severity.value:
-            return severity
-
-    haystack = f"{request_text} {_flatten_agent_text(metadata)}".lower()
-    if any(token in haystack for token in ("critical", "sev0", "sev-0", "sev1", "sev-1", "전면장애")):
-        return IncidentSeverity.CRITICAL
-    if any(token in haystack for token in ("high", "major", "customer-facing", "customer facing", "outage", "장애")):
-        return IncidentSeverity.HIGH
-    if any(token in haystack for token in ("medium", "degraded", "latency", "warning", "slow")):
-        return IncidentSeverity.MEDIUM
-    return IncidentSeverity.LOW
-
-
-def _detect_agent_workflow(req: AgentSubmitRequest) -> str:
-    kind = _normalize_agent_task_kind(req.task_kind)
-    if kind == AGENT_TASK_KIND_INCIDENT:
-        return INCIDENT_WORKFLOW
-    if kind == AGENT_TASK_KIND_TASK:
-        return TASK_WORKFLOW
-    return INCIDENT_WORKFLOW if _looks_like_incident(req.request_text, dict(req.metadata or {})) else TASK_WORKFLOW
-
-
-def _coerce_participants(value: Any, requested_by: str) -> list[str]:
-    items: list[str] = []
-    if isinstance(value, list):
-        items = [str(item).strip() for item in value if str(item).strip()]
-    elif isinstance(value, str):
-        items = [item.strip() for item in value.split(",") if item.strip()]
-    if not items:
-        items = [requested_by]
-    return items
-
-
-def _build_agent_task_request(req: AgentSubmitRequest) -> CreateTaskRequest:
-    metadata = dict(req.metadata or {})
-    meeting_title = str(metadata.get("meeting_title") or req.title or "Agent Request").strip()
-    meeting_date = str(metadata.get("meeting_date") or _today_iso()).strip() or _today_iso()
-    notes = str(metadata.get("notes") or req.request_text).strip() or req.request_text
-    template_type = str(metadata.get("template_type") or "meeting_summary").strip() or "meeting_summary"
-
-    return CreateTaskRequest(
-        title=str(req.title or meeting_title or "회의요약 생성").strip() or "회의요약 생성",
-        template_type=template_type,
-        input={
-            "meeting_title": meeting_title or "Agent Request",
-            "meeting_date": meeting_date,
-            "participants": _coerce_participants(metadata.get("participants"), req.requested_by),
-            "notes": notes,
-        },
-        requested_by=req.requested_by,
-    )
-
-
-def _build_agent_incident_request(req: AgentSubmitRequest) -> CreateIncidentRequest:
-    metadata = dict(req.metadata or {})
-    run_mode = _normalize_incident_run_mode(req.incident_run_mode)
-    summary = str(metadata.get("summary") or req.request_text).strip() or req.request_text
-    service = str(metadata.get("service") or metadata.get("component") or "unknown-service").strip() or "unknown-service"
-    source = str(metadata.get("source") or "agent").strip() or "agent"
-    time_window = str(metadata.get("time_window") or "15m").strip() or "15m"
-    policy_profile = str(metadata.get("policy_profile") or "default").strip() or "default"
-    incident_id = str(metadata.get("incident_id") or f"inc-{uuid4().hex[:8]}").strip() or f"inc-{uuid4().hex[:8]}"
-
-    return CreateIncidentRequest(
-        incident_id=incident_id,
-        service=service,
-        severity=_infer_incident_severity(req.request_text, metadata),
-        detected_at=str(metadata.get("detected_at") or _now_iso()).strip() or _now_iso(),
-        source=source,
-        summary=summary,
-        time_window=time_window,
-        requested_by=req.requested_by,
-        policy_profile=policy_profile,
-        dry_run=run_mode != "live",
-    )
-
-
-def _resolved_kind_from_workflow(workflow: str) -> str:
-    return AGENT_TASK_KIND_INCIDENT if workflow == INCIDENT_WORKFLOW else AGENT_TASK_KIND_TASK
-
-
-def _resolved_kind_for_workflow(task: dict[str, Any]) -> str:
-    return _resolved_kind_from_workflow(_workflow_type(task))
-
-
-def _annotate_agent_task(task_id: str, req: AgentSubmitRequest, workflow: str) -> None:
-    with STORE_LOCK:
-        task = TASKS.get(task_id)
-        if not task:
-            return
-        task["entrypoint"] = AGENT_ENTRYPOINT
-        task["agent_request"] = {
-            "request_text": req.request_text,
-            "task_kind": _normalize_agent_task_kind(req.task_kind),
-            "title": req.title,
-            "metadata": dict(req.metadata or {}),
-        }
-        task["agent_route"] = _resolved_kind_from_workflow(workflow)
-        task["updated_at"] = _now_iso()
-        _persist_task(task)
-        _log_event(
-            task_id,
-            "AGENT_ROUTED",
-            resolved_kind=task["agent_route"],
-            requested_kind=task["agent_request"]["task_kind"],
-        )
 
 
 def _detect_policy_block(task_input: dict[str, Any], approved_reasons: set[str]) -> str | None:
@@ -984,61 +823,38 @@ def _start_pipeline_for_workflow(task: dict[str, Any]) -> None:
     _start_pipeline(task["task_id"])
 
 
-def _task_status_payload(task: dict[str, Any]) -> dict[str, Any]:
-    response: dict[str, Any] = {
-        "task_id": task["task_id"],
-        "status": task["status"],
-        "current_stage": task["current_stage"],
-        "last_event_at": task["updated_at"],
-        "next_action": task.get("next_action"),
-    }
-    if task["status"] == TaskStatus.FAILED_RETRYABLE.value:
-        response["retry_count"] = task["retry_count"]
-        response["last_error"] = task["last_error"]
-    if task["status"] == TaskStatus.NEEDS_HUMAN_APPROVAL.value:
-        response["approval_reason"] = task.get("approval_reason")
-        response["approval_queue_id"] = task.get("approval_queue_id")
-        response["next_action"] = "approve_or_reject"
-    if task["status"] == TaskStatus.DONE.value:
-        if task.get("result"):
-            response["result"] = task["result"]
-        if task.get("completed_at"):
-            response["completed_at"] = task["completed_at"]
-        if task.get("final_reason"):
-            response["final_reason"] = task["final_reason"]
-    return response
-
-
-def _incident_status_payload(task: dict[str, Any]) -> dict[str, Any]:
-    response = _task_status_payload(task)
-    response["incident_id"] = task.get("incident", {}).get("incident_id")
-    response["run_mode"] = _incident_runtime_snapshot(dict(task.get("incident_runtime") or {}))["run_mode"]
-    return response
-
-
-def _events_payload(task_id: str) -> dict[str, Any]:
-    items = [event for event in TASK_EVENTS if event.get("task_id") == task_id]
-    return {"task_id": task_id, "items": items, "count": len(items)}
-
-
-def _agent_status_payload(task: dict[str, Any]) -> dict[str, Any]:
-    if _workflow_type(task) == INCIDENT_WORKFLOW:
-        response = _incident_status_payload(task)
-    else:
-        response = _task_status_payload(task)
-    response["entrypoint"] = AGENT_ENTRYPOINT
-    response["resolved_kind"] = str(task.get("agent_route") or _resolved_kind_for_workflow(task))
-    request_text = str((task.get("agent_request") or {}).get("request_text") or task.get("title") or "").strip()
-    if request_text:
-        response["request_summary"] = request_text[:240]
-    return response
-
-
-def _agent_events_payload(task: dict[str, Any]) -> dict[str, Any]:
-    response = _events_payload(task["task_id"])
-    response["entrypoint"] = AGENT_ENTRYPOINT
-    response["resolved_kind"] = str(task.get("agent_route") or _resolved_kind_for_workflow(task))
-    return response
+ORCHESTRATION_SERVICE = OrchestrationService(
+    OrchestrationServiceDeps(
+        store_lock=STORE_LOCK,
+        tasks=TASKS,
+        task_events=TASK_EVENTS,
+        run_idempotency=RUN_IDEMPOTENCY,
+        state_store=STATE_STORE,
+        task_workflow=TASK_WORKFLOW,
+        incident_workflow=INCIDENT_WORKFLOW,
+        agent_entrypoint=AGENT_ENTRYPOINT,
+        task_status_ready=TaskStatus.READY.value,
+        task_status_running=TaskStatus.RUNNING.value,
+        task_status_failed_retryable=TaskStatus.FAILED_RETRYABLE.value,
+        task_status_needs_human_approval=TaskStatus.NEEDS_HUMAN_APPROVAL.value,
+        task_status_done=TaskStatus.DONE.value,
+        now_iso=_now_iso,
+        error=_error,
+        authorize=_authorize,
+        authorize_task_access=_authorize_task_access,
+        ensure_workflow=_ensure_workflow,
+        validate_task_input=_validate_task_input,
+        set_status=_set_status,
+        workflow_type=_workflow_type,
+        apply_incident_run_mode=_apply_incident_run_mode,
+        incident_runtime_snapshot=_incident_runtime_snapshot,
+        normalize_incident_run_mode=_normalize_incident_run_mode,
+        start_pipeline=_start_pipeline,
+        start_incident_pipeline=_start_incident_pipeline,
+        persist_task=_persist_task,
+        log_event=_log_event,
+    )
+)
 
 
 @APP.get("/health")
@@ -1051,44 +867,7 @@ def agent_submit(
     req: AgentSubmitRequest,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    workflow = _detect_agent_workflow(req)
-
-    if workflow == INCIDENT_WORKFLOW:
-        created = create_incident(_build_agent_incident_request(req), actor)
-        task_id = str(created["task_id"])
-        _annotate_agent_task(task_id, req, workflow)
-        if req.auto_run:
-            run_incident(
-                RunIncidentRequest(
-                    task_id=task_id,
-                    idempotency_key=req.idempotency_key,
-                    run_mode=req.incident_run_mode,
-                ),
-                actor,
-            )
-    else:
-        created = create_task(_build_agent_task_request(req), actor)
-        task_id = str(created["task_id"])
-        _annotate_agent_task(task_id, req, workflow)
-        if req.auto_run:
-            run_task(
-                RunTaskRequest(
-                    task_id=task_id,
-                    idempotency_key=req.idempotency_key,
-                    run_mode="standard",
-                ),
-                actor,
-            )
-
-    with STORE_LOCK:
-        task = TASKS.get(task_id)
-        if not task:
-            _error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
-        response = _agent_status_payload(task)
-        response["created_at"] = task["created_at"]
-        response["started_at"] = task.get("started_at")
-        response["auto_run"] = bool(req.auto_run)
-        return response
+    return ORCHESTRATION_SERVICE.submit_agent(req, actor)
 
 
 @APP.get("/api/v1/agent/status/{task_id}")
@@ -1096,18 +875,7 @@ def agent_status(
     task_id: str,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    with STORE_LOCK:
-        task = TASKS.get(task_id)
-        if not task:
-            _error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
-        _authorize_task_access(
-            task,
-            actor.actor_id,
-            actor.actor_role,
-            allowed_roles={"requester", "reviewer", "approver", "admin"},
-            action="agent_status",
-        )
-        return _agent_status_payload(task)
+    return ORCHESTRATION_SERVICE.agent_status(task_id, actor)
 
 
 @APP.get("/api/v1/agent/events/{task_id}")
@@ -1115,18 +883,7 @@ def agent_events(
     task_id: str,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    with STORE_LOCK:
-        task = TASKS.get(task_id)
-        if not task:
-            _error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
-        _authorize_task_access(
-            task,
-            actor.actor_id,
-            actor.actor_role,
-            allowed_roles={"requester", "reviewer", "approver", "admin"},
-            action="agent_events",
-        )
-        return _agent_events_payload(task)
+    return ORCHESTRATION_SERVICE.agent_events(task_id, actor)
 
 
 @APP.post("/api/v1/task/create", status_code=201)
@@ -1134,41 +891,7 @@ def create_task(
     req: CreateTaskRequest,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    role = _authorize(actor.actor_role, {"requester", "admin"}, "create_task")
-    if role == "requester" and actor.actor_id != req.requested_by:
-        _error(403, "FORBIDDEN", "requester must match requested_by")
-
-    _validate_task_input(req.template_type, req.input)
-    task_id = f"task_{uuid4()}"
-    now = _now_iso()
-
-    with STORE_LOCK:
-        TASKS[task_id] = {
-            "task_id": task_id,
-            "workflow_type": TASK_WORKFLOW,
-            "title": req.title,
-            "template_type": req.template_type,
-            "input": req.input,
-            "requested_by": req.requested_by,
-            "status": TaskStatus.READY.value,
-            "current_stage": None,
-            "next_action": "run_task",
-            "retry_count": 0,
-            "approved_reasons": [],
-            "approval_queue_id": None,
-            "approval_reason": None,
-            "last_error": None,
-            "result": None,
-            "created_at": now,
-            "updated_at": now,
-            "started_at": None,
-            "completed_at": None,
-            "final_reason": None,
-        }
-        _persist_task(TASKS[task_id])
-        _log_event(task_id, "TASK_CREATED", actor_id=actor.actor_id, actor_role=role, requested_by=req.requested_by)
-
-    return {"task_id": task_id, "status": TaskStatus.READY.value, "created_at": now}
+    return ORCHESTRATION_SERVICE.create_task(req, actor)
 
 
 @APP.post("/api/v1/task/run", status_code=202)
@@ -1176,40 +899,7 @@ def run_task(
     req: RunTaskRequest,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    with STORE_LOCK:
-        task = TASKS.get(req.task_id)
-        if not task:
-            _error(404, "TASK_NOT_FOUND", f"task not found: {req.task_id}")
-        _ensure_workflow(task, TASK_WORKFLOW, not_found_code="TASK_NOT_FOUND", not_found_message=f"task not found: {req.task_id}")
-        role = _authorize_task_access(
-            task,
-            actor.actor_id,
-            actor.actor_role,
-            allowed_roles={"requester", "admin"},
-            action="run_task",
-        )
-
-        if req.idempotency_key:
-            key = (req.task_id, req.idempotency_key)
-            if key in RUN_IDEMPOTENCY:
-                return {
-                    "task_id": req.task_id,
-                    "status": task["status"],
-                    "started_at": task["started_at"],
-                }
-
-        if task["status"] != TaskStatus.READY.value:
-            _error(409, "INVALID_TASK_STATE", f"task is not READY: {task['status']}")
-
-        task["started_at"] = _now_iso()
-        _set_status(task, TaskStatus.RUNNING, next_action="wait_for_completion")
-        if req.idempotency_key:
-            RUN_IDEMPOTENCY[(req.task_id, req.idempotency_key)] = req.task_id
-            STATE_STORE.save_idempotency(req.task_id, req.idempotency_key, req.task_id)
-        _log_event(task["task_id"], "RUN_REQUESTED", actor_id=actor.actor_id, actor_role=role)
-
-    _start_pipeline(req.task_id)
-    return {"task_id": req.task_id, "status": TaskStatus.RUNNING.value, "started_at": TASKS[req.task_id]["started_at"]}
+    return ORCHESTRATION_SERVICE.run_task(req, actor)
 
 
 @APP.get("/api/v1/task/status/{task_id}")
@@ -1217,19 +907,7 @@ def task_status(
     task_id: str,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    with STORE_LOCK:
-        task = TASKS.get(task_id)
-        if not task:
-            _error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
-        _ensure_workflow(task, TASK_WORKFLOW, not_found_code="TASK_NOT_FOUND", not_found_message=f"task not found: {task_id}")
-        _authorize_task_access(
-            task,
-            actor.actor_id,
-            actor.actor_role,
-            allowed_roles={"requester", "reviewer", "approver", "admin"},
-            action="task_status",
-        )
-        return _task_status_payload(task)
+    return ORCHESTRATION_SERVICE.task_status(task_id, actor)
 
 
 @APP.get("/api/v1/task/events/{task_id}")
@@ -1237,19 +915,7 @@ def task_events(
     task_id: str,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    with STORE_LOCK:
-        task = TASKS.get(task_id)
-        if not task:
-            _error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
-        _ensure_workflow(task, TASK_WORKFLOW, not_found_code="TASK_NOT_FOUND", not_found_message=f"task not found: {task_id}")
-        _authorize_task_access(
-            task,
-            actor.actor_id,
-            actor.actor_role,
-            allowed_roles={"requester", "reviewer", "approver", "admin"},
-            action="task_events",
-        )
-        return _events_payload(task_id)
+    return ORCHESTRATION_SERVICE.task_events(task_id, actor)
 
 
 @APP.post("/api/v1/incident/create", status_code=201)
@@ -1257,57 +923,7 @@ def create_incident(
     req: CreateIncidentRequest,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    role = _authorize(actor.actor_role, {"requester", "admin"}, "create_incident")
-    if role == "requester" and actor.actor_id != req.requested_by:
-        _error(403, "FORBIDDEN", "requester must match requested_by")
-
-    task_id = f"incident_{uuid4()}"
-    now = _now_iso()
-    incident_payload = req.model_dump(mode="json")
-    title = f"[incident] {req.service} {req.severity.value}"
-
-    with STORE_LOCK:
-        incident_runtime = _apply_incident_run_mode({}, "dry-run" if req.dry_run else "live")
-        TASKS[task_id] = {
-            "task_id": task_id,
-            "workflow_type": INCIDENT_WORKFLOW,
-            "title": title,
-            "template_type": "incident_orchestration",
-            "input": {"summary": req.summary, "service": req.service, "severity": req.severity.value},
-            "incident": incident_payload,
-            "incident_runtime": incident_runtime,
-            "requested_by": req.requested_by,
-            "status": TaskStatus.READY.value,
-            "current_stage": None,
-            "next_action": "run_incident",
-            "retry_count": 0,
-            "approved_reasons": [],
-            "approval_queue_id": None,
-            "approval_reason": None,
-            "last_error": None,
-            "result": None,
-            "created_at": now,
-            "updated_at": now,
-            "started_at": None,
-            "completed_at": None,
-            "final_reason": None,
-        }
-        _persist_task(TASKS[task_id])
-        _log_event(
-            task_id,
-            "INCIDENT_CREATED",
-            actor_id=actor.actor_id,
-            actor_role=role,
-            requested_by=req.requested_by,
-            incident_id=req.incident_id,
-        )
-
-    return {
-        "task_id": task_id,
-        "incident_id": req.incident_id,
-        "status": TaskStatus.READY.value,
-        "created_at": now,
-    }
+    return ORCHESTRATION_SERVICE.create_incident(req, actor)
 
 
 @APP.post("/api/v1/incident/run", status_code=202)
@@ -1315,53 +931,7 @@ def run_incident(
     req: RunIncidentRequest,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    with STORE_LOCK:
-        task = TASKS.get(req.task_id)
-        if not task:
-            _error(404, "INCIDENT_NOT_FOUND", f"incident not found: {req.task_id}")
-        _ensure_workflow(
-            task,
-            INCIDENT_WORKFLOW,
-            not_found_code="INCIDENT_NOT_FOUND",
-            not_found_message=f"incident not found: {req.task_id}",
-        )
-        role = _authorize_task_access(
-            task,
-            actor.actor_id,
-            actor.actor_role,
-            allowed_roles={"requester", "admin"},
-            action="run_incident",
-        )
-
-        if req.idempotency_key:
-            key = (req.task_id, req.idempotency_key)
-            if key in RUN_IDEMPOTENCY:
-                return {
-                    "task_id": req.task_id,
-                    "status": task["status"],
-                    "started_at": task["started_at"],
-                }
-
-        if task["status"] != TaskStatus.READY.value:
-            _error(409, "INVALID_TASK_STATE", f"incident is not READY: {task['status']}")
-
-        task["started_at"] = _now_iso()
-        _set_status(task, TaskStatus.RUNNING, next_action="wait_for_completion")
-        runtime = dict(task.get("incident_runtime") or {})
-        task["incident_runtime"] = _apply_incident_run_mode(runtime, req.run_mode)
-        if req.idempotency_key:
-            RUN_IDEMPOTENCY[(req.task_id, req.idempotency_key)] = req.task_id
-            STATE_STORE.save_idempotency(req.task_id, req.idempotency_key, req.task_id)
-        _log_event(
-            task["task_id"],
-            "INCIDENT_RUN_REQUESTED",
-            actor_id=actor.actor_id,
-            actor_role=role,
-            run_mode=task["incident_runtime"]["run_mode"],
-        )
-
-    _start_incident_pipeline(req.task_id)
-    return {"task_id": req.task_id, "status": TaskStatus.RUNNING.value, "started_at": TASKS[req.task_id]["started_at"]}
+    return ORCHESTRATION_SERVICE.run_incident(req, actor)
 
 
 @APP.get("/api/v1/incident/status/{task_id}")
@@ -1369,24 +939,7 @@ def incident_status(
     task_id: str,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    with STORE_LOCK:
-        task = TASKS.get(task_id)
-        if not task:
-            _error(404, "INCIDENT_NOT_FOUND", f"incident not found: {task_id}")
-        _ensure_workflow(
-            task,
-            INCIDENT_WORKFLOW,
-            not_found_code="INCIDENT_NOT_FOUND",
-            not_found_message=f"incident not found: {task_id}",
-        )
-        _authorize_task_access(
-            task,
-            actor.actor_id,
-            actor.actor_role,
-            allowed_roles={"requester", "reviewer", "approver", "admin"},
-            action="incident_status",
-        )
-        return _incident_status_payload(task)
+    return ORCHESTRATION_SERVICE.incident_status(task_id, actor)
 
 
 @APP.get("/api/v1/incident/events/{task_id}")
@@ -1394,24 +947,7 @@ def incident_events(
     task_id: str,
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
-    with STORE_LOCK:
-        task = TASKS.get(task_id)
-        if not task:
-            _error(404, "INCIDENT_NOT_FOUND", f"incident not found: {task_id}")
-        _ensure_workflow(
-            task,
-            INCIDENT_WORKFLOW,
-            not_found_code="INCIDENT_NOT_FOUND",
-            not_found_message=f"incident not found: {task_id}",
-        )
-        _authorize_task_access(
-            task,
-            actor.actor_id,
-            actor.actor_role,
-            allowed_roles={"requester", "reviewer", "approver", "admin"},
-            action="incident_events",
-        )
-        return _events_payload(task_id)
+    return ORCHESTRATION_SERVICE.incident_events(task_id, actor)
 
 
 @APP.get("/api/v1/approvals")
