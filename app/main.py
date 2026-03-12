@@ -23,6 +23,7 @@ from app.incident_policy import (
     requires_human_approval,
 )
 from app.incident_rag import fetch_knowledge_evidence, fetch_system_signals
+from app.model_registry import load_model_registry, select_provider
 from app.persistence import create_state_store
 from app.services import ApprovalService, ApprovalServiceDeps, OrchestrationService, OrchestrationServiceDeps
 
@@ -114,6 +115,7 @@ TASK_WORKFLOW = "task"
 INCIDENT_WORKFLOW = "incident"
 INCIDENT_RUN_MODES = {"dry-run", "mcp-live", "live"}
 AGENT_ENTRYPOINT = "agent"
+SENSITIVE_TEXT_HINTS = ("internal only", "confidential", "sensitive", "민감", "내부 전용")
 
 
 def _build_incident_adapter_registry() -> dict[str, Any]:
@@ -126,6 +128,7 @@ def _build_incident_adapter_registry() -> dict[str, Any]:
 
 
 INCIDENT_ADAPTERS = _build_incident_adapter_registry()
+MODEL_REGISTRY = load_model_registry()
 
 
 def _now_iso() -> str:
@@ -323,6 +326,71 @@ def _incident_requires_approval(risk_level: str) -> bool:
 def _incident_summary(task: dict[str, Any]) -> str:
     incident = task.get("incident") or {}
     return str(incident.get("summary") or "").strip()
+
+
+def _external_send_requested(task_input: dict[str, Any]) -> bool:
+    return _detect_policy_block(task_input, set()) == "external_send_requested"
+
+
+def _task_selection_context(task: dict[str, Any]) -> dict[str, Any]:
+    task_input = dict(task.get("input") or {})
+    metadata = dict((task.get("agent_request") or {}).get("metadata") or {})
+    raw_sensitivity = str(metadata.get("sensitivity") or task_input.get("sensitivity") or "").strip().lower()
+    notes_text = " ".join(
+        str(item or "")
+        for item in (
+            task.get("title"),
+            task_input.get("notes"),
+            metadata.get("notes"),
+        )
+    ).lower()
+    sensitivity = raw_sensitivity
+    if sensitivity not in {"low", "high"}:
+        sensitivity = "high" if any(token in notes_text for token in SENSITIVE_TEXT_HINTS) else "low"
+    task_type = "summarize" if str(task.get("template_type") or "") == "meeting_summary" else str(task.get("template_type") or "general")
+    return {
+        "sensitivity": sensitivity,
+        "task_type": task_type,
+        "external_send": _external_send_requested(task_input),
+    }
+
+
+def _incident_selection_context(task: dict[str, Any]) -> dict[str, Any]:
+    incident = dict(task.get("incident") or {})
+    severity = str(incident.get("severity") or "").strip().lower()
+    sensitivity = "high" if severity in {"high", "critical"} else "low"
+    summary = str(incident.get("summary") or "").strip()
+    return {
+        "sensitivity": sensitivity,
+        "task_type": "incident_response",
+        "external_send": _external_send_requested({"summary": summary}),
+    }
+
+
+def _record_provider_selection(task: dict[str, Any], *, selection_context: dict[str, Any]) -> dict[str, Any]:
+    selection = select_provider(
+        MODEL_REGISTRY,
+        sensitivity=str(selection_context.get("sensitivity") or "low"),
+        task_type=str(selection_context.get("task_type") or "general"),
+        external_send=bool(selection_context.get("external_send", False)),
+    ).as_dict()
+    task["provider_selection"] = selection
+    task["updated_at"] = _now_iso()
+    _persist_task(task)
+    _log_event(
+        task["task_id"],
+        "MODEL_PROVIDER_SELECTED",
+        provider_id=selection.get("provider_id"),
+        provider_type=selection.get("provider_type"),
+        engine=selection.get("engine"),
+        model=selection.get("model"),
+        selection_source=selection.get("selection_source"),
+        sensitivity=selection.get("sensitivity"),
+        task_type=selection.get("task_type"),
+        external_send=selection.get("external_send"),
+        requires_human_approval=selection.get("requires_human_approval"),
+    )
+    return selection
 
 
 def _collect_incident_evidence(context: dict[str, Any]) -> list[str]:
@@ -528,6 +596,7 @@ def _execute_once(task_id: str) -> bool:
 
     with STORE_LOCK:
         task = TASKS[task_id]
+        _record_provider_selection(task, selection_context=_task_selection_context(task))
         _set_stage(task, "executor")
         approved_reasons = set(task.get("approved_reasons", []))
         reason_code = _detect_policy_block(task["input"], approved_reasons)
@@ -605,6 +674,7 @@ def _execute_incident_once(task_id: str) -> bool:
 
     with STORE_LOCK:
         task = TASKS[task_id]
+        _record_provider_selection(task, selection_context=_incident_selection_context(task))
         task["incident_context"] = context
         task["updated_at"] = _now_iso()
         _persist_task(task)

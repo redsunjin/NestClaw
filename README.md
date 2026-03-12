@@ -175,6 +175,7 @@
 - incident 입력을 받아 context 집계, action card, 승인/실행, 보고서 흐름을 dry-run으로 재현
 - 승인 큐/이벤트 로그/audit/상태 조회를 일관된 경로로 처리
 - Redmine MCP live bridge 및 rehearsal script를 통해 sandbox 연동 경로 준비
+- `configs/model_registry.yaml`를 runtime에서 읽고 provider selection을 status/event에 기록
 
 ### 10.2 아직 못 하는 것
 - LLM 기반 intent classification과 tool selection
@@ -186,6 +187,7 @@
 - `코어 서비스 -> HTTP/CLI/MCP 공통 표면` 구조로 재구성
 - menu형 CLI를 유지하되, 별도로 비대화형 tool CLI를 제공
 - MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`를 직접 호출 가능하게 확장
+- model registry 기반 provider selection은 연결됐지만, 실제 LLM 호출과 intent classifier는 아직 없다
 - 상세 방향 문서: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
 
 코드 위치:
@@ -194,6 +196,7 @@
 - 승인 서비스 계층: `app/services/approval_service.py`
 - 도구 CLI: `app/cli.py`
 - MCP server: `app/mcp_server.py`
+- 모델 레지스트리: `app/model_registry.py`
 - 의존성: `requirements.txt`
 
 ## 11) 로컬 실행 방법

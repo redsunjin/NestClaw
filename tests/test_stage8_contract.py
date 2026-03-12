@@ -34,9 +34,12 @@ class TestStage8Contract(unittest.TestCase):
         self.assertTrue(Path("app/incident_rag.py").is_file())
         self.assertTrue(Path("app/incident_mcp.py").is_file())
         self.assertTrue(Path("app/incident_policy.py").is_file())
+        self.assertTrue(Path("app/model_registry.py").is_file())
         self.assertTrue(Path("app/services/approval_service.py").is_file())
         self.assertTrue(Path("app/services/orchestration_service.py").is_file())
         self.assertTrue(Path("app/mcp_server.py").is_file())
+        self.assertTrue(Path("tests/test_model_registry_contract.py").is_file())
+        self.assertTrue(Path("tests/test_model_registry_runtime.py").is_file())
         self.assertTrue(Path("tests/test_incident_adapter_contract.py").is_file())
         self.assertTrue(Path("tests/test_agent_entrypoint_smoke.py").is_file())
         self.assertTrue(Path("tests/test_incident_runtime_smoke.py").is_file())
@@ -74,8 +77,10 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("target-stage: 1..8", source)
         self.assertIn("check_stage_8", source)
         self.assertIn("tests.test_stage8_contract", source)
+        self.assertIn("tests.test_model_registry_contract", source)
         self.assertIn("tests.test_incident_adapter_contract", source)
         self.assertIn("tests.test_incident_policy_gate", source)
+        self.assertIn("tests.test_model_registry_runtime", source)
         self.assertIn("tests.test_agent_entrypoint_smoke", source)
         self.assertIn("tests.test_incident_runtime_smoke", source)
         self.assertIn("tests.test_tool_cli_smoke", source)
@@ -161,6 +166,12 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn('"approval.reject"', source)
         self.assertIn('method == "tools/list"', source)
         self.assertIn('method == "tools/call"', source)
+
+    def test_model_registry_is_connected_to_runtime_selection(self) -> None:
+        source = Path("app/main.py").read_text(encoding="utf-8")
+        self.assertIn("MODEL_REGISTRY = load_model_registry()", source)
+        self.assertIn("MODEL_PROVIDER_SELECTED", source)
+        self.assertIn("provider_selection", source)
 
     def test_live_rehearsal_runbook_mentions_http_bridge_contract(self) -> None:
         source = Path("STAGE8_LIVE_REHEARSAL_RUNBOOK_2026-03-07.md").read_text(encoding="utf-8")

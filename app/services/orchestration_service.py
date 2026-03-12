@@ -238,6 +238,8 @@ class OrchestrationService:
             "last_event_at": task["updated_at"],
             "next_action": task.get("next_action"),
         }
+        if task.get("provider_selection"):
+            response["provider_selection"] = task["provider_selection"]
         if task["status"] == self._status_value(self.deps.task_status_failed_retryable):
             response["retry_count"] = task["retry_count"]
             response["last_error"] = task["last_error"]
