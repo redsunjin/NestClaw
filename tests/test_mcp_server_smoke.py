@@ -128,6 +128,7 @@ class TestMcpServerSmoke(unittest.TestCase):
                 "catalog.get",
                 "catalog.create_draft",
                 "catalog.get_draft",
+                "catalog.apply_draft",
             },
         )
 
@@ -177,6 +178,7 @@ class TestMcpServerSmoke(unittest.TestCase):
                         "requested_by": "qa_user",
                         "actor_id": "qa_user",
                         "request_text": "Slack 알림 도구를 등록하고 싶다",
+                        "tool_id": "slack.message.ops_mcp",
                     },
                 },
             }
@@ -201,6 +203,40 @@ class TestMcpServerSmoke(unittest.TestCase):
         )
         get_payload = get_response["result"]["structuredContent"]
         self.assertIn("slack_api", get_payload["content"])
+
+        apply_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 25,
+                "method": "tools/call",
+                "params": {
+                    "name": "catalog.apply_draft",
+                    "arguments": {
+                        "draft_id": create_payload["draft_id"],
+                        "acted_by": "qa_approver",
+                        "actor_id": "qa_approver",
+                    },
+                },
+            }
+        )
+        apply_payload = apply_response["result"]["structuredContent"]
+        self.assertEqual(apply_payload["status"], "APPLIED")
+        self.assertEqual(apply_payload["tool"]["tool_id"], "slack.message.ops_mcp")
+
+        list_after_apply = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 26,
+                "method": "tools/call",
+                "params": {
+                    "name": "catalog.list",
+                    "arguments": {"actor_id": "qa_user"},
+                },
+            }
+        )
+        list_after_payload = list_after_apply["result"]["structuredContent"]
+        tool_ids = {item["tool_id"] for item in list_after_payload["items"]}
+        self.assertIn("slack.message.ops_mcp", tool_ids)
 
     def test_agent_submit_and_status_tool_flow(self) -> None:
         response = self._request(

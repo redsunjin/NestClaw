@@ -22,9 +22,7 @@ class TestToolDraftRuntime(unittest.TestCase):
         reset_runtime_state(main_module)
         self.client = TestClient(APP)
         self.requester_headers = {"Authorization": f"Bearer {issue_dev_jwt('qa_user', 'requester')}"}
-        main_module.TOOL_DRAFTS_ROOT.mkdir(parents=True, exist_ok=True)
-        for path in main_module.TOOL_DRAFTS_ROOT.glob("tooldraft_*.yaml"):
-            path.unlink()
+        self.approver_headers = {"Authorization": f"Bearer {issue_dev_jwt('qa_approver', 'approver')}"}
 
     def test_api_creates_and_fetches_tool_draft(self) -> None:
         create_response = self.client.post(
@@ -32,6 +30,8 @@ class TestToolDraftRuntime(unittest.TestCase):
             json={
                 "requested_by": "qa_user",
                 "request_text": "Slack 알림 도구를 추가하고 싶다",
+                "tool_id": "slack.message.ops_broadcast",
+                "title": "Ops Slack Broadcast",
             },
             headers=self.requester_headers,
         )
@@ -49,6 +49,22 @@ class TestToolDraftRuntime(unittest.TestCase):
         self.assertEqual(get_response.status_code, 200)
         get_payload = get_response.json()
         self.assertIn("slack_api", get_payload["content"])
+        self.assertEqual(get_payload["status"], "DRAFT_REVIEW_REQUIRED")
+
+        apply_response = self.client.post(
+            f"/api/v1/tool-drafts/{create_payload['draft_id']}/apply",
+            json={"acted_by": "qa_approver"},
+            headers=self.approver_headers,
+        )
+        self.assertEqual(apply_response.status_code, 200)
+        apply_payload = apply_response.json()
+        self.assertEqual(apply_payload["status"], "APPLIED")
+        self.assertEqual(apply_payload["tool"]["tool_id"], "slack.message.ops_broadcast")
+
+        list_response = self.client.get("/api/v1/tools", headers=self.requester_headers)
+        self.assertEqual(list_response.status_code, 200)
+        tool_ids = {item["tool_id"] for item in list_response.json()["items"]}
+        self.assertIn("slack.message.ops_broadcast", tool_ids)
 
 
 if __name__ == "__main__":

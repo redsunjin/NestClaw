@@ -378,6 +378,35 @@ workflow 종류를 몰라도 단일 경로로 이벤트 로그를 조회한다.
 }
 ```
 
+## 4.16 POST `/api/v1/tool-drafts/{draft_id}/apply`
+approver/admin이 review한 draft를 overlay registry에 반영한다.
+source registry(`configs/tool_registry.yaml`)는 직접 수정하지 않는다.
+
+권한:
+- 허용 role: `approver`, `admin`
+
+요청:
+```json
+{
+  "acted_by": "qa_approver"
+}
+```
+
+응답:
+```json
+{
+  "draft_id": "tooldraft_ab12cd34ef",
+  "status": "APPLIED",
+  "applied_by": "qa_approver",
+  "tool": {
+    "tool_id": "slack.message.ops_broadcast",
+    "adapter": "slack_api",
+    "method": "message.send"
+  },
+  "path": "work/tool_drafts/tooldraft_ab12cd34ef.yaml"
+}
+```
+
 ## 5) 이벤트 로깅 최소 스키마
 ```json
 {

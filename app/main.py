@@ -38,7 +38,13 @@ from app.services import (
     ToolDraftService,
     ToolDraftServiceDeps,
 )
-from app.tool_registry import ToolRegistryError, get_tool_capability, load_tool_registry
+from app.tool_registry import (
+    DEFAULT_TOOL_REGISTRY_OVERLAY_PATH,
+    ToolRegistryError,
+    get_tool_capability,
+    load_tool_registry,
+    upsert_tool_registry_tool,
+)
 
 
 class TaskStatus(str, Enum):
@@ -129,6 +135,10 @@ class CreateToolDraftRequest(BaseModel):
     supports_dry_run: bool = True
 
 
+class ApplyToolDraftRequest(BaseModel):
+    acted_by: str = Field(min_length=1, max_length=100)
+
+
 APP = FastAPI(title="Local Work Delegation Orchestrator", version="0.1.0")
 
 STORE_LOCK = Lock()
@@ -137,6 +147,7 @@ TASKS, TASK_EVENTS, APPROVAL_QUEUE, APPROVAL_ACTIONS, RUN_IDEMPOTENCY = STATE_ST
 
 REPORTS_ROOT = Path("reports")
 TOOL_DRAFTS_ROOT = Path("work/tool_drafts")
+TOOL_REGISTRY_OVERLAY_PATH = DEFAULT_TOOL_REGISTRY_OVERLAY_PATH
 MAX_RETRY = 1
 
 TEMPLATE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
@@ -200,6 +211,26 @@ def _persist_approval(approval: dict[str, Any]) -> None:
 
 def _persist_approval_action(action: dict[str, Any]) -> None:
     STATE_STORE.save_approval_action(action)
+
+
+def _reload_tool_registry_runtime() -> None:
+    global TOOL_REGISTRY
+    TOOL_REGISTRY = load_tool_registry()
+    TOOL_CATALOG_SERVICE.deps.registry = TOOL_REGISTRY
+
+
+def _apply_tool_spec_to_registry(tool_spec: dict[str, Any], acted_by: str) -> dict[str, Any]:
+    capability = upsert_tool_registry_tool(TOOL_REGISTRY_OVERLAY_PATH, tool_spec)
+    _reload_tool_registry_runtime()
+    _log_event(
+        "system_tool_registry",
+        "TOOL_DRAFT_APPLIED",
+        tool_id=capability.tool_id,
+        adapter=capability.adapter,
+        method=capability.method,
+        acted_by=acted_by,
+    )
+    return capability.as_dict()
 
 
 def _normalize_role(actor_role: str) -> str:
@@ -1232,6 +1263,7 @@ def build_tool_draft_service() -> ToolDraftService:
             error=_error,
             now_iso=_now_iso,
             drafts_root=TOOL_DRAFTS_ROOT,
+            apply_tool_spec=_apply_tool_spec_to_registry,
         )
     )
 
@@ -1302,6 +1334,15 @@ def get_tool_draft(
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
     return TOOL_DRAFT_SERVICE.get_draft(draft_id, actor)
+
+
+@APP.post("/api/v1/tool-drafts/{draft_id}/apply")
+def apply_tool_draft(
+    draft_id: str,
+    req: ApplyToolDraftRequest,
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return TOOL_DRAFT_SERVICE.apply_draft(draft_id, req, actor)
 
 
 @APP.post("/api/v1/task/create", status_code=201)

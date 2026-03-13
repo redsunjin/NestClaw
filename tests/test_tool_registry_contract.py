@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from app.tool_registry import get_tool_capability, list_tool_capabilities, load_tool_registry
+from app.tool_registry import get_tool_capability, list_tool_capabilities, load_tool_registry, upsert_tool_registry_tool
 
 
 class TestToolRegistryContract(unittest.TestCase):
@@ -54,6 +55,31 @@ class TestToolRegistryContract(unittest.TestCase):
         self.assertGreaterEqual(len(redmine_tools), 5)
         self.assertEqual(len(redmine_tools), len(ticketing_tools))
         self.assertEqual([item.tool_id for item in internal_tools], ["internal.summary.generate"])
+
+    def test_upsert_tool_registry_tool_writes_overlay_registry(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            overlay_path = Path(tmp_dir) / "tool_registry_runtime.yaml"
+            capability = upsert_tool_registry_tool(
+                overlay_path,
+                {
+                    "tool_id": "slack.message.contract_test",
+                    "title": "Contract Test Slack Tool",
+                    "description": "test tool",
+                    "adapter": "slack_api",
+                    "method": "message.send",
+                    "action_type": "slack_message_contract_test",
+                    "external_system": "slack",
+                    "capability_family": "messaging",
+                    "default_risk_level": "medium",
+                    "default_approval_required": False,
+                    "supports_dry_run": True,
+                    "required_payload_fields": ["channel", "text"],
+                },
+            )
+
+            self.assertEqual(capability.tool_id, "slack.message.contract_test")
+            overlay_registry = load_tool_registry(overlay_path, overlay_path=None)
+            self.assertEqual(overlay_registry.tools[0].tool_id, "slack.message.contract_test")
 
 
 if __name__ == "__main__":

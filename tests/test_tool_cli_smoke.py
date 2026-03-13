@@ -86,6 +86,8 @@ class TestToolCliSmoke(unittest.TestCase):
             "qa_user",
             "--request-text",
             "Slack 알림 도구를 추가하고 싶다",
+            "--tool-id",
+            "slack.message.ops_cli",
             "--actor-id",
             "qa_user",
         )
@@ -94,6 +96,22 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertEqual(payload["tool"]["external_system"], "slack")
         self.assertEqual(payload["tool"]["adapter"], "slack_api")
         self.assertEqual(payload["tool"]["method"], "message.send")
+
+        exit_code, apply_payload = self._run_cli_json(
+            "tool-apply",
+            "--draft-id",
+            str(payload["draft_id"]),
+            "--acted-by",
+            "qa_approver",
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(apply_payload["status"], "APPLIED")
+        self.assertEqual(apply_payload["tool"]["tool_id"], "slack.message.ops_cli")
+
+        exit_code, tools_payload = self._run_cli_json("tools", "--actor-id", "qa_user")
+        self.assertEqual(exit_code, 0)
+        tool_ids = {item["tool_id"] for item in tools_payload["items"]}
+        self.assertIn("slack.message.ops_cli", tool_ids)
 
     def test_approve_command_resumes_pending_task(self) -> None:
         exit_code, submit_payload = self._run_cli_json(

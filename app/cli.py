@@ -193,6 +193,20 @@ def _tool_draft_payload(
     return _invoke(CLI_TOOL_DRAFT_SERVICE.create_draft, payload, actor)
 
 
+def _tool_apply_payload(
+    *,
+    draft_id: str,
+    acted_by: str,
+    actor_id: str,
+    actor_role: str,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    payload, exit_code = _invoke(CLI_TOOL_DRAFT_SERVICE.apply_draft, draft_id, {"acted_by": acted_by}, actor)
+    if exit_code == 0:
+        CLI_TOOL_CATALOG_SERVICE.deps.registry = build_tool_catalog_service().deps.registry
+    return payload, exit_code
+
+
 def _print_status(payload: dict[str, Any]) -> None:
     print("\n[상태 보고]")
     print(f"- Task ID: {payload.get('task_id', '-')}")
@@ -278,6 +292,9 @@ def _emit_payload(payload: dict[str, Any], *, as_json: bool, command: str) -> No
         _print_tools(payload)
         return
     if command == "tool-draft":
+        _print_tool_draft(payload)
+        return
+    if command == "tool-apply":
         _print_tool_draft(payload)
         return
     if command == "events":
@@ -477,6 +494,13 @@ def build_parser() -> argparse.ArgumentParser:
     tool_draft_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
     tool_draft_parser.add_argument("--json", action="store_true")
 
+    tool_apply_parser = subparsers.add_parser("tool-apply", help="apply an approved tool registration draft")
+    tool_apply_parser.add_argument("--draft-id", required=True)
+    tool_apply_parser.add_argument("--acted-by", required=True)
+    tool_apply_parser.add_argument("--actor-id")
+    tool_apply_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default="approver")
+    tool_apply_parser.add_argument("--json", action="store_true")
+
     return parser
 
 
@@ -574,6 +598,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             draft_id=args.draft_id,
         )
         _emit_payload(payload, as_json=args.json, command="tool-draft")
+        return exit_code
+
+    if args.command == "tool-apply":
+        payload, exit_code = _tool_apply_payload(
+            draft_id=args.draft_id,
+            acted_by=args.acted_by,
+            actor_id=args.actor_id or args.acted_by,
+            actor_role=args.actor_role,
+        )
+        _emit_payload(payload, as_json=args.json, command="tool-apply")
         return exit_code
 
     parser.print_help()

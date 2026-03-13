@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 
@@ -32,3 +33,20 @@ def reset_runtime_state(main_module: Any) -> None:
 
         if hasattr(conn, "commit"):
             conn.commit()
+
+    overlay_path = getattr(main_module, "TOOL_REGISTRY_OVERLAY_PATH", None)
+    if overlay_path is not None:
+        target = Path(overlay_path)
+        if target.is_file():
+            target.unlink()
+
+    drafts_root = getattr(main_module, "TOOL_DRAFTS_ROOT", None)
+    if drafts_root is not None:
+        root = Path(drafts_root)
+        if root.is_dir():
+            for draft_file in root.glob("tooldraft_*.yaml"):
+                draft_file.unlink()
+
+    reload_registry = getattr(main_module, "_reload_tool_registry_runtime", None)
+    if callable(reload_registry):
+        reload_registry()

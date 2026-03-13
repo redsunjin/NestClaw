@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 
 DEFAULT_TOOL_REGISTRY_PATH = Path("configs/tool_registry.yaml")
+DEFAULT_TOOL_REGISTRY_OVERLAY_PATH = Path("work/tool_registry_runtime.yaml")
 
 
 class ToolRegistryError(RuntimeError):
@@ -60,7 +62,7 @@ class ToolRegistry:
     tools: tuple[ToolCapability, ...]
 
 
-_CACHE: dict[str, tuple[int, ToolRegistry]] = {}
+_CACHE: dict[str, tuple[tuple[int, ...], ToolRegistry]] = {}
 
 
 def _indent(line: str) -> int:
@@ -184,16 +186,118 @@ def _load_registry_from_path(path: Path) -> ToolRegistry:
     return ToolRegistry(version=version, tools=tools)
 
 
-def load_tool_registry(path: str | Path = DEFAULT_TOOL_REGISTRY_PATH) -> ToolRegistry:
+def _merge_registries(base: ToolRegistry, overlay: ToolRegistry | None) -> ToolRegistry:
+    if overlay is None:
+        return base
+    merged: dict[str, ToolCapability] = {item.tool_id: item for item in base.tools}
+    for item in overlay.tools:
+        merged[item.tool_id] = item
+    return ToolRegistry(version=max(base.version, overlay.version), tools=tuple(merged.values()))
+
+
+def _tool_capability_from_mapping(item: Mapping[str, Any]) -> ToolCapability:
+    return ToolCapability(
+        tool_id=str(item.get("tool_id") or item.get("id") or "").strip(),
+        title=str(item.get("title") or "").strip(),
+        description=str(item.get("description") or "").strip(),
+        adapter=str(item.get("adapter") or "").strip(),
+        method=str(item.get("method") or "").strip(),
+        action_type=str(item.get("action_type") or "").strip(),
+        external_system=str(item.get("external_system") or "").strip(),
+        capability_family=str(item.get("capability_family") or "").strip(),
+        default_risk_level=str(item.get("default_risk_level") or "medium").strip() or "medium",
+        default_approval_required=bool(item.get("default_approval_required", False)),
+        supports_dry_run=bool(item.get("supports_dry_run", False)),
+        required_payload_fields=tuple(str(value).strip() for value in item.get("required_payload_fields", ()) if str(value).strip()),
+    )
+
+
+def render_tool_registry(registry: ToolRegistry) -> str:
+    lines = [f"version: {registry.version}", "tools:"]
+    for item in registry.tools:
+        lines.extend(
+            [
+                f"  - id: {item.tool_id}",
+                f"    title: {json.dumps(item.title, ensure_ascii=False)}",
+                f"    description: {json.dumps(item.description, ensure_ascii=False)}",
+                f"    adapter: {item.adapter}",
+                f"    method: {item.method}",
+                f"    action_type: {item.action_type}",
+                f"    external_system: {item.external_system}",
+                f"    capability_family: {item.capability_family}",
+                f"    default_risk_level: {item.default_risk_level}",
+                f"    default_approval_required: {'true' if item.default_approval_required else 'false'}",
+                f"    supports_dry_run: {'true' if item.supports_dry_run else 'false'}",
+                f"    required_payload_fields: {','.join(item.required_payload_fields)}",
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
+def save_tool_registry(path: str | Path, registry: ToolRegistry) -> None:
     target = Path(path)
-    stat = target.stat()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(render_tool_registry(registry), encoding="utf-8")
+    _CACHE.clear()
+
+
+def upsert_tool_registry_tool(path: str | Path, tool: ToolCapability | Mapping[str, Any]) -> ToolCapability:
+    target = Path(path)
+    if isinstance(tool, ToolCapability):
+        capability = tool
+    else:
+        capability = _tool_capability_from_mapping(tool)
+    if not capability.tool_id:
+        raise ToolRegistryError("tool id is required")
+
+    if target.is_file():
+        existing_registry = _load_registry_from_path(target)
+        tools = {item.tool_id: item for item in existing_registry.tools}
+        version = existing_registry.version
+    else:
+        tools = {}
+        version = 1
+    tools[capability.tool_id] = capability
+    save_tool_registry(target, ToolRegistry(version=version, tools=tuple(tools.values())))
+    return capability
+
+
+def load_tool_registry(
+    path: str | Path = DEFAULT_TOOL_REGISTRY_PATH,
+    *,
+    overlay_path: str | Path | None = DEFAULT_TOOL_REGISTRY_OVERLAY_PATH,
+) -> ToolRegistry:
+    target = Path(path)
+    overlay_target = Path(overlay_path) if overlay_path is not None else None
+    mtimes = [target.stat().st_mtime_ns]
     cache_key = str(target.resolve())
+    if overlay_target is not None:
+        overlay_mtime = overlay_target.stat().st_mtime_ns if overlay_target.is_file() else -1
+        mtimes.append(overlay_mtime)
+        cache_key = f"{cache_key}::{overlay_target.resolve()}"
     cached = _CACHE.get(cache_key)
-    if cached and cached[0] == stat.st_mtime_ns:
+    mtime_signature = tuple(mtimes)
+    if cached and cached[0] == mtime_signature:
         return cached[1]
     registry = _load_registry_from_path(target)
-    _CACHE[cache_key] = (stat.st_mtime_ns, registry)
-    return registry
+    overlay_registry = _load_registry_from_path(overlay_target) if overlay_target is not None and overlay_target.is_file() else None
+    merged_registry = _merge_registries(registry, overlay_registry)
+    _CACHE[cache_key] = (mtime_signature, merged_registry)
+    return merged_registry
+
+
+def load_overlay_tool_registry(path: str | Path = DEFAULT_TOOL_REGISTRY_OVERLAY_PATH) -> ToolRegistry | None:
+    target = Path(path)
+    if not target.is_file():
+        return None
+    return _load_registry_from_path(target)
+
+
+def load_tool_capability_overlay(path: str | Path = DEFAULT_TOOL_REGISTRY_OVERLAY_PATH) -> tuple[ToolCapability, ...]:
+    overlay = load_overlay_tool_registry(path)
+    if overlay is None:
+        return ()
+    return overlay.tools
 
 
 def list_tool_capabilities(

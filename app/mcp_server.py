@@ -257,6 +257,23 @@ class NewClawMcpServer:
                 },
                 handler=self._handle_catalog_get_draft,
             ),
+            "catalog.apply_draft": ToolSpec(
+                name="catalog.apply_draft",
+                title="Apply Tool Registration Draft",
+                description="Approve and apply a reviewed tool draft into the runtime overlay registry.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "draft_id": {"type": "string"},
+                        "acted_by": {"type": "string"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["draft_id", "acted_by", "actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_catalog_apply_draft,
+            ),
         }
 
     def _tool_result(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -345,6 +362,14 @@ class NewClawMcpServer:
     def _handle_catalog_get_draft(self, arguments: dict[str, Any]) -> dict[str, Any]:
         actor = self._tool_actor(arguments, default_role="requester")
         return _invoke(self.tool_draft_service.get_draft, str(arguments.get("draft_id") or ""), actor)
+
+    def _handle_catalog_apply_draft(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="approver")
+        payload = {"acted_by": arguments.get("acted_by")}
+        result = _invoke(self.tool_draft_service.apply_draft, str(arguments.get("draft_id") or ""), payload, actor)
+        if "error" not in result:
+            self.tool_catalog_service = build_tool_catalog_service()
+        return result
 
     def process_message(self, message: dict[str, Any]) -> dict[str, Any] | None:
         method = str(message.get("method") or "")

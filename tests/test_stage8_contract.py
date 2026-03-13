@@ -194,6 +194,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn('subparsers.add_parser("reject"', source)
         self.assertIn('subparsers.add_parser("tools"', source)
         self.assertIn('subparsers.add_parser("tool-draft"', source)
+        self.assertIn('subparsers.add_parser("tool-apply"', source)
         self.assertIn("build_orchestration_service(sync_execution=True)", source)
         self.assertIn("build_approval_service(sync_execution=True)", source)
         self.assertIn("build_tool_catalog_service()", source)
@@ -212,6 +213,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn('"catalog.get"', source)
         self.assertIn('"catalog.create_draft"', source)
         self.assertIn('"catalog.get_draft"', source)
+        self.assertIn('"catalog.apply_draft"', source)
         self.assertIn('method == "tools/list"', source)
         self.assertIn('method == "tools/call"', source)
 
@@ -246,11 +248,13 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("TOOL_REGISTRY = load_tool_registry()", main_source)
         self.assertIn('"/api/v1/tools"', main_source)
         self.assertIn('"/api/v1/tool-drafts"', main_source)
+        self.assertIn('"/api/v1/tool-drafts/{draft_id}/apply"', main_source)
         self.assertIn('"tool_id": capability.tool_id', main_source)
         self.assertIn("CLI_TOOL_CATALOG_SERVICE", cli_source)
         self.assertIn("CLI_TOOL_DRAFT_SERVICE", cli_source)
         self.assertIn("catalog.list", mcp_source)
         self.assertIn("catalog.create_draft", mcp_source)
+        self.assertIn("catalog.apply_draft", mcp_source)
         self.assertIn("internal.summary.generate", registry_source)
         self.assertIn("redmine.issue.create", registry_source)
         self.assertIn("slack.message.send", registry_source)
@@ -263,6 +267,13 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("NEWCLAW_ENABLE_SLACK_LIVE", slack_source)
         self.assertIn("class ToolDraftService", service_source)
         self.assertIn("DRAFT_REVIEW_REQUIRED", service_source)
+        self.assertIn("apply_draft", service_source)
+
+    def test_tool_registry_overlay_support_is_connected(self) -> None:
+        source = Path("app/tool_registry.py").read_text(encoding="utf-8")
+        self.assertIn("DEFAULT_TOOL_REGISTRY_OVERLAY_PATH", source)
+        self.assertIn("upsert_tool_registry_tool", source)
+        self.assertIn("render_tool_registry", source)
 
     def test_intent_classifier_is_connected_to_agent_runtime(self) -> None:
         main_source = Path("app/main.py").read_text(encoding="utf-8")

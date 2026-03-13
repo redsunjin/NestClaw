@@ -23,6 +23,7 @@ class ToolDraftServiceDeps:
     error: Callable[..., None]
     now_iso: Callable[[], str]
     drafts_root: Path
+    apply_tool_spec: Callable[[dict[str, Any], str], dict[str, Any]]
 
 
 class ToolDraftService:
@@ -80,14 +81,37 @@ class ToolDraftService:
         return ["input"]
 
     def _render_yaml(self, draft_id: str, created_by: str, request_text: str, spec: dict[str, Any]) -> str:
+        return self._render_draft_document(
+            draft_id=draft_id,
+            status="DRAFT_REVIEW_REQUIRED",
+            created_by=created_by,
+            request_text=request_text,
+            spec=spec,
+        )
+
+    def _render_draft_document(
+        self,
+        *,
+        draft_id: str,
+        status: str,
+        created_by: str,
+        request_text: str,
+        spec: dict[str, Any],
+        applied_by: str | None = None,
+        applied_at: str | None = None,
+    ) -> str:
         lines = [
             f'draft_id: "{draft_id}"',
-            'status: "DRAFT_REVIEW_REQUIRED"',
+            f'status: "{status}"',
             f'created_at: "{self.deps.now_iso()}"',
             f'created_by: "{created_by}"',
         ]
         if request_text:
             lines.append(f"request_text: {json.dumps(request_text, ensure_ascii=False)}")
+        if applied_by:
+            lines.append(f'applied_by: "{applied_by}"')
+        if applied_at:
+            lines.append(f'applied_at: "{applied_at}"')
         lines.extend(
             [
                 "tool:",
@@ -108,6 +132,89 @@ class ToolDraftService:
         for field_name in spec["required_payload_fields"]:
             lines.append(f'    - "{field_name}"')
         return "\n".join(lines) + "\n"
+
+    def _parse_tool_section(self, content: str) -> dict[str, Any]:
+        draft_id = ""
+        status = ""
+        request_text = ""
+        created_by = ""
+        applied_by = ""
+        applied_at = ""
+        spec: dict[str, Any] = {}
+        required_fields: list[str] = []
+        in_tool = False
+        in_required_fields = False
+
+        for raw_line in content.splitlines():
+            if not raw_line.strip():
+                continue
+            if raw_line.startswith("tool:"):
+                in_tool = True
+                in_required_fields = False
+                continue
+            if not in_tool:
+                key, _, value = raw_line.partition(":")
+                parsed_value = value.strip().strip('"')
+                if key == "draft_id":
+                    draft_id = parsed_value
+                elif key == "status":
+                    status = parsed_value
+                elif key == "request_text":
+                    try:
+                        request_text = str(json.loads(value.strip()))
+                    except json.JSONDecodeError:
+                        request_text = parsed_value
+                elif key == "created_by":
+                    created_by = parsed_value
+                elif key == "applied_by":
+                    applied_by = parsed_value
+                elif key == "applied_at":
+                    applied_at = parsed_value
+                continue
+
+            stripped = raw_line.strip()
+            if stripped == "required_payload_fields:":
+                in_required_fields = True
+                continue
+            if in_required_fields and stripped.startswith("- "):
+                required_fields.append(stripped[2:].strip().strip('"'))
+                continue
+            in_required_fields = False
+            key, _, value = stripped.partition(":")
+            parsed_value = value.strip()
+            if key in {"title", "description"}:
+                try:
+                    spec[key] = json.loads(parsed_value)
+                except json.JSONDecodeError:
+                    spec[key] = parsed_value.strip('"')
+            elif key in {"default_approval_required", "supports_dry_run"}:
+                spec[key] = parsed_value.lower() == "true"
+            elif key:
+                spec[key] = parsed_value.strip('"')
+
+        spec["required_payload_fields"] = required_fields
+        return {
+            "draft_id": draft_id,
+            "status": status,
+            "request_text": request_text,
+            "created_by": created_by,
+            "applied_by": applied_by or None,
+            "applied_at": applied_at or None,
+            "tool": {
+                "tool_id": spec.get("id") or spec.get("tool_id"),
+                "title": spec.get("title"),
+                "description": spec.get("description"),
+                "adapter": spec.get("adapter"),
+                "method": spec.get("method"),
+                "action_type": spec.get("action_type"),
+                "external_system": spec.get("external_system"),
+                "capability_family": spec.get("capability_family"),
+                "default_risk_level": spec.get("default_risk_level"),
+                "default_approval_required": bool(spec.get("default_approval_required")),
+                "supports_dry_run": bool(spec.get("supports_dry_run")),
+                "required_payload_fields": required_fields,
+            },
+        }
 
     def create_draft(self, req: Any, actor: ActorContext) -> dict[str, Any]:
         self.deps.authorize(actor.actor_role, set(VALID_ROLES), "create_tool_draft")
@@ -167,8 +274,44 @@ class ToolDraftService:
         path = self.deps.drafts_root / f"{normalized}.yaml"
         if not path.is_file():
             self.deps.error(404, "TOOL_DRAFT_NOT_FOUND", f"tool draft not found: {draft_id}")
+        content = path.read_text(encoding="utf-8")
+        parsed = self._parse_tool_section(content)
         return {
             "draft_id": normalized,
             "path": str(path),
-            "content": path.read_text(encoding="utf-8"),
+            "status": parsed["status"],
+            "tool": parsed["tool"],
+            "content": content,
+        }
+
+    def apply_draft(self, draft_id: str, req: Any, actor: ActorContext) -> dict[str, Any]:
+        role = self.deps.authorize(actor.actor_role, {"approver", "admin"}, "apply_tool_draft")
+        acted_by = str(self._field(req, "acted_by", "") or "").strip()
+        if acted_by != actor.actor_id:
+            self.deps.error(403, "FORBIDDEN", "acted_by must match authenticated actor")
+
+        draft = self.get_draft(draft_id, actor)
+        if draft["status"] == "APPLIED":
+            self.deps.error(409, "INVALID_DRAFT_STATE", f"tool draft already applied: {draft_id}")
+
+        applied_tool = self.deps.apply_tool_spec(dict(draft["tool"]), actor.actor_id)
+        path = self.deps.drafts_root / f"{draft_id}.yaml"
+        content = self._render_draft_document(
+            draft_id=draft_id,
+            status="APPLIED",
+            created_by=str(self._parse_tool_section(draft["content"]).get("created_by") or ""),
+            request_text=str(self._parse_tool_section(draft["content"]).get("request_text") or ""),
+            spec=dict(draft["tool"]),
+            applied_by=actor.actor_id,
+            applied_at=self.deps.now_iso(),
+        )
+        path.write_text(content, encoding="utf-8")
+        return {
+            "draft_id": draft_id,
+            "status": "APPLIED",
+            "applied_by": actor.actor_id,
+            "actor_role": role,
+            "tool": applied_tool,
+            "path": str(path),
+            "content": content,
         }
