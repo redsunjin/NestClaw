@@ -184,12 +184,13 @@
 - `slack.message.send` tool capability를 catalog에 등록했고 incident workflow에서 `notify_channel` 입력 시 함께 계획/실행할 수 있음
 - `/api/v1/tool-drafts`, `tool-draft`, `catalog.create_draft/get_draft`를 통해 reviewable tool registration draft를 생성할 수 있음
 - approver/admin은 draft를 `overlay registry`에 apply할 수 있고, apply 직후 catalog/runtime이 새 tool을 즉시 반영함
-- 브라우저에서 바로 확인할 수 있는 최소 Web Console을 `/`에 제공하고, 여기서 도구 목록 조회와 tool draft 생성/적용을 할 수 있음
+- 브라우저 root(`/`)는 단일 사용 Quickstart 화면이고, 고급 운영 화면은 `/console`에 제공함
 - Web Console에서 agent 자연어 요청을 제출하고 status/events를 같은 화면에서 확인할 수 있음
 - Web Console에서 승인 큐를 조회하고 approve/reject를 처리할 수 있음
 - Web Console에서 최근 task / 최근 approval 히스토리를 볼 수 있음
 - Web Console에서 최근 task와 현재 task의 report preview / raw report 열기를 할 수 있음
 - Web Console에서 approval 상세와 comment/history를 drill-down 할 수 있음
+- 전문가 에이전트 운영 프로토콜 문서와 wrapper script를 통해 `Plan -> Review -> Implement -> Evaluate -> Sync` 절차를 강제할 수 있음
 
 ### 10.2 아직 못 하는 것
 - LLM 기반 tool selection / multi-step planning
@@ -236,9 +237,18 @@ python3 -m pip install -r requirements.txt
 uvicorn app.main:APP --reload --port 8000
 ```
 
-2-1. 가장 쉬운 확인: 최소 Web Console
+2-1. 가장 쉬운 확인: Quickstart
 ```text
 http://127.0.0.1:8000/
+```
+- 한 개의 자연어 요청 입력
+- 현재 상태/보고서/승인 요약
+- 최근 요청 다시 불러오기
+- 승인 필요 시 approver/admin role로 바꿔 approve/reject
+
+2-2. 고급 운영 화면: Web Console
+```text
+http://127.0.0.1:8000/console
 ```
 - 도구 목록 조회
 - agent 요청 제출
@@ -386,6 +396,7 @@ bash scripts/manage_local_postgres.sh dsn
 - 실행 스크립트: `scripts/run_dev_qa_cycle.sh`
 - Stage 8 자체평가 스크립트: `scripts/run_stage8_self_eval.sh`
 - 마이크로 사이클 스크립트: `scripts/run_micro_cycle.sh`
+- 전문가 에이전트 wrapper: `scripts/run_expert_agent_workflow.sh`
 - 브라우저 스모크 스크립트: `scripts/run_browser_smoke.sh`
 - Postgres 리허설 스크립트: `scripts/run_postgres_rehearsal.sh`
 - 자동 반복 배치: `scripts/run_auto_cycle.sh`
@@ -407,6 +418,7 @@ bash scripts/run_dev_qa_cycle.sh 4
 bash scripts/run_dev_qa_cycle.sh 8
 bash scripts/run_stage8_self_eval.sh
 bash scripts/run_micro_cycle.sh status stage8-w2-001
+bash scripts/run_expert_agent_workflow.sh status stage8-w5-022 8
 bash scripts/run_browser_smoke.sh
 bash scripts/run_postgres_rehearsal.sh
 bash scripts/run_auto_cycle.sh 8 10 3 --fix-cmd "<your-fix-command>"
@@ -431,6 +443,7 @@ bash scripts/run_next_stage_pipeline.sh 8 5 2 NEXT_STAGE_PLAN_2026-02-24.md
 - 계획 문서: `NEXT_STAGE_PLAN_2026-02-24.md`
 - Stage 8 실행안: `INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md`
 - Stage 8 체크리스트: `STAGE8_EXECUTION_CHECKLIST_2026-03-04.md`
+- 전문가 운영 프로토콜: `EXPERT_AGENT_OPERATING_PROTOCOL_2026-03-13.md`
 - Stage 8 상세 설계: `STAGE8_DETAILED_DESIGN_2026-03-04.md`
 - 모델 라우팅 설정: `configs/model_registry.yaml`
 - CI 품질게이트: `.github/workflows/quality-gate.yml`

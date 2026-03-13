@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NestClaw Quickstart</title>
+    <link rel="stylesheet" href="/static/agent-quickstart.css">
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero">
+        <p class="eyebrow">NestClaw</p>
+        <h1>한 칸으로 시작하는 실행 에이전트</h1>
+        <p class="hero-copy">
+          지금 화면에서는 요청 한 번만 넣으면 됩니다. NestClaw가 분류하고 실행한 뒤, 상태와 보고서,
+          승인 필요 여부를 같은 화면에서 보여줍니다.
+        </p>
+        <div class="hero-links">
+          <a href="/console">고급 콘솔 열기</a>
+          <a href="/docs" target="_blank" rel="noreferrer">Swagger 열기</a>
+          <a href="/api/v1/agent/recent" target="_blank" rel="noreferrer">최근 작업 JSON</a>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>1. 사용자</h2>
+          <span id="quick-health" class="badge pending">확인 중</span>
+        </div>
+        <div class="form-grid">
+          <label>
+            <span>Actor ID</span>
+            <input id="quick-actor-id" type="text" value="qa_user" autocomplete="off">
+          </label>
+          <label>
+            <span>Role</span>
+            <select id="quick-actor-role">
+              <option value="requester" selected>requester</option>
+              <option value="reviewer">reviewer</option>
+              <option value="approver">approver</option>
+              <option value="admin">admin</option>
+            </select>
+          </label>
+          <label>
+            <span>Approver ID</span>
+            <input id="quick-acted-by" type="text" value="qa_approver" autocomplete="off">
+          </label>
+        </div>
+        <p class="helper">보통은 `requester`로 시작하고, 승인이 필요할 때만 `approver`로 바꾸면 됩니다.</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>2. 요청</h2>
+          <div class="button-row">
+            <button id="quick-example-task" class="subtle" type="button">업무 예시</button>
+            <button id="quick-example-incident" class="subtle" type="button">장애 예시</button>
+            <button id="quick-example-approval" class="subtle" type="button">승인 예시</button>
+            <button id="quick-submit" type="button">실행</button>
+          </div>
+        </div>
+        <label>
+          <span>무엇을 해달라고 쓸지</span>
+          <textarea id="quick-request" rows="5">주간 운영회의 메모를 요약하고 액션 아이템을 정리해줘</textarea>
+        </label>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>3. 결과</h2>
+          <div class="button-row">
+            <button id="quick-refresh" class="subtle" type="button">새로고침</button>
+            <button id="quick-open-report" class="subtle" type="button">보고서 원문 열기</button>
+          </div>
+        </div>
+        <div class="status-grid">
+          <div class="status-card">
+            <h3>현재 실행</h3>
+            <div id="quick-status" class="status-meta">아직 실행된 작업이 없습니다.</div>
+          </div>
+          <div class="status-card">
+            <h3>승인 상태</h3>
+            <div id="quick-approval" class="status-meta">승인 대기 항목이 없습니다.</div>
+            <div class="recent-actions">
+              <button id="quick-approve" class="subtle" type="button">Approve</button>
+              <button id="quick-reject" class="warn" type="button">Reject</button>
+            </div>
+          </div>
+          <div class="status-card">
+            <h3>최근 요청</h3>
+            <div id="quick-recent" class="recent-list"></div>
+          </div>
+        </div>
+        <div id="quick-report" class="report-card status-meta">보고서가 생성되면 여기에 미리보기가 표시됩니다.</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>응답 로그</h2>
+        </div>
+        <pre id="quick-output" class="output">로딩 중...</pre>
+      </section>
+    </main>
+
+    <script type="module" src="/static/agent-quickstart.js"></script>
+  </body>
+</html>

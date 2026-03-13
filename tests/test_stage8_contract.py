@@ -270,11 +270,18 @@ class TestStage8Contract(unittest.TestCase):
     def test_web_console_is_exposed_from_root(self) -> None:
         main_source = Path("app/main.py").read_text(encoding="utf-8")
         readme_source = Path("README.md").read_text(encoding="utf-8")
+        quick_js_source = Path("app/static/agent-quickstart.js").read_text(encoding="utf-8")
         js_source = Path("app/static/agent-console.js").read_text(encoding="utf-8")
         self.assertIn('APP.mount("/static"', main_source)
         self.assertIn('@APP.get("/", include_in_schema=False)', main_source)
-        self.assertIn("최소 Web Console", readme_source)
+        self.assertIn('@APP.get("/console", include_in_schema=False)', main_source)
+        self.assertIn("Quickstart", readme_source)
         self.assertIn("http://127.0.0.1:8000/", readme_source)
+        self.assertIn("/console", readme_source)
+        self.assertIn("/api/v1/agent/submit", quick_js_source)
+        self.assertIn("/api/v1/agent/status/", quick_js_source)
+        self.assertIn("/api/v1/agent/report/", quick_js_source)
+        self.assertIn("/api/v1/approvals/", quick_js_source)
         self.assertIn("/api/v1/agent/submit", js_source)
         self.assertIn("/api/v1/agent/recent", js_source)
         self.assertIn("/api/v1/agent/report/", js_source)
@@ -289,6 +296,17 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("data-load-task", js_source)
         self.assertIn("data-preview-report", js_source)
         self.assertIn("data-open-report", js_source)
+
+    def test_expert_agent_operating_protocol_and_wrapper_exist(self) -> None:
+        protocol_source = Path("EXPERT_AGENT_OPERATING_PROTOCOL_2026-03-13.md").read_text(encoding="utf-8")
+        script_source = Path("scripts/run_expert_agent_workflow.sh").read_text(encoding="utf-8")
+        self.assertIn("Plan -> Review -> Implement -> Evaluate -> Sync", protocol_source)
+        self.assertIn("scripts/run_micro_cycle.sh", protocol_source)
+        self.assertIn("scripts/run_expert_agent_workflow.sh", protocol_source)
+        self.assertIn("prepare <unit-id>", script_source)
+        self.assertIn("status <unit-id>", script_source)
+        self.assertIn("verify <unit-id>", script_source)
+        self.assertIn("next_owner", script_source)
 
     def test_next_work_groups_are_grouped_and_prioritized(self) -> None:
         source = Path("NEXT_WORK_GROUPS_2026-03-13.md").read_text(encoding="utf-8")

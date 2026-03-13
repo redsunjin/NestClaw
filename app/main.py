@@ -1280,6 +1280,11 @@ TOOL_DRAFT_SERVICE = build_tool_draft_service()
 
 
 @APP.get("/", include_in_schema=False)
+def quickstart_console() -> FileResponse:
+    return FileResponse(STATIC_ROOT / "agent-quickstart.html")
+
+
+@APP.get("/console", include_in_schema=False)
 def web_console() -> FileResponse:
     return FileResponse(STATIC_ROOT / "agent-console.html")
 
