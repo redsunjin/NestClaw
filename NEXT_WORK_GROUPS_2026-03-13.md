@@ -46,19 +46,20 @@
   - dry-run이 아닌 live evidence가 누적되고 운영 안정성 리스크가 줄어듦
 
 ## 권장 순서
-1. G1
-2. G2
+1. G2
+2. G1
 3. G3
 4. G4
 
 ## 현재 판단
-- 현재 추천 포커스: `G1`
+- 현재 추천 포커스: `G2`
 - 이유:
-  - 사용자가 실제로 “쓸 수 있다”고 느끼는 지점이 아직 operator surface에 더 남아 있음
-  - planner/tool ecosystem을 더 고도화해도 현재는 가시성이 부족하면 제품성이 약하게 느껴짐
+  - 현재 목표는 operator surface보다 `AI-first orchestration agent` 정렬이 우선이다.
+  - planner/tool ecosystem이 주 실행 경로가 되기 전에는 NestClaw가 tool server나 workflow app처럼 보일 위험이 더 크다.
+  - G1 후속은 필요하지만, planner provenance를 보여줄 실체가 먼저 생겨야 UX도 방향이 맞는다.
 
 ## 즉시 이어갈 작업 후보
-1. task/approval auto-refresh 토글 추가
-2. planner provenance를 최근 task 카드에 표시
-3. incident report preview에 action result 요약 강화
-4. approval status filter/preset UX 단순화
+1. `agent-s8-llm-planner` MWU 생성 및 AI-first planner acceptance 고정
+2. tool registry 기반 후보 선택과 plan provenance schema 정의
+3. degraded mode 전환 기준과 audit/event contract 고정
+4. 그 다음 planner provenance를 UI에 표시

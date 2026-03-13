@@ -9,9 +9,10 @@
 
 ## 1) 프로젝트 목적
 ### 1.1 핵심 목적
-- 로컬 환경에서 안전하게 동작하는 **정책·승인·감사를 갖춘 사내 업무 실행 오케스트레이션 에이전트**를 구현한다.
-- 이 에이전트는 하나의 요청을 받아 다양한 도구를 사용하는 업무 실행 서비스를 지향하며, 필요한 승인과 감사로그를 남기면서 실제 업무 처리까지 이어지는 것을 목표로 한다.
-- 사용자는 지시자, 시스템은 계획/실행/검토/보고를 수행한다.
+- 로컬 환경에서 안전하게 동작하는 **정책·승인·감사를 갖춘 orchestration AI agent**를 구현한다.
+- 이 에이전트는 하나의 요청을 받아 다양한 도구를 계획적으로 사용하고, 필요한 승인과 감사로그를 남기면서 실제 업무 처리까지 이어지는 것을 목표로 한다.
+- 사용자는 목표를 주고, 시스템은 AI를 기본 실행 경로로 사용해 계획/도구선택/실행/검토/보고를 수행한다.
+- heuristic/template 경로는 주 경로가 아니라 운영 연속성을 위한 `degraded mode`로만 유지한다.
 
 ### 1.2 운영 원칙
 - 감시형이 아닌 업무 위임형
@@ -192,6 +193,11 @@
 - Web Console에서 approval 상세와 comment/history를 drill-down 할 수 있음
 - 전문가 에이전트 운영 프로토콜 문서와 wrapper script를 통해 `Plan -> Review -> Implement -> Evaluate -> Sync` 절차를 강제할 수 있음
 
+### 10.1.1 현재 제품 위치
+- 현재 NestClaw는 `AI-first orchestration agent`로 가는 전환기 상태다.
+- intent 분류와 일부 summary path에는 LLM이 연결돼 있지만, planner/tool selection의 기본 경로는 아직 완성되지 않았다.
+- 따라서 현재 런타임은 `AI-first 완성형`이 아니라 `AI-assisted + degraded mode fallback` 단계로 보는 것이 정확하다.
+
 ### 10.2 아직 못 하는 것
 - LLM 기반 tool selection / multi-step planning
 - live RAG 기반 reasoning
@@ -205,11 +211,16 @@
 - `configs/tool_registry.yaml` 기반 execution tool catalog와 capability schema를 실제 실행 계층에 연결했다
 - `model registry selection -> provider invocation`은 summary path에 연결했다
 - `planned_actions -> execution_call -> adapter dispatch` 공통 루프를 task/incident에 적용했다
-- 다음은 planner가 registry를 보고 여러 도구를 고르는 multi-step tool planning이다
+- 다음 1순위는 LLM planner를 기본 경로로 승격하고, planner가 registry를 보고 여러 도구를 고르는 multi-step tool planning이다
 - tool registry apply는 source yaml이 아니라 `work/tool_registry_runtime.yaml` overlay에 반영한다
 - incident workflow는 broader execution agent의 첫 번째 high-risk vertical이며, 이후 일반 업무/운영 작업/티켓 처리 흐름으로 확장한다
 - 그 다음 단계는 action-card/tool planning 공통 루프와 최소 operator UI다
 - 상세 방향 문서: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
+
+### 10.4 상위 호출 계층
+- NestClaw는 독립 UI로도 쓸 수 있지만, 상위 UX/상위 에이전트가 호출하는 하위 orchestration runtime이 될 수도 있다.
+- 예: `rfs-cli -> NestClaw -> Slack/Redmine/...`
+- 이 구조에서도 계획/도구 선택/승인 판단의 주체는 NestClaw이며, 상위 호출자는 고수준 목표만 넘긴다.
 
 코드 위치:
 - 서버: `app/main.py`

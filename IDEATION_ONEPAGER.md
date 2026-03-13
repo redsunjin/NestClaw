@@ -2,12 +2,13 @@
 
 ## 0) 목적 (실행 전 정렬 문서)
 - 이 문서는 "지금 당장 개발"이 아니라, 겹쳐진 프로젝트들의 역할 경계를 분리하고 의사결정 기준을 통일하기 위한 아이디에이션 기준서다.
-- 목표: **정책·승인·감사 하에 다양한 도구를 사용하는 업무 실행 에이전트**를 **보안/조직 운영 가능 형태**로 설계한다.
+- 목표: **정책·승인·감사 하에 다양한 도구를 계획적으로 사용하는 orchestration AI agent**를 **보안/조직 운영 가능 형태**로 설계한다.
 
 ## 1) 프로젝트 간 역할 경계도
 ```mermaid
 flowchart LR
     U["User / Operator"] --> N["NestClaw (Orchestration Plane)"]
+    RFS["rfs-cli / Supervisor UX"] --> N
     N --> K["Knowledge RAG (Context Plane)"]
     N --> S["System Analysis RAG (Signal Plane)"]
     N --> M["MCP Connectors (Action Plane)"]
@@ -15,6 +16,7 @@ flowchart LR
 ```
 
 경계 원칙:
+- rfs-cli는 상위 UX/슈퍼바이저일 수 있지만, 실행 계획과 도구 선택의 주체는 NestClaw다.
 - NestClaw: 상태머신, 승인, 정책, 감사로그를 책임진다.
 - Knowledge/System RAG: 근거(컨텍스트/신호)를 제공한다. 실행 권한은 없다.
 - MCP Connector: 외부 시스템 액션을 수행한다. NestClaw 승인/정책 없이 단독 실행하지 않는다.
@@ -62,6 +64,7 @@ flowchart LR
 
 ## 5) 지금 단계의 선언
 - 아이디에이션/경계 정렬을 마쳤고, 제품 정의는 **다양한 도구를 정책적으로 사용하는 실행형 에이전트**로 고정한다. (2026-03-12)
+- 현재 목표는 **AI-first orchestration agent**이며, heuristic/template 경로는 운영 연속성을 위한 `degraded mode`로만 유지한다. (2026-03-13)
 - 그 안에서 Stage 8의 1순위 시나리오는 **첫 번째 high-risk vertical인 S1 운영장애 대응 오케스트레이션**으로 확정했다. (2026-03-04)
 - 구현 착수는 `INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md` 기준으로 진행한다.
 - S2/S3는 S1 공통 자산 완성 후 후속 확장으로 관리한다.

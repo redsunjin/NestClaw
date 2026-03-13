@@ -83,6 +83,9 @@ TODO
 ## Out of Scope
 TODO
 
+## AI-First Planner Design
+TODO
+
 ## Acceptance Criteria
 TODO
 
@@ -242,6 +245,7 @@ gate_plan() {
   if [[ -f "$file" ]]; then
     check_pattern "$file" "^## Scope" "contains scope section"
     check_pattern "$file" "^## Out of Scope" "contains out of scope section"
+    check_pattern "$file" "^## AI-First Planner Design" "contains ai-first planner design section"
     check_pattern "$file" "^## Acceptance Criteria" "contains acceptance criteria section"
     check_pattern "$file" "^## Risks" "contains risk section"
     check_pattern "$file" "^## Test Plan" "contains test plan section"

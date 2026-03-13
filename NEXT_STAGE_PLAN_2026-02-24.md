@@ -135,6 +135,20 @@
 - 기준 문서:
   - `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
 
+## Agent 제품화 방향 재정렬 (2026-03-13)
+- 제품 정의:
+  - NestClaw는 `AI-first orchestration agent`를 목표로 한다.
+  - heuristic/template 경로는 기본 기능이 아니라 운영 연속성을 위한 `degraded mode`다.
+  - `rfs-cli -> NestClaw -> external tools` 구조에서도 계획과 도구 선택의 주체는 NestClaw다.
+- 우선순위 재정렬:
+  1. LLM planner를 기본 경로로 승격
+  2. tool registry 기반 multi-step planning
+  3. incident/provider/RAG 확장
+  4. operator UI 후속
+- 기준 문서:
+  - `NEXT_WORK_GROUPS_2026-03-13.md`
+  - `EXPERT_AGENT_OPERATING_PROTOCOL_2026-03-13.md`
+
 ## 리스크
 - 네트워크 제약 환경에서 런타임 테스트 일부 skip 가능
 - DB 전환 시 기존 API 응답 포맷 회귀 위험

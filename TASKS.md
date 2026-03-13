@@ -168,8 +168,9 @@
 - [x] root를 단일 Quickstart 화면으로 단순화하고 advanced console을 `/console`로 분리
 - [x] 전문가 에이전트 운영 프로토콜 문서와 wrapper script 추가
 - [x] 다음 작업 그룹 계획 문서 고정 (`NEXT_WORK_GROUPS_2026-03-13.md`)
-- [ ] G1. Operator Surface Completion 후속
+- [x] AI-first orchestration agent 기준으로 우선순위/프로토콜 재정렬 (`stage8-w5-023`)
 - [ ] G2. Planning and Execution Maturity
+- [ ] G1. Operator Surface Completion 후속
 - [ ] G3. Tool Governance and Lifecycle
 - [ ] G4. Runtime and Live Readiness
 

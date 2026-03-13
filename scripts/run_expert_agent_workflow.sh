@@ -55,7 +55,7 @@ phase_state() {
 next_owner() {
   local unit_id="$1"
   if [[ "$(phase_state "$unit_id" "Plan gate passed")" != "done" ]]; then
-    echo "A01 Product Planner"
+    echo "A01 Product Planner + A03 LLM Orchestrator"
     return
   fi
   if [[ "$(phase_state "$unit_id" "Review gate passed")" != "done" ]]; then
@@ -81,7 +81,7 @@ next_command() {
   local unit_id="$1"
   local stage="$2"
   if [[ "$(phase_state "$unit_id" "Plan gate passed")" != "done" ]]; then
-    echo "Fill PLAN_NOTES.md, then: bash scripts/run_micro_cycle.sh gate-plan ${unit_id}"
+    echo "Fill PLAN_NOTES.md including AI-First Planner Design, then: bash scripts/run_micro_cycle.sh gate-plan ${unit_id}"
     return
   fi
   if [[ "$(phase_state "$unit_id" "Review gate passed")" != "done" ]]; then

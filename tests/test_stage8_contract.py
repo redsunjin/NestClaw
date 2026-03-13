@@ -93,9 +93,14 @@ class TestStage8Contract(unittest.TestCase):
         readme_source = Path("README.md").read_text(encoding="utf-8")
         onepager_source = Path("IDEATION_ONEPAGER.md").read_text(encoding="utf-8")
         direction_source = Path("AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md").read_text(encoding="utf-8")
-        self.assertIn("다양한 도구를 사용하는 업무 실행", readme_source)
-        self.assertIn("다양한 도구를 사용하는 업무 실행 에이전트", onepager_source)
-        self.assertIn("다양한 도구를 정책적으로 사용하는 실행형 에이전트", direction_source)
+        self.assertIn("orchestration AI agent", readme_source)
+        self.assertIn("orchestration AI agent", onepager_source)
+        self.assertIn("orchestration AI agent", direction_source)
+        self.assertIn("degraded mode", readme_source)
+        self.assertIn("degraded mode", onepager_source)
+        self.assertIn("degraded mode", direction_source)
+        self.assertIn("rfs-cli -> NestClaw", readme_source)
+        self.assertIn("rfs-cli / Supervisor UX", onepager_source)
 
     def test_stage8_docs_position_incident_as_first_vertical(self) -> None:
         plan_source = Path("INCIDENT_ORCHESTRATION_RAG_MCP_PLAN.md").read_text(encoding="utf-8")
@@ -109,8 +114,8 @@ class TestStage8Contract(unittest.TestCase):
     def test_api_contract_documents_current_workflow_family_scope(self) -> None:
         source = Path("API_CONTRACT.md").read_text(encoding="utf-8")
         self.assertIn("현재 v0.1 구현 범위의 workflow family는 `task`와 `incident`", source)
-        self.assertIn("LLM intent classifier + heuristic fallback", source)
-        self.assertIn("broader tool registry / planner / execution adapter", source)
+        self.assertIn("AI-first orchestration agent", source)
+        self.assertIn("degraded mode", source)
 
     def test_dev_qa_cycle_supports_stage8(self) -> None:
         source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
@@ -147,6 +152,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("gate-review", source)
         self.assertIn("gate-implement", source)
         self.assertIn("gate-evaluate", source)
+        self.assertIn("## AI-First Planner Design", source)
         self.assertIn("run_dev_qa_cycle.sh", source)
         self.assertIn("NEWCLAW_SKIP_STAGE8_SELF_EVAL=1", source)
         self.assertIn("mkdir -p \"$(unit_dir \"$unit_id\")/reports\"", source)
@@ -301,6 +307,8 @@ class TestStage8Contract(unittest.TestCase):
         protocol_source = Path("EXPERT_AGENT_OPERATING_PROTOCOL_2026-03-13.md").read_text(encoding="utf-8")
         script_source = Path("scripts/run_expert_agent_workflow.sh").read_text(encoding="utf-8")
         self.assertIn("Plan -> Review -> Implement -> Evaluate -> Sync", protocol_source)
+        self.assertIn("A03", protocol_source)
+        self.assertIn("AI-First Planner Design", protocol_source)
         self.assertIn("scripts/run_micro_cycle.sh", protocol_source)
         self.assertIn("scripts/run_expert_agent_workflow.sh", protocol_source)
         self.assertIn("prepare <unit-id>", script_source)
@@ -308,6 +316,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("verify <unit-id>", script_source)
         self.assertIn("sync <unit-id>", script_source)
         self.assertIn("next_owner", script_source)
+        self.assertIn("A01 Product Planner + A03 LLM Orchestrator", script_source)
         self.assertIn("Sync evidence recorded", script_source)
         self.assertIn("COMPLETED", script_source)
 
@@ -317,7 +326,8 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("G2. Planning and Execution Maturity", source)
         self.assertIn("G3. Tool Governance and Lifecycle", source)
         self.assertIn("G4. Runtime and Live Readiness", source)
-        self.assertIn("현재 추천 포커스: `G1`", source)
+        self.assertIn("현재 추천 포커스: `G2`", source)
+        self.assertIn("agent-s8-llm-planner", source)
 
     def test_slack_adapter_and_tool_draft_service_exist(self) -> None:
         slack_source = Path("app/slack_adapter.py").read_text(encoding="utf-8")

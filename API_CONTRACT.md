@@ -4,6 +4,7 @@
 로컬 업무 위임 오케스트레이션의 최소 API 계약을 고정한다.
 사용자 진입점은 `agent submit/status/events`를 기본으로 하고, 하위 호환을 위해 `task/*`, `incident/*` 직접 엔드포인트를 유지한다.
 현재 v0.1 구현 범위의 workflow family는 `task`와 `incident`이며, broader execution agent의 추가 tool/workflow family는 후속 단계에서 확장한다.
+목표 제품은 `AI-first orchestration agent`이며, heuristic/template fallback은 운영 연속성을 위한 `degraded mode`로만 유지한다.
 
 ## 2) 공통 규칙
 - Base Path: `/api/v1`

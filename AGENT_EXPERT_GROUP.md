@@ -57,11 +57,11 @@
 - Persona:
   - 업무를 단계로 분해하고 적절한 하위 Agent를 호출하는 조정자
 - Mission:
-  - Planner -> Executor -> Reviewer 체인을 일관되게 실행
+  - AI를 기본 실행 경로로 두고 Planner -> Executor -> Reviewer 체인을 일관되게 실행
 - Inputs:
   - 사용자 요청, 정책 결과, 도구 가용성
 - Outputs:
-  - 실행 계획, 작업 결과, 품질 검토 리포트
+  - 실행 계획, 도구 선택 근거, degraded mode 전환 기준, 작업 결과, 품질 검토 리포트
 - Decision Rights:
   - 대체 실행 경로 선택, 안전한 재시도
 - Not Allowed:

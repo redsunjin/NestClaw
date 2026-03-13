@@ -1,10 +1,10 @@
 # Micro Work Unit Card
 
-- unit_id: `__UNIT_ID__`
-- goal: `__GOAL__`
-- target_stage: `__TARGET_STAGE__`
-- created_at_utc: `__CREATED_AT__`
-- status: `PLAN_PENDING`
+- unit_id: `stage8-w5-023`
+- goal: `Realign NestClaw planning and governance to AI-first orchestration agent`
+- target_stage: `8`
+- created_at_utc: `20260313T132157Z`
+- status: `SYNC_PENDING`
 
 ## Roles
 - Plan Lead: A01 (Product Owner)
@@ -15,10 +15,10 @@
 - Sync Lead: A09 (Release Sync)
 
 ## Phase Checklist
-- [ ] Plan gate passed
-- [ ] Review gate passed
-- [ ] Implement gate passed
-- [ ] Evaluate gate passed
+- [x] Plan gate passed
+- [x] Review gate passed
+- [x] Implement gate passed
+- [x] Evaluate gate passed
 - [ ] Sync evidence recorded
 
 ## Files
