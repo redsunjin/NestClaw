@@ -275,6 +275,10 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("/api/v1/agent/submit", js_source)
         self.assertIn("/api/v1/agent/status/", js_source)
         self.assertIn("/api/v1/agent/events/", js_source)
+        self.assertIn("/api/v1/approvals", js_source)
+        self.assertIn("${queueId}/${action}", js_source)
+        self.assertIn("data-approve", js_source)
+        self.assertIn("data-reject", js_source)
 
     def test_slack_adapter_and_tool_draft_service_exist(self) -> None:
         slack_source = Path("app/slack_adapter.py").read_text(encoding="utf-8")

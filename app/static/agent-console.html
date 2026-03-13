@@ -57,6 +57,7 @@
           <div class="button-row">
             <button id="load-task-example" class="button subtle" type="button">회의요약 예시</button>
             <button id="load-incident-example" class="button subtle" type="button">장애대응 예시</button>
+            <button id="load-approval-example" class="button subtle" type="button">승인필요 예시</button>
             <button id="submit-agent" class="button" type="button">요청 제출</button>
           </div>
         </div>
@@ -122,6 +123,38 @@
         <div id="agent-summary" class="summary-card">
           아직 제출된 작업이 없습니다.
         </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>승인 큐</h2>
+          <div class="button-row">
+            <button id="refresh-approvals" class="button subtle" type="button">승인 목록 조회</button>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label>
+            <span>Status Filter</span>
+            <select id="approval-status-filter">
+              <option value="PENDING" selected>PENDING</option>
+              <option value="">ALL</option>
+              <option value="APPROVED">APPROVED</option>
+              <option value="REJECTED">REJECTED</option>
+            </select>
+          </label>
+          <label>
+            <span>Approver Group (선택)</span>
+            <input id="approval-group-filter" type="text" placeholder="예: ops_team" autocomplete="off">
+          </label>
+          <label>
+            <span>승인 코멘트</span>
+            <input id="approval-comment" type="text" value="approved in web console" autocomplete="off">
+          </label>
+        </div>
+        <p class="helper">
+          이 섹션은 `approver` 또는 `admin` 역할이어야 동작합니다. 위에서 Role을 바꾸고 `Approver ID`를 맞춘 뒤 사용하세요.
+        </p>
+        <div id="approval-list" class="approval-list"></div>
       </section>
 
       <section class="panel">

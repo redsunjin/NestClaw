@@ -10,6 +10,9 @@ const agentTaskIdInput = document.querySelector("#agent-task-id");
 const agentResolvedKindInput = document.querySelector("#agent-resolved-kind");
 const agentStatusInput = document.querySelector("#agent-status");
 const agentSummary = document.querySelector("#agent-summary");
+const approvalStatusFilterSelect = document.querySelector("#approval-status-filter");
+const approvalGroupFilterInput = document.querySelector("#approval-group-filter");
+const approvalCommentInput = document.querySelector("#approval-comment");
 const filterFamilyInput = document.querySelector("#filter-family");
 const filterSystemInput = document.querySelector("#filter-system");
 const draftRequestTextInput = document.querySelector("#draft-request-text");
@@ -18,6 +21,7 @@ const draftTitleInput = document.querySelector("#draft-title");
 const draftIdInput = document.querySelector("#draft-id");
 const output = document.querySelector("#output");
 const toolList = document.querySelector("#tool-list");
+const approvalList = document.querySelector("#approval-list");
 const healthBadge = document.querySelector("#health-badge");
 let currentTaskId = "";
 
@@ -85,6 +89,24 @@ function fillAgentExample(kind) {
     return;
   }
 
+  if (kind === "approval") {
+    agentTaskKindSelect.value = "task";
+    agentTitleInput.value = "외부 전송 승인 요청";
+    agentRunModeSelect.value = "dry-run";
+    agentRequestTextInput.value = "회의 내용을 정리하고 외부 전송 승인까지 올려줘";
+    agentMetadataInput.value = JSON.stringify(
+      {
+        meeting_title: "외부 전송 검토",
+        meeting_date: "2026-03-13",
+        participants: ["Ops"],
+        notes: "요약 결과를 외부 전송 해주세요",
+      },
+      null,
+      2
+    );
+    return;
+  }
+
   agentTaskKindSelect.value = "task";
   agentTitleInput.value = "주간 운영회의 요약";
   agentRunModeSelect.value = "dry-run";
@@ -115,6 +137,30 @@ function renderTools(items) {
           <p class="tool-meta">adapter: ${item.adapter}</p>
           <p class="tool-meta">method: ${item.method}</p>
           <p class="tool-meta">family/system: ${item.capability_family} / ${item.external_system}</p>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderApprovals(items) {
+  if (!items.length) {
+    approvalList.innerHTML = '<div class="approval-card"><h3>승인 항목 없음</h3><p class="tool-meta">현재 필터에 맞는 승인 요청이 없습니다.</p></div>';
+    return;
+  }
+  approvalList.innerHTML = items
+    .map(
+      (item) => `
+        <article class="approval-card">
+          <h3>${item.queue_id}</h3>
+          <p class="tool-meta">task: ${item.task_id}</p>
+          <p class="tool-meta">reason: ${item.reason_code}</p>
+          <p class="tool-meta">status: ${item.status}</p>
+          <p class="tool-meta">approver_group: ${item.approver_group}</p>
+          <div class="approval-actions">
+            <button class="button subtle" type="button" data-approve="${item.queue_id}">Approve</button>
+            <button class="button danger" type="button" data-reject="${item.queue_id}">Reject</button>
+          </div>
         </article>
       `
     )
@@ -166,6 +212,9 @@ async function loadAgentStatus(taskId = currentTaskId) {
     result.actions_executed !== undefined ? `actions_executed: ${result.actions_executed}` : "",
   ].filter(Boolean));
   printOutput("Agent 상태", payload);
+  if (payload.status === "NEEDS_HUMAN_APPROVAL") {
+    await loadApprovals();
+  }
 }
 
 async function loadAgentEvents(taskId = currentTaskId) {
@@ -209,6 +258,35 @@ async function submitAgent() {
   ]);
   printOutput("Agent 제출 결과", payload);
   await loadAgentStatus(currentTaskId);
+}
+
+async function loadApprovals() {
+  const params = new URLSearchParams();
+  if (approvalStatusFilterSelect.value) {
+    params.set("status", approvalStatusFilterSelect.value);
+  }
+  if (approvalGroupFilterInput.value.trim()) {
+    params.set("approver_group", approvalGroupFilterInput.value.trim());
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const payload = await requestJson(`/api/v1/approvals${suffix}`);
+  renderApprovals(payload.items || []);
+  printOutput("승인 목록", payload);
+}
+
+async function actApproval(queueId, action) {
+  const payload = await requestJson(`/api/v1/approvals/${queueId}/${action}`, {
+    method: "POST",
+    body: JSON.stringify({
+      acted_by: actedByInput.value.trim() || "qa_approver",
+      comment: approvalCommentInput.value.trim() || null,
+    }),
+  });
+  printOutput(`승인 ${action} 결과`, payload);
+  await loadApprovals();
+  if (currentTaskId) {
+    await loadAgentStatus(currentTaskId);
+  }
 }
 
 async function createDraft() {
@@ -269,6 +347,10 @@ document.querySelector("#load-incident-example").addEventListener("click", () =>
   fillAgentExample("incident");
 });
 
+document.querySelector("#load-approval-example").addEventListener("click", () => {
+  fillAgentExample("approval");
+});
+
 document.querySelector("#submit-agent").addEventListener("click", async () => {
   try {
     await submitAgent();
@@ -290,6 +372,32 @@ document.querySelector("#refresh-events").addEventListener("click", async () => 
     await loadAgentEvents(agentTaskIdInput.value.trim() || currentTaskId);
   } catch (error) {
     printOutput("이벤트 조회 오류", { error: String(error.message || error) });
+  }
+});
+
+document.querySelector("#refresh-approvals").addEventListener("click", async () => {
+  try {
+    await loadApprovals();
+  } catch (error) {
+    printOutput("승인 목록 오류", { error: String(error.message || error) });
+  }
+});
+
+approvalList.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const approveId = target.dataset.approve;
+  const rejectId = target.dataset.reject;
+  try {
+    if (approveId) {
+      await actApproval(approveId, "approve");
+    } else if (rejectId) {
+      await actApproval(rejectId, "reject");
+    }
+  } catch (error) {
+    printOutput("승인 처리 오류", { error: String(error.message || error) });
   }
 });
 
