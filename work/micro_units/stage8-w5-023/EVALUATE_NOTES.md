@@ -10,6 +10,8 @@
 - micro-cycle evaluate gate 통과:
   - `work/micro_units/stage8-w5-023/reports/evaluate-gate-20260313T132635Z.md`
   - captured cycle report: `reports/qa/cycle-20260313T132635Z.md`
+- QA worktree canonical cycle 통과:
+  - `reports/qa/cycle-20260313T132842Z.md`
 - 새 gate 기준 Plan/Review 재검증 통과:
   - `work/micro_units/stage8-w5-023/reports/plan-gate-20260313T132551Z.md`
   - `work/micro_units/stage8-w5-023/reports/review-gate-20260313T132551Z.md`
