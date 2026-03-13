@@ -38,6 +38,9 @@ class TestStage8Contract(unittest.TestCase):
         self.assertTrue(Path("app/provider_invoker.py").is_file())
         self.assertTrue(Path("app/tool_registry.py").is_file())
         self.assertTrue(Path("app/intent_classifier.py").is_file())
+        self.assertTrue(Path("app/static/agent-console.html").is_file())
+        self.assertTrue(Path("app/static/agent-console.css").is_file())
+        self.assertTrue(Path("app/static/agent-console.js").is_file())
         self.assertTrue(Path("app/services/approval_service.py").is_file())
         self.assertTrue(Path("app/services/orchestration_service.py").is_file())
         self.assertTrue(Path("app/services/tool_catalog_service.py").is_file())
@@ -56,6 +59,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertTrue(Path("tests/test_tool_cli_smoke.py").is_file())
         self.assertTrue(Path("tests/test_mcp_server_smoke.py").is_file())
         self.assertTrue(Path("tests/test_incident_policy_gate.py").is_file())
+        self.assertTrue(Path("tests/test_web_console_runtime.py").is_file())
 
     def test_detailed_design_includes_required_contract_sections(self) -> None:
         source = Path("STAGE8_DETAILED_DESIGN_2026-03-04.md").read_text(encoding="utf-8")
@@ -259,6 +263,14 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("redmine.issue.create", registry_source)
         self.assertIn("slack.message.send", registry_source)
         self.assertIn("required_payload_fields", registry_source)
+
+    def test_web_console_is_exposed_from_root(self) -> None:
+        main_source = Path("app/main.py").read_text(encoding="utf-8")
+        readme_source = Path("README.md").read_text(encoding="utf-8")
+        self.assertIn('APP.mount("/static"', main_source)
+        self.assertIn('@APP.get("/", include_in_schema=False)', main_source)
+        self.assertIn("최소 Web Console", readme_source)
+        self.assertIn("http://127.0.0.1:8000/", readme_source)
 
     def test_slack_adapter_and_tool_draft_service_exist(self) -> None:
         slack_source = Path("app/slack_adapter.py").read_text(encoding="utf-8")

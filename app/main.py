@@ -9,6 +9,8 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.auth import ActorContext, VALID_ROLES, actor_context_dependency
@@ -140,6 +142,8 @@ class ApplyToolDraftRequest(BaseModel):
 
 
 APP = FastAPI(title="Local Work Delegation Orchestrator", version="0.1.0")
+STATIC_ROOT = Path(__file__).resolve().parent / "static"
+APP.mount("/static", StaticFiles(directory=STATIC_ROOT), name="static")
 
 STORE_LOCK = Lock()
 STATE_STORE = create_state_store()
@@ -1272,6 +1276,11 @@ ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=False)
 APPROVAL_SERVICE = build_approval_service(sync_execution=False)
 TOOL_CATALOG_SERVICE = build_tool_catalog_service()
 TOOL_DRAFT_SERVICE = build_tool_draft_service()
+
+
+@APP.get("/", include_in_schema=False)
+def web_console() -> FileResponse:
+    return FileResponse(STATIC_ROOT / "agent-console.html")
 
 
 @APP.get("/health")
