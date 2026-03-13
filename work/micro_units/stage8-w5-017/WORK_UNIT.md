@@ -4,7 +4,7 @@
 - goal: `Add approval queue actions to the web console`
 - target_stage: `8`
 - created_at_utc: `20260313T090123Z`
-- status: `EVALUATE_PENDING`
+- status: `DONE`
 
 ## Roles
 - Plan Lead: A01 (Product Owner)
@@ -16,7 +16,7 @@
 - [x] Plan gate passed
 - [x] Review gate passed
 - [x] Implement gate passed
-- [ ] Evaluate gate passed
+- [x] Evaluate gate passed
 
 ## Files
 - `PLAN_NOTES.md`
