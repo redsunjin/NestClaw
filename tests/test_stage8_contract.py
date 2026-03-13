@@ -153,6 +153,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("gate-implement", source)
         self.assertIn("gate-evaluate", source)
         self.assertIn("## AI-First Planner Design", source)
+        self.assertIn("legacy plan format accepted", source)
         self.assertIn("run_dev_qa_cycle.sh", source)
         self.assertIn("NEWCLAW_SKIP_STAGE8_SELF_EVAL=1", source)
         self.assertIn("mkdir -p \"$(unit_dir \"$unit_id\")/reports\"", source)

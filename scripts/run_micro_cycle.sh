@@ -239,13 +239,18 @@ gate_plan() {
   local dir
   dir="$(unit_dir "$unit_id")"
   local file="$dir/PLAN_NOTES.md"
+  local card="$dir/WORK_UNIT.md"
 
   phase_report_open "$unit_id" "plan-gate"
   check_file_exists "$file" "plan notes exists"
   if [[ -f "$file" ]]; then
     check_pattern "$file" "^## Scope" "contains scope section"
     check_pattern "$file" "^## Out of Scope" "contains out of scope section"
-    check_pattern "$file" "^## AI-First Planner Design" "contains ai-first planner design section"
+    if [[ -f "$card" ]] && rg -q "Planner Design Reviewer" "$card"; then
+      check_pattern "$file" "^## AI-First Planner Design" "contains ai-first planner design section"
+    else
+      phase_pass "legacy plan format accepted (ai-first planner design section optional)"
+    fi
     check_pattern "$file" "^## Acceptance Criteria" "contains acceptance criteria section"
     check_pattern "$file" "^## Risks" "contains risk section"
     check_pattern "$file" "^## Test Plan" "contains test plan section"
