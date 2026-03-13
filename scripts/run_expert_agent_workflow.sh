@@ -11,6 +11,7 @@ Usage:
   $0 prepare <unit-id> "<goal>" [target-stage]
   $0 status <unit-id> [target-stage]
   $0 verify <unit-id> [target-stage]
+  $0 sync <unit-id> [target-stage]
 EOF
 }
 
@@ -33,6 +34,10 @@ require_unit() {
 
 work_unit_file() {
   printf "%s/WORK_UNIT.md" "$(unit_dir "$1")"
+}
+
+sync_notes_file() {
+  printf "%s/SYNC_NOTES.md" "$(unit_dir "$1")"
 }
 
 phase_state() {
@@ -65,7 +70,11 @@ next_owner() {
     echo "A06 QA Reliability"
     return
   fi
-  echo "A09 Release Sync"
+  if [[ "$(phase_state "$unit_id" "Sync evidence recorded")" != "done" ]]; then
+    echo "A09 Release Sync"
+    return
+  fi
+  echo "COMPLETED"
 }
 
 next_command() {
@@ -87,7 +96,18 @@ next_command() {
     echo "Fill EVALUATE_NOTES.md and run: bash scripts/run_micro_cycle.sh run ${unit_id} ${stage}"
     return
   fi
-  echo "Commit/push feature branch, fast-forward QA worktree, run canonical QA, and record evidence."
+  if [[ "$(phase_state "$unit_id" "Sync evidence recorded")" != "done" ]]; then
+    echo "After QA sync and evidence capture, fill SYNC_NOTES.md and run: bash scripts/run_expert_agent_workflow.sh sync ${unit_id} ${stage}"
+    return
+  fi
+  echo "Workflow complete."
+}
+
+mark_sync_complete() {
+  local file
+  file="$(work_unit_file "$1")"
+  perl -0pi -e 's/- \[[ x]\] Sync evidence recorded/- [x] Sync evidence recorded/' "$file"
+  perl -0pi -e 's/- status: `[^`]+`/- status: `DONE`/' "$file"
 }
 
 write_status_report() {
@@ -110,6 +130,7 @@ write_status_report() {
 - Review: \`$(phase_state "$unit_id" "Review gate passed")\`
 - Implement: \`$(phase_state "$unit_id" "Implement gate passed")\`
 - Evaluate: \`$(phase_state "$unit_id" "Evaluate gate passed")\`
+- Sync: \`$(phase_state "$unit_id" "Sync evidence recorded")\`
 
 ## Next Command
 \`$(next_command "$unit_id" "$stage")\`
@@ -155,6 +176,32 @@ verify() {
   echo "[OK] report: $report"
 }
 
+sync_cmd() {
+  local unit_id="$1"
+  local stage="${2:-8}"
+  require_unit "$unit_id"
+  if [[ "$(phase_state "$unit_id" "Evaluate gate passed")" != "done" ]]; then
+    echo "[ERROR] evaluate gate must pass before sync: $unit_id"
+    exit 1
+  fi
+  local sync_file
+  sync_file="$(sync_notes_file "$unit_id")"
+  if [[ ! -f "$sync_file" ]]; then
+    echo "[ERROR] sync notes missing: $sync_file"
+    exit 1
+  fi
+  if rg -qi "TODO|TBD" "$sync_file"; then
+    echo "[ERROR] sync notes unresolved: $sync_file"
+    exit 1
+  fi
+  mark_sync_complete "$unit_id"
+  local report
+  report="$(write_status_report "$unit_id" "$stage")"
+  echo "[OK] sync recorded"
+  echo "[OK] next owner: $(next_owner "$unit_id")"
+  echo "[OK] report: $report"
+}
+
 main() {
   local cmd="${1:-}"
   case "$cmd" in
@@ -169,6 +216,10 @@ main() {
     verify)
       [[ $# -ge 2 ]] || { usage; exit 1; }
       verify "$2" "${3:-8}"
+      ;;
+    sync)
+      [[ $# -ge 2 ]] || { usage; exit 1; }
+      sync_cmd "$2" "${3:-8}"
       ;;
     *)
       usage

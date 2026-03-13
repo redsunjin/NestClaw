@@ -135,6 +135,19 @@ TODO
 TODO
 EOF
 
+  cat >"$dir/SYNC_NOTES.md" <<EOF
+# Sync Notes
+
+## Release Actions
+TODO
+
+## QA Sync Evidence
+TODO
+
+## Final State
+TODO
+EOF
+
   echo "[OK] micro unit initialized: $dir"
 }
 

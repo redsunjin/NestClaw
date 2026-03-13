@@ -11,15 +11,18 @@
 - Review Lead: A04 (Security Privacy)
 - Implement Lead: A02 (Workflow Engineer)
 - Evaluate Lead: A06 (QA Reliability)
+- Sync Lead: A09 (Release Sync)
 
 ## Phase Checklist
 - [ ] Plan gate passed
 - [ ] Review gate passed
 - [ ] Implement gate passed
 - [ ] Evaluate gate passed
+- [ ] Sync evidence recorded
 
 ## Files
 - `PLAN_NOTES.md`
 - `REVIEW_NOTES.md`
 - `IMPLEMENT_NOTES.md`
 - `EVALUATE_NOTES.md`
+- `SYNC_NOTES.md`

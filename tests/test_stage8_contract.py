@@ -306,7 +306,10 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("prepare <unit-id>", script_source)
         self.assertIn("status <unit-id>", script_source)
         self.assertIn("verify <unit-id>", script_source)
+        self.assertIn("sync <unit-id>", script_source)
         self.assertIn("next_owner", script_source)
+        self.assertIn("Sync evidence recorded", script_source)
+        self.assertIn("COMPLETED", script_source)
 
     def test_next_work_groups_are_grouped_and_prioritized(self) -> None:
         source = Path("NEXT_WORK_GROUPS_2026-03-13.md").read_text(encoding="utf-8")

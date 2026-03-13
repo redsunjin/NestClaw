@@ -397,6 +397,7 @@ bash scripts/manage_local_postgres.sh dsn
 - Stage 8 자체평가 스크립트: `scripts/run_stage8_self_eval.sh`
 - 마이크로 사이클 스크립트: `scripts/run_micro_cycle.sh`
 - 전문가 에이전트 wrapper: `scripts/run_expert_agent_workflow.sh`
+- 전문가 에이전트 프로토콜: `EXPERT_AGENT_OPERATING_PROTOCOL_2026-03-13.md`
 - 브라우저 스모크 스크립트: `scripts/run_browser_smoke.sh`
 - Postgres 리허설 스크립트: `scripts/run_postgres_rehearsal.sh`
 - 자동 반복 배치: `scripts/run_auto_cycle.sh`
@@ -419,6 +420,7 @@ bash scripts/run_dev_qa_cycle.sh 8
 bash scripts/run_stage8_self_eval.sh
 bash scripts/run_micro_cycle.sh status stage8-w2-001
 bash scripts/run_expert_agent_workflow.sh status stage8-w5-022 8
+bash scripts/run_expert_agent_workflow.sh sync stage8-w5-022 8
 bash scripts/run_browser_smoke.sh
 bash scripts/run_postgres_rehearsal.sh
 bash scripts/run_auto_cycle.sh 8 10 3 --fix-cmd "<your-fix-command>"
