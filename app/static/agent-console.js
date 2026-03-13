@@ -1,6 +1,15 @@
 const actorIdInput = document.querySelector("#actor-id");
 const actorRoleSelect = document.querySelector("#actor-role");
 const actedByInput = document.querySelector("#acted-by");
+const agentTaskKindSelect = document.querySelector("#agent-task-kind");
+const agentTitleInput = document.querySelector("#agent-title");
+const agentRunModeSelect = document.querySelector("#agent-run-mode");
+const agentRequestTextInput = document.querySelector("#agent-request-text");
+const agentMetadataInput = document.querySelector("#agent-metadata");
+const agentTaskIdInput = document.querySelector("#agent-task-id");
+const agentResolvedKindInput = document.querySelector("#agent-resolved-kind");
+const agentStatusInput = document.querySelector("#agent-status");
+const agentSummary = document.querySelector("#agent-summary");
 const filterFamilyInput = document.querySelector("#filter-family");
 const filterSystemInput = document.querySelector("#filter-system");
 const draftRequestTextInput = document.querySelector("#draft-request-text");
@@ -10,6 +19,7 @@ const draftIdInput = document.querySelector("#draft-id");
 const output = document.querySelector("#output");
 const toolList = document.querySelector("#tool-list");
 const healthBadge = document.querySelector("#health-badge");
+let currentTaskId = "";
 
 function headers() {
   return {
@@ -42,6 +52,53 @@ async function requestJson(url, options = {}) {
 
 function printOutput(title, payload) {
   output.textContent = `${title}\n\n${JSON.stringify(payload, null, 2)}`;
+}
+
+function setAgentSummary(lines) {
+  agentSummary.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+}
+
+function parseMetadataInput() {
+  const raw = agentMetadataInput.value.trim();
+  if (!raw) {
+    return {};
+  }
+  return JSON.parse(raw);
+}
+
+function fillAgentExample(kind) {
+  if (kind === "incident") {
+    agentTaskKindSelect.value = "auto";
+    agentTitleInput.value = "billing-api 장애 대응";
+    agentRunModeSelect.value = "dry-run";
+    agentRequestTextInput.value = "billing-api 장애 대응용 티켓을 생성하고 온콜이 볼 수 있게 정리해줘";
+    agentMetadataInput.value = JSON.stringify(
+      {
+        service: "billing-api",
+        severity: "low",
+        time_window: "15m",
+        notify_channel: "#ops-alerts",
+      },
+      null,
+      2
+    );
+    return;
+  }
+
+  agentTaskKindSelect.value = "task";
+  agentTitleInput.value = "주간 운영회의 요약";
+  agentRunModeSelect.value = "dry-run";
+  agentRequestTextInput.value = "주간 운영회의 메모를 요약하고 액션 아이템을 정리해줘";
+  agentMetadataInput.value = JSON.stringify(
+    {
+      meeting_title: "주간 운영회의",
+      meeting_date: "2026-03-13",
+      participants: ["Kim", "Lee"],
+      notes: "업무A 진행\n업무B 리스크\n업무C 일정",
+    },
+    null,
+    2
+  );
 }
 
 function renderTools(items) {
@@ -87,6 +144,71 @@ async function loadTools() {
   const payload = await requestJson(`/api/v1/tools${suffix}`);
   renderTools(payload.items || []);
   printOutput("도구 목록", payload);
+}
+
+async function loadAgentStatus(taskId = currentTaskId) {
+  if (!taskId) {
+    printOutput("상태 조회 오류", { error: "task_id를 먼저 입력하거나 요청을 제출하세요." });
+    return;
+  }
+  const payload = await requestJson(`/api/v1/agent/status/${taskId}`);
+  currentTaskId = payload.task_id || taskId;
+  agentTaskIdInput.value = currentTaskId;
+  agentResolvedKindInput.value = payload.resolved_kind || "";
+  agentStatusInput.value = payload.status || "";
+  const result = payload.result || {};
+  setAgentSummary([
+    `task_id: ${payload.task_id || "-"}`,
+    `resolved_kind: ${payload.resolved_kind || "-"}`,
+    `status: ${payload.status || "-"}`,
+    `next_action: ${payload.next_action || "-"}`,
+    result.report_path ? `report_path: ${result.report_path}` : "",
+    result.actions_executed !== undefined ? `actions_executed: ${result.actions_executed}` : "",
+  ].filter(Boolean));
+  printOutput("Agent 상태", payload);
+}
+
+async function loadAgentEvents(taskId = currentTaskId) {
+  if (!taskId) {
+    printOutput("이벤트 조회 오류", { error: "task_id를 먼저 입력하거나 요청을 제출하세요." });
+    return;
+  }
+  const payload = await requestJson(`/api/v1/agent/events/${taskId}`);
+  const eventPreview = (payload.items || [])
+    .slice(-6)
+    .map((item) => `${item.created_at || "-"} ${item.event_type || "-"}`);
+  if (eventPreview.length) {
+    setAgentSummary(eventPreview);
+  }
+  printOutput("Agent 이벤트", payload);
+}
+
+async function submitAgent() {
+  const requestedBy = actorIdInput.value.trim() || "qa_user";
+  const payload = await requestJson("/api/v1/agent/submit", {
+    method: "POST",
+    body: JSON.stringify({
+      task_kind: agentTaskKindSelect.value,
+      title: agentTitleInput.value.trim() || null,
+      request_text: agentRequestTextInput.value.trim(),
+      requested_by: requestedBy,
+      metadata: parseMetadataInput(),
+      auto_run: true,
+      incident_run_mode: agentRunModeSelect.value,
+    }),
+  });
+  currentTaskId = payload.task_id || "";
+  agentTaskIdInput.value = currentTaskId;
+  agentResolvedKindInput.value = payload.resolved_kind || "";
+  agentStatusInput.value = payload.status || "";
+  setAgentSummary([
+    `task_id: ${payload.task_id || "-"}`,
+    `resolved_kind: ${payload.resolved_kind || "-"}`,
+    `status: ${payload.status || "-"}`,
+    `entrypoint: ${payload.entrypoint || "-"}`,
+  ]);
+  printOutput("Agent 제출 결과", payload);
+  await loadAgentStatus(currentTaskId);
 }
 
 async function createDraft() {
@@ -139,6 +261,38 @@ document.querySelector("#refresh-tools").addEventListener("click", async () => {
   }
 });
 
+document.querySelector("#load-task-example").addEventListener("click", () => {
+  fillAgentExample("task");
+});
+
+document.querySelector("#load-incident-example").addEventListener("click", () => {
+  fillAgentExample("incident");
+});
+
+document.querySelector("#submit-agent").addEventListener("click", async () => {
+  try {
+    await submitAgent();
+  } catch (error) {
+    printOutput("Agent 제출 오류", { error: String(error.message || error) });
+  }
+});
+
+document.querySelector("#refresh-status").addEventListener("click", async () => {
+  try {
+    await loadAgentStatus(agentTaskIdInput.value.trim() || currentTaskId);
+  } catch (error) {
+    printOutput("상태 조회 오류", { error: String(error.message || error) });
+  }
+});
+
+document.querySelector("#refresh-events").addEventListener("click", async () => {
+  try {
+    await loadAgentEvents(agentTaskIdInput.value.trim() || currentTaskId);
+  } catch (error) {
+    printOutput("이벤트 조회 오류", { error: String(error.message || error) });
+  }
+});
+
 document.querySelector("#create-draft").addEventListener("click", async () => {
   try {
     await createDraft();
@@ -165,6 +319,7 @@ document.querySelector("#apply-draft").addEventListener("click", async () => {
 
 await loadHealth();
 try {
+  fillAgentExample("task");
   await loadTools();
 } catch (error) {
   printOutput("초기 로딩 오류", { error: String(error.message || error) });

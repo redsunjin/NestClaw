@@ -18,6 +18,7 @@
         <div class="hero-links">
           <a href="/docs" target="_blank" rel="noreferrer">Swagger 열기</a>
           <a href="/api/v1/tools" target="_blank" rel="noreferrer">도구 JSON 보기</a>
+          <a href="/api/v1/agent/submit" target="_blank" rel="noreferrer">Agent API 보기</a>
         </div>
       </section>
 
@@ -48,6 +49,79 @@
         <p class="helper">
           목록 조회와 draft 생성은 `requester`로도 됩니다. draft 적용은 `approver` 또는 `admin`으로 바꾼 뒤 실행하세요.
         </p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Agent 실행</h2>
+          <div class="button-row">
+            <button id="load-task-example" class="button subtle" type="button">회의요약 예시</button>
+            <button id="load-incident-example" class="button subtle" type="button">장애대응 예시</button>
+            <button id="submit-agent" class="button" type="button">요청 제출</button>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label>
+            <span>Task Kind</span>
+            <select id="agent-task-kind">
+              <option value="auto" selected>auto</option>
+              <option value="task">task</option>
+              <option value="incident">incident</option>
+            </select>
+          </label>
+          <label>
+            <span>Title (선택)</span>
+            <input id="agent-title" type="text" value="주간 운영회의 요약" autocomplete="off">
+          </label>
+          <label>
+            <span>Incident Run Mode</span>
+            <select id="agent-run-mode">
+              <option value="dry-run" selected>dry-run</option>
+              <option value="mcp-live">mcp-live</option>
+              <option value="live">live</option>
+            </select>
+          </label>
+          <label class="full">
+            <span>요청 문장</span>
+            <textarea id="agent-request-text" rows="3">주간 운영회의 메모를 요약하고 액션 아이템을 정리해줘</textarea>
+          </label>
+          <label class="full">
+            <span>Metadata JSON</span>
+            <textarea id="agent-metadata" rows="8">{
+  "meeting_title": "주간 운영회의",
+  "meeting_date": "2026-03-13",
+  "participants": ["Kim", "Lee"],
+  "notes": "업무A 진행\n업무B 리스크\n업무C 일정"
+}</textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>실행 상태</h2>
+          <div class="button-row">
+            <button id="refresh-status" class="button subtle" type="button">상태 조회</button>
+            <button id="refresh-events" class="button subtle" type="button">이벤트 조회</button>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label>
+            <span>Task ID</span>
+            <input id="agent-task-id" type="text" placeholder="task_xxxxx" autocomplete="off">
+          </label>
+          <label>
+            <span>Resolved Kind</span>
+            <input id="agent-resolved-kind" type="text" readonly>
+          </label>
+          <label>
+            <span>Status</span>
+            <input id="agent-status" type="text" readonly>
+          </label>
+        </div>
+        <div id="agent-summary" class="summary-card">
+          아직 제출된 작업이 없습니다.
+        </div>
       </section>
 
       <section class="panel">

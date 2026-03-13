@@ -109,6 +109,12 @@ h2 {
   margin-bottom: 16px;
 }
 
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -212,6 +218,17 @@ textarea {
   gap: 12px;
 }
 
+.summary-card {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 252, 245, 0.8);
+  color: var(--muted);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
 .tool-card {
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -252,6 +269,11 @@ textarea {
   .panel {
     border-radius: 18px;
     padding: 18px;
+  }
+
+  .panel-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .form-grid,

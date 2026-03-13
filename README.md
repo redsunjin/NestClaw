@@ -185,6 +185,7 @@
 - `/api/v1/tool-drafts`, `tool-draft`, `catalog.create_draft/get_draft`를 통해 reviewable tool registration draft를 생성할 수 있음
 - approver/admin은 draft를 `overlay registry`에 apply할 수 있고, apply 직후 catalog/runtime이 새 tool을 즉시 반영함
 - 브라우저에서 바로 확인할 수 있는 최소 Web Console을 `/`에 제공하고, 여기서 도구 목록 조회와 tool draft 생성/적용을 할 수 있음
+- Web Console에서 agent 자연어 요청을 제출하고 status/events를 같은 화면에서 확인할 수 있음
 
 ### 10.2 아직 못 하는 것
 - LLM 기반 tool selection / multi-step planning
@@ -236,6 +237,8 @@ uvicorn app.main:APP --reload --port 8000
 http://127.0.0.1:8000/
 ```
 - 도구 목록 조회
+- agent 요청 제출
+- status / events 조회
 - tool draft 생성
 - draft 조회/적용
 - 로컬 개발 모드에서는 `X-Actor-Id`, `X-Actor-Role` 헤더를 브라우저 UI가 직접 넣어 호출

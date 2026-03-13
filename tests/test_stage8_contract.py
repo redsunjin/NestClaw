@@ -267,10 +267,14 @@ class TestStage8Contract(unittest.TestCase):
     def test_web_console_is_exposed_from_root(self) -> None:
         main_source = Path("app/main.py").read_text(encoding="utf-8")
         readme_source = Path("README.md").read_text(encoding="utf-8")
+        js_source = Path("app/static/agent-console.js").read_text(encoding="utf-8")
         self.assertIn('APP.mount("/static"', main_source)
         self.assertIn('@APP.get("/", include_in_schema=False)', main_source)
         self.assertIn("최소 Web Console", readme_source)
         self.assertIn("http://127.0.0.1:8000/", readme_source)
+        self.assertIn("/api/v1/agent/submit", js_source)
+        self.assertIn("/api/v1/agent/status/", js_source)
+        self.assertIn("/api/v1/agent/events/", js_source)
 
     def test_slack_adapter_and_tool_draft_service_exist(self) -> None:
         slack_source = Path("app/slack_adapter.py").read_text(encoding="utf-8")
