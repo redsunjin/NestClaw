@@ -58,7 +58,7 @@
   - planner/tool ecosystem을 더 고도화해도 현재는 가시성이 부족하면 제품성이 약하게 느껴짐
 
 ## 즉시 이어갈 작업 후보
-1. approval card에 comment/history 표시
-2. task/approval auto-refresh 토글 추가
-3. planner provenance를 최근 task 카드에 표시
-4. incident report preview에 action result 요약 강화
+1. task/approval auto-refresh 토글 추가
+2. planner provenance를 최근 task 카드에 표시
+3. incident report preview에 action result 요약 강화
+4. approval status filter/preset UX 단순화

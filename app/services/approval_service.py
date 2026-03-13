@@ -40,6 +40,18 @@ class ApprovalService:
     def _string_value(self, value: Any) -> str:
         return str(getattr(value, "value", value))
 
+    def _task_summary(self, task: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not task:
+            return None
+        return {
+            "task_id": task.get("task_id"),
+            "title": task.get("title"),
+            "status": task.get("status"),
+            "requested_by": task.get("requested_by"),
+            "updated_at": task.get("updated_at"),
+            "approval_reason": task.get("approval_reason"),
+        }
+
     def list_approvals(self, status: str | None, approver_group: str | None, actor: ActorContext) -> dict[str, Any]:
         self.deps.authorize(actor.actor_role, {"approver", "admin"}, "list_approvals")
         with self.deps.store_lock:
@@ -49,6 +61,23 @@ class ApprovalService:
             if approver_group:
                 items = [item for item in items if item["approver_group"] == approver_group]
             return {"items": items, "count": len(items)}
+
+    def get_approval(self, queue_id: str, actor: ActorContext) -> dict[str, Any]:
+        self.deps.authorize(actor.actor_role, {"approver", "admin"}, "get_approval")
+        with self.deps.store_lock:
+            queue_item = self.deps.approval_queue.get(queue_id)
+            if not queue_item:
+                self.deps.error(404, "APPROVAL_NOT_FOUND", f"approval queue item not found: {queue_id}")
+            actions = [item for item in self.deps.approval_actions if item.get("queue_id") == queue_id]
+            actions.sort(key=lambda item: str(item.get("created_at") or ""))
+            task = self.deps.tasks.get(queue_item["task_id"])
+            return {
+                "queue_id": queue_id,
+                "item": dict(queue_item),
+                "task_summary": self._task_summary(task),
+                "actions": actions,
+                "action_count": len(actions),
+            }
 
     def approve(self, queue_id: str, req: Any, actor: ActorContext) -> dict[str, Any]:
         role = self.deps.authorize(actor.actor_role, {"approver", "admin"}, "approve_queue_item")

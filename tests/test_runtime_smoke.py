@@ -175,6 +175,60 @@ class TestRuntimeSmoke(unittest.TestCase):
         )
         self.assertEqual(ok.status_code, 200)
 
+    def test_approval_detail_includes_comment_history(self) -> None:
+        create_resp = self.client.post(
+            "/api/v1/task/create",
+            json={
+                "title": "승인 상세 검증",
+                "template_type": "meeting_summary",
+                "input": {
+                    "meeting_title": "상세검증",
+                    "meeting_date": "2026-03-13",
+                    "participants": ["Ops"],
+                    "notes": "외부 전송 요청",
+                },
+                "requested_by": "qa_user",
+            },
+            headers=self.req_headers,
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        task_id = create_resp.json()["task_id"]
+
+        run_resp = self.client.post(
+            "/api/v1/task/run",
+            json={"task_id": task_id, "idempotency_key": "smoke_approval_detail", "run_mode": "standard"},
+            headers=self.req_headers,
+        )
+        self.assertEqual(run_resp.status_code, 202)
+
+        approval_payload = self._wait_status(task_id, {"NEEDS_HUMAN_APPROVAL"})
+        self.assertIsNotNone(approval_payload)
+        queue_id = approval_payload["approval_queue_id"]
+
+        forbidden = self.client.get(f"/api/v1/approvals/{queue_id}", headers=self.req_headers)
+        self.assertEqual(forbidden.status_code, 403)
+
+        detail_before = self.client.get(f"/api/v1/approvals/{queue_id}", headers=self.approver_headers)
+        self.assertEqual(detail_before.status_code, 200)
+        before_payload = detail_before.json()
+        self.assertEqual(before_payload["item"]["status"], "PENDING")
+        self.assertEqual(before_payload["action_count"], 0)
+
+        approve = self.client.post(
+            f"/api/v1/approvals/{queue_id}/approve",
+            json={"acted_by": "qa_approver", "comment": "approved from detail view"},
+            headers=self.approver_headers,
+        )
+        self.assertEqual(approve.status_code, 200)
+
+        detail_after = self.client.get(f"/api/v1/approvals/{queue_id}", headers=self.approver_headers)
+        self.assertEqual(detail_after.status_code, 200)
+        after_payload = detail_after.json()
+        self.assertEqual(after_payload["item"]["status"], "APPROVED")
+        self.assertEqual(after_payload["action_count"], 1)
+        self.assertEqual(after_payload["actions"][0]["comment"], "approved from detail view")
+        self.assertEqual(after_payload["task_summary"]["task_id"], task_id)
+
     def test_events_and_audit_summary(self) -> None:
         create_resp = self.client.post(
             "/api/v1/task/create",

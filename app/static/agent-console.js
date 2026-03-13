@@ -16,6 +16,7 @@ const recentApprovalList = document.querySelector("#recent-approval-list");
 const approvalStatusFilterSelect = document.querySelector("#approval-status-filter");
 const approvalGroupFilterInput = document.querySelector("#approval-group-filter");
 const approvalCommentInput = document.querySelector("#approval-comment");
+const approvalDetailIdInput = document.querySelector("#approval-detail-id");
 const filterFamilyInput = document.querySelector("#filter-family");
 const filterSystemInput = document.querySelector("#filter-system");
 const draftRequestTextInput = document.querySelector("#draft-request-text");
@@ -25,8 +26,10 @@ const draftIdInput = document.querySelector("#draft-id");
 const output = document.querySelector("#output");
 const toolList = document.querySelector("#tool-list");
 const approvalList = document.querySelector("#approval-list");
+const approvalDetail = document.querySelector("#approval-detail");
 const healthBadge = document.querySelector("#health-badge");
 let currentTaskId = "";
+let currentApprovalQueueId = "";
 
 function headers() {
   return {
@@ -67,6 +70,10 @@ function setAgentSummary(lines) {
 
 function setReportPreview(lines) {
   reportPreview.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+}
+
+function setApprovalDetail(lines) {
+  approvalDetail.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
 }
 
 function parseMetadataInput() {
@@ -165,6 +172,7 @@ function renderApprovals(items) {
           <p class="tool-meta">status: ${item.status}</p>
           <p class="tool-meta">approver_group: ${item.approver_group}</p>
           <div class="approval-actions">
+            <button class="button subtle" type="button" data-approval-detail="${item.queue_id}">상세/이력</button>
             <button class="button subtle" type="button" data-approve="${item.queue_id}">Approve</button>
             <button class="button danger" type="button" data-reject="${item.queue_id}">Reject</button>
           </div>
@@ -213,6 +221,9 @@ function renderRecentApprovals(items) {
           <p class="tool-meta">status/reason: ${item.status} / ${item.reason_code}</p>
           <p class="tool-meta">requested_by: ${item.requested_by}</p>
           <p class="tool-meta">at: ${item.resolved_at || item.created_at || "-"}</p>
+          <div class="approval-actions">
+            <button class="button subtle" type="button" data-approval-detail="${item.queue_id}">상세/이력</button>
+          </div>
         </article>
       `
     )
@@ -383,6 +394,38 @@ async function loadRecentApprovals() {
   printOutput("최근 승인", { items, count: items.length });
 }
 
+async function loadApprovalDetail(queueId = currentApprovalQueueId) {
+  if (!queueId) {
+    printOutput("승인 상세 오류", { error: "queue_id를 먼저 선택하세요." });
+    return null;
+  }
+  const payload = await requestJson(`/api/v1/approvals/${queueId}`);
+  currentApprovalQueueId = queueId;
+  approvalDetailIdInput.value = queueId;
+  const historyLines = (payload.actions || []).length
+    ? payload.actions.map(
+        (item) =>
+          `${item.created_at || "-"} ${item.action || "-"} by ${item.acted_by || "-"}${item.comment ? ` :: ${item.comment}` : ""}`
+      )
+    : ["이력이 아직 없습니다."];
+  const item = payload.item || {};
+  const taskSummary = payload.task_summary || {};
+  setApprovalDetail([
+    `queue_id: ${payload.queue_id || "-"}`,
+    `status: ${item.status || "-"}`,
+    `reason: ${item.reason_code || "-"}`,
+    `approver_group: ${item.approver_group || "-"}`,
+    `requested_by: ${item.requested_by || "-"}`,
+    `task_id: ${taskSummary.task_id || item.task_id || "-"}`,
+    `task_status: ${taskSummary.status || "-"}`,
+    "",
+    "history:",
+    ...historyLines,
+  ]);
+  printOutput("승인 상세", payload);
+  return payload;
+}
+
 async function actApproval(queueId, action) {
   const payload = await requestJson(`/api/v1/approvals/${queueId}/${action}`, {
     method: "POST",
@@ -393,6 +436,8 @@ async function actApproval(queueId, action) {
   });
   printOutput(`승인 ${action} 결과`, payload);
   await loadApprovals();
+  await loadRecentApprovals();
+  await loadApprovalDetail(queueId);
   if (currentTaskId) {
     await loadAgentStatus(currentTaskId);
   }
@@ -524,6 +569,14 @@ document.querySelector("#refresh-approval-history").addEventListener("click", as
   }
 });
 
+document.querySelector("#load-approval-detail").addEventListener("click", async () => {
+  try {
+    await loadApprovalDetail(approvalDetailIdInput.value.trim() || currentApprovalQueueId);
+  } catch (error) {
+    printOutput("승인 상세 오류", { error: String(error.message || error) });
+  }
+});
+
 recentTaskList.addEventListener("click", async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
@@ -568,15 +621,38 @@ recentTaskList.addEventListener("click", async (event) => {
   }
 });
 
+recentApprovalList.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const queueId = target.dataset.approvalDetail;
+  if (!queueId) {
+    return;
+  }
+  currentApprovalQueueId = queueId;
+  approvalDetailIdInput.value = queueId;
+  try {
+    await loadApprovalDetail(queueId);
+  } catch (error) {
+    printOutput("최근 승인 상세 오류", { error: String(error.message || error) });
+  }
+});
+
 approvalList.addEventListener("click", async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
     return;
   }
+  const detailId = target.dataset.approvalDetail;
   const approveId = target.dataset.approve;
   const rejectId = target.dataset.reject;
   try {
-    if (approveId) {
+    if (detailId) {
+      currentApprovalQueueId = detailId;
+      approvalDetailIdInput.value = detailId;
+      await loadApprovalDetail(detailId);
+    } else if (approveId) {
       await actApproval(approveId, "approve");
     } else if (rejectId) {
       await actApproval(rejectId, "reject");
@@ -616,6 +692,7 @@ try {
   await loadTools();
   await loadRecentTasks();
   setReportPreview("아직 생성된 보고서가 없습니다.");
+  setApprovalDetail("아직 선택된 승인 항목이 없습니다.");
 } catch (error) {
   printOutput("초기 로딩 오류", { error: String(error.message || error) });
 }

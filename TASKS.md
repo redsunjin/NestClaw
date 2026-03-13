@@ -164,6 +164,7 @@
 - [x] Web Console에 최근 task 히스토리 패널 추가
 - [x] Web Console에 최근 approval 히스토리 패널 추가
 - [x] Web Console에 recent/current task report preview 및 raw open 추가
+- [x] Web Console에 approval detail/comment history drill-down 추가
 - [x] 다음 작업 그룹 계획 문서 고정 (`NEXT_WORK_GROUPS_2026-03-13.md`)
 - [ ] G1. Operator Surface Completion 후속
 - [ ] G2. Planning and Execution Maturity

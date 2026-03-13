@@ -30,6 +30,7 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("보고서 미리보기", body)
         self.assertIn("최근 히스토리", body)
         self.assertIn("승인 큐", body)
+        self.assertIn("승인 상세 / 이력", body)
         self.assertIn("/static/agent-console.js", body)
 
     def test_static_assets_are_served(self) -> None:
@@ -43,9 +44,11 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("/api/v1/agent/status/", js_response.text)
         self.assertIn("/api/v1/agent/events/", js_response.text)
         self.assertIn("/api/v1/approvals", js_response.text)
+        self.assertIn("/api/v1/approvals/", js_response.text)
         self.assertIn("${queueId}/${action}", js_response.text)
         self.assertIn("data-approve", js_response.text)
         self.assertIn("data-reject", js_response.text)
+        self.assertIn("data-approval-detail", js_response.text)
         self.assertIn("data-load-task", js_response.text)
         self.assertIn("data-preview-report", js_response.text)
         self.assertIn("data-open-report", js_response.text)
@@ -58,6 +61,7 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn(".approval-card", css_response.text)
         self.assertIn(".history-card", css_response.text)
         self.assertIn(".report-preview-card", css_response.text)
+        self.assertIn(".approval-history-card", css_response.text)
 
 
 if __name__ == "__main__":

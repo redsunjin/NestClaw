@@ -189,6 +189,7 @@
 - Web Console에서 승인 큐를 조회하고 approve/reject를 처리할 수 있음
 - Web Console에서 최근 task / 최근 approval 히스토리를 볼 수 있음
 - Web Console에서 최근 task와 현재 task의 report preview / raw report 열기를 할 수 있음
+- Web Console에서 approval 상세와 comment/history를 drill-down 할 수 있음
 
 ### 10.2 아직 못 하는 것
 - LLM 기반 tool selection / multi-step planning
@@ -244,6 +245,7 @@ http://127.0.0.1:8000/
 - status / events 조회
 - 승인 큐 조회 / approve / reject
 - 최근 task / 최근 approval 히스토리
+- approval 상세 / comment history drill-down
 - tool draft 생성
 - draft 조회/적용
 - 로컬 개발 모드에서는 `X-Actor-Id`, `X-Actor-Role` 헤더를 브라우저 UI가 직접 넣어 호출

@@ -1453,6 +1453,14 @@ def list_approvals(
     return APPROVAL_SERVICE.list_approvals(status, approver_group, actor)
 
 
+@APP.get("/api/v1/approvals/{queue_id}")
+def get_approval(
+    queue_id: str,
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return APPROVAL_SERVICE.get_approval(queue_id, actor)
+
+
 @APP.post("/api/v1/approvals/{queue_id}/approve")
 def approve_queue_item(
     queue_id: str,

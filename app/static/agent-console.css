@@ -264,6 +264,11 @@ textarea {
   overflow: auto;
 }
 
+.approval-history-card {
+  max-height: 360px;
+  overflow: auto;
+}
+
 .tool-card {
   border: 1px solid var(--line);
   border-radius: 18px;
