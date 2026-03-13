@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 import sqlite3
 import sys
+import threading
+import time
 from typing import Any
 
 
@@ -41,7 +43,23 @@ def _rebuild_sqlite_store(main_module: Any, db_path: Path) -> Any:
     return new_store
 
 
+def _wait_for_background_threads(timeout_seconds: float = 2.0) -> None:
+    current = threading.current_thread()
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        pending = [
+            thread
+            for thread in threading.enumerate()
+            if thread is not current and thread.is_alive() and thread.daemon
+        ]
+        if not pending:
+            return
+        for thread in pending:
+            thread.join(timeout=0.05)
+
+
 def reset_runtime_state(main_module: Any) -> None:
+    _wait_for_background_threads()
     with main_module.STORE_LOCK:
         main_module.TASKS.clear()
         main_module.TASK_EVENTS.clear()
@@ -55,12 +73,6 @@ def reset_runtime_state(main_module: Any) -> None:
             return
 
         db_path = Path(getattr(store, "db_path", os.getenv("NEWCLAW_DB_PATH", "")) or "")
-        if db_path and str(db_path).startswith("/tmp/"):
-            store = _rebuild_sqlite_store(main_module, db_path)
-            conn = getattr(store, "conn", None)
-            if conn is None:
-                return
-
         table_names = ("approval_actions", "approvals", "events", "run_idempotency", "tasks")
         try:
             if hasattr(conn, "cursor"):
