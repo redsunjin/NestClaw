@@ -4,7 +4,7 @@
 - goal: `Add a minimal web console for tool catalog and tool draft flows`
 - target_stage: `8`
 - created_at_utc: `20260313T052442Z`
-- status: `IMPLEMENT_PENDING`
+- status: `DONE`
 
 ## Roles
 - Plan Lead: A01 (Product Owner)
@@ -15,8 +15,8 @@
 ## Phase Checklist
 - [x] Plan gate passed
 - [x] Review gate passed
-- [ ] Implement gate passed
-- [ ] Evaluate gate passed
+- [x] Implement gate passed
+- [x] Evaluate gate passed
 
 ## Files
 - `PLAN_NOTES.md`
