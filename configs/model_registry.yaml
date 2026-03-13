@@ -28,6 +28,10 @@ routing_rules:
     use_provider: local_lmstudio
 
   - when:
+      task_type: plan_actions
+    use_provider: local_lmstudio
+
+  - when:
       sensitivity: high
     use_provider: local_primary
 

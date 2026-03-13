@@ -166,6 +166,7 @@ check_stage_7() {
 
 check_stage_8() {
   run_check "stage8 static contract tests" python3 -m unittest tests.test_stage8_contract
+  run_check "stage8 agent planner contract tests" python3 -m unittest tests.test_agent_planner_contract
   run_check "stage8 model registry contract tests" python3 -m unittest tests.test_model_registry_contract
   run_check "stage8 provider invoker contract tests" python3 -m unittest tests.test_provider_invoker_contract
   run_check "stage8 tool registry contract tests" python3 -m unittest tests.test_tool_registry_contract
@@ -173,6 +174,7 @@ check_stage_8() {
   run_check "stage8 incident adapter contract tests" python3 -m unittest tests.test_incident_adapter_contract
   run_check "stage8 incident policy gate tests" python3 -m unittest tests.test_incident_policy_gate
   run_optional_check "stage8 model registry runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_model_registry_runtime
+  run_optional_check "stage8 agent planner runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_agent_planner_runtime
   run_optional_check "stage8 provider invoker runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_provider_invoker_runtime
   run_optional_check "stage8 tool registry runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_tool_registry_runtime
   run_optional_check "stage8 intent classifier runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_intent_classifier_runtime

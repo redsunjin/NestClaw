@@ -264,6 +264,8 @@ class OrchestrationService:
         }
         if task.get("provider_selection"):
             response["provider_selection"] = task["provider_selection"]
+        if task.get("planning_provenance"):
+            response["planning_provenance"] = task["planning_provenance"]
         if task.get("provider_invocation"):
             response["provider_invocation"] = task["provider_invocation"]
         if task.get("planned_actions"):
@@ -373,6 +375,7 @@ class OrchestrationService:
             "approval_queue_id": task.get("approval_queue_id"),
             "report_path": result.get("report_path"),
             "actions_executed": result.get("actions_executed"),
+            "planning_source": (task.get("planning_provenance") or {}).get("source"),
         }
 
     def create_task(self, req: Any, actor: ActorContext) -> dict[str, Any]:

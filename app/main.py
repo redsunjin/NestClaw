@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from app.agent_planner import AgentPlanner
 from app.auth import ActorContext, VALID_ROLES, actor_context_dependency
 from app.incident_mcp import execute_redmine_action
 from app.incident_policy import (
@@ -180,6 +181,7 @@ MODEL_REGISTRY = load_model_registry()
 TOOL_REGISTRY = load_tool_registry()
 PROVIDER_INVOKER = ProviderInvoker()
 INTENT_CLASSIFIER = IntentClassifier(MODEL_REGISTRY)
+TASK_PLANNER = AgentPlanner(MODEL_REGISTRY)
 
 
 def _now_iso() -> str:
@@ -500,37 +502,129 @@ def _incident_slack_tool_id() -> str:
     return tool_id or "slack.message.send"
 
 
+def _task_slack_tool_id() -> str:
+    tool_id = str(os.getenv("NEWCLAW_TASK_SLACK_TOOL_ID") or "slack.message.send").strip()
+    return tool_id or "slack.message.send"
+
+
 def _task_summary_tool_id() -> str:
     tool_id = str(os.getenv("NEWCLAW_TASK_SUMMARY_TOOL_ID") or "internal.summary.generate").strip()
     return tool_id or "internal.summary.generate"
 
 
-def _build_task_planned_actions(task: dict[str, Any]) -> list[dict[str, Any]]:
+def _task_notify_channel(task: dict[str, Any]) -> str | None:
+    metadata = dict((task.get("agent_request") or {}).get("metadata") or {})
+    channel = str(metadata.get("notify_channel") or os.getenv("NEWCLAW_TASK_NOTIFY_CHANNEL") or "").strip()
+    return channel or None
+
+
+def _task_planner_selection_context(task: dict[str, Any]) -> dict[str, Any]:
+    context = _task_selection_context(task)
+    context["task_type"] = "plan_actions"
+    return context
+
+
+def _task_request_text(task: dict[str, Any]) -> str:
+    agent_request = dict(task.get("agent_request") or {})
+    request_text = str(agent_request.get("request_text") or "").strip()
+    if request_text:
+        return request_text
+    task_input = dict(task.get("input") or {})
+    return str(task_input.get("notes") or task.get("title") or "").strip()
+
+
+def _task_candidate_capabilities(task: dict[str, Any]) -> list[Any]:
+    capabilities: list[Any] = []
     try:
-        capability = get_tool_capability(TOOL_REGISTRY, _task_summary_tool_id())
+        capabilities.append(get_tool_capability(TOOL_REGISTRY, _task_summary_tool_id()))
     except ToolRegistryError as exc:
         raise RuntimeError(str(exc)) from exc
 
+    notify_channel = _task_notify_channel(task)
+    if notify_channel:
+        try:
+            capabilities.append(get_tool_capability(TOOL_REGISTRY, _task_slack_tool_id()))
+        except ToolRegistryError as exc:
+            raise RuntimeError(str(exc)) from exc
+    return capabilities
+
+
+def _task_slack_message(task: dict[str, Any]) -> str:
+    task_input = dict(task.get("input") or {})
+    return (
+        f"[NestClaw] {task_input.get('meeting_title', 'Agent Request')} "
+        f"summary requested by {task.get('requested_by', 'unknown')}."
+    )
+
+
+def _task_payload_for_tool(
+    task: dict[str, Any],
+    capability: Any,
+    payload_overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload_overrides = dict(payload_overrides or {})
+    if capability.tool_id == _task_summary_tool_id():
+        payload = dict(task.get("input") or {})
+    elif capability.tool_id == _task_slack_tool_id():
+        payload = {
+            "channel": _task_notify_channel(task) or "",
+            "text": _task_slack_message(task),
+        }
+    else:
+        raise RuntimeError(f"unsupported task tool: {capability.tool_id}")
+    payload.update(payload_overrides)
+    for field_name in capability.required_payload_fields:
+        value = payload.get(field_name)
+        if value in (None, ""):
+            raise RuntimeError(f"missing required field for {capability.tool_id}: {field_name}")
+    return payload
+
+
+def _task_planned_action(task: dict[str, Any], capability: Any, *, payload_overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     execution_call = {
         "adapter": capability.adapter,
         "method": capability.method,
         "supports_dry_run": capability.supports_dry_run,
-        "payload": dict(task.get("input") or {}),
+        "payload": _task_payload_for_tool(task, capability, payload_overrides),
     }
-    return [
-        {
-            "action_id": f"act_{uuid4().hex[:12]}",
-            "title": capability.title,
-            "action_type": capability.action_type,
-            "tool_id": capability.tool_id,
-            "tool_family": capability.capability_family,
-            "external_system": capability.external_system,
-            "risk_level": capability.default_risk_level,
-            "approval_required": capability.default_approval_required,
-            "tool_capability": capability.as_dict(),
-            "execution_call": execution_call,
-        }
+    return {
+        "action_id": f"act_{uuid4().hex[:12]}",
+        "title": capability.title,
+        "action_type": capability.action_type,
+        "tool_id": capability.tool_id,
+        "tool_family": capability.capability_family,
+        "external_system": capability.external_system,
+        "risk_level": capability.default_risk_level,
+        "approval_required": capability.default_approval_required,
+        "tool_capability": capability.as_dict(),
+        "execution_call": execution_call,
+    }
+
+
+def _build_task_planned_actions(task: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    metadata = dict((task.get("agent_request") or {}).get("metadata") or {})
+    selection_context = _task_planner_selection_context(task)
+    capabilities = _task_candidate_capabilities(task)
+    decision = TASK_PLANNER.plan_task_actions(
+        request_text=_task_request_text(task),
+        task_input=dict(task.get("input") or {}),
+        metadata=metadata,
+        available_tools=capabilities,
+        sensitivity=str(selection_context.get("sensitivity") or "low"),
+        external_send=bool(selection_context.get("external_send", False)),
+        default_notify_channel=_task_notify_channel(task),
+    )
+    capability_map = {item.tool_id: item for item in capabilities}
+    planned_actions = [
+        _task_planned_action(
+            task,
+            capability_map[action.tool_id],
+            payload_overrides=dict(action.payload_overrides or {}),
+        )
+        for action in decision.actions
     ]
+    provenance = decision.as_dict()
+    return planned_actions, provenance
 
 
 def _incident_notify_channel(task: dict[str, Any]) -> str | None:
@@ -882,10 +976,32 @@ def _execute_once(task_id: str) -> bool:
     with STORE_LOCK:
         task = TASKS[task_id]
         _record_provider_selection(task, selection_context=_task_selection_context(task))
-        planned_actions = _build_task_planned_actions(task)
+        planned_actions, planning_provenance = _build_task_planned_actions(task)
         task["planned_actions"] = planned_actions
+        task["planning_provenance"] = planning_provenance
         task["updated_at"] = _now_iso()
         _persist_task(task)
+        planner_selection = dict(planning_provenance.get("provider_selection") or {})
+        if planning_provenance.get("fallback_reason"):
+            _log_event(
+                task_id,
+                "TASK_PLAN_FALLBACK",
+                source=planning_provenance.get("source"),
+                fallback_reason=planning_provenance.get("fallback_reason"),
+            )
+        _log_event(
+            task_id,
+            "TASK_PLAN_GENERATED",
+            source=planning_provenance.get("source"),
+            confidence=planning_provenance.get("confidence"),
+            degraded_mode=planning_provenance.get("degraded_mode"),
+            provider_id=planner_selection.get("provider_id"),
+            provider_type=planner_selection.get("provider_type"),
+            engine=planner_selection.get("engine"),
+            model=planner_selection.get("model"),
+            action_count=len(planned_actions),
+            selected_tools=",".join(str(item.get("tool_id") or "") for item in planned_actions),
+        )
         _log_event(task_id, "TASK_ACTIONS_PLANNED", count=len(planned_actions))
         _log_event(task_id, "PLANNED_ACTIONS_BUILT", count=len(planned_actions))
         _set_stage(task, "executor")

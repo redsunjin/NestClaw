@@ -12,11 +12,12 @@
   - 비대화형 tool CLI가 있다. (`submit/status/events/approve/reject --json`)
   - MCP server가 있다. (`agent.submit/status/events`, `approval.*`)
   - model registry 기반 provider selection logging과 LLM intent classifier fallback 경로가 있다.
+  - task workflow에는 LLM planner baseline이 들어갔고, task status/event에 `planning_provenance`를 남긴다.
   - Redmine MCP live bridge 경로와 rehearsal script가 준비되어 있다.
 - 현재 한계:
-  - 현재 기본 runtime은 아직 AI-first가 아니라 `LLM + fallback-first transitional state`에 가깝다.
-  - classifier는 `task` / `incident` 분기까지만 담당하고, 실제 tool planning은 아직 없다.
-  - tool registry / capability schema와 catalog 조회 표면은 생겼지만, planner가 그것을 아직 사용하지 않는다.
+  - 현재 기본 runtime은 `task path AI-first baseline + broader fallback/transitional state`에 가깝다.
+  - classifier는 `task` / `incident` 분기를 담당하고, task planner는 `summary/slack` 좁은 tool set까지만 다룬다.
+  - tool registry / capability schema와 catalog 조회 표면은 생겼고 task planner가 일부 사용하지만, broader multi-tool/incident planner로는 아직 확장되지 않았다.
   - summary workflow를 제외하면 model registry selection이 아직 provider invocation으로 넓게 이어지지 않는다.
   - RAG 어댑터는 여전히 dry-run 중심이다.
   - Stage 8 전체 readiness는 sandbox/live env 부재로 `7/8` 상태다.
@@ -29,9 +30,9 @@
 5. 상태 조회, 이벤트 로그, 품질 게이트, rehearsal report를 반복 실행할 수 있다.
 
 ## 아직 못 하는 일
-1. 자연어 요청만으로 LLM이 의도를 분류하고 tool을 스스로 고르는 범용 agent 동작
+1. 자연어 요청만으로 LLM이 broader tool set을 계획하고 `incident`까지 공통 planner로 다루는 범용 agent 동작
 2. 실제 live RAG를 통한 사내 지식/시스템 신호 기반 reasoning
-3. tool registry / capability schema를 planner가 사용해 여러 도구를 선택하는 범용 agent 동작
+3. tool registry / capability schema를 planner가 사용해 여러 도구를 단계적으로 선택하는 범용 agent 동작
 4. 운영자가 쓰는 전용 GUI 콘솔
 
 ## 권장 구조
@@ -90,29 +91,23 @@ MCP 원칙:
 - auth, approval, audit, idempotency는 HTTP/CLI와 동일 정책 사용
 
 ## 권장 실행 순서
-1. LLM planner를 기본 실행 경로로 승격
-- 현재 `task/incident` 분기와 1-step planner를 `AI-first planner -> policy gate -> multi-step executor` 경로로 바꾼다.
+1. broader multi-step planning으로 확장
+- 현재 task path에 들어간 `AI-first planner -> policy gate -> executor` baseline을 broader multi-tool planning으로 확장한다.
 
-2. tool registry 기반 multi-step planning
-- planner가 registry를 보고 2개 이상 tool/action을 선택하고 provenance를 남기게 만든다.
+2. incident/provider/RAG 확장
+- task/incident planning contract를 수렴하고, summary path에 한정된 provider invocation을 incident planning/reporting으로 넓힌다.
 
-3. incident/provider/RAG 확장
-- summary path에 한정된 provider invocation을 incident planning/reporting으로 넓히고, RAG 어댑터를 실제 retrieval/provider 호출로 바꾼다.
-
-4. operator UI 정리
+3. operator UI 정리
 - planner provenance와 approval reasoning이 보이는 최소 운영 콘솔을 붙인다.
 
 ## 다음 MWU 후보
-1. `agent-s8-llm-planner`
-- 목적: heuristic 중심 경로를 `AI-first planner`로 승격하고 degraded mode 기준을 고정
+1. `agent-s9-tool-planning-loop`
+- 목적: task planner 후보군을 늘리고 task/incident action-card를 registry 기반 multi-step planner/executor 계약으로 수렴
 
-2. `agent-s9-tool-planning-loop`
-- 목적: task/incident action-card를 registry 기반 multi-step planner/executor 계약으로 수렴
-
-3. `agent-s10-incident-provider-rag`
+2. `agent-s10-incident-provider-rag`
 - 목적: incident planning/reporting의 provider invocation과 live retrieval을 확장
 
-4. `agent-s11-operator-ui`
+3. `agent-s11-operator-ui`
 - 목적: planner provenance/approval reasoning 중심의 최소 operator UI 설계/구현
 
 ## 판단 기준

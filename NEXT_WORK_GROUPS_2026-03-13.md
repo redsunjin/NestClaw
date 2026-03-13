@@ -18,6 +18,7 @@
 ### G2. Planning and Execution Maturity
 - 목표: 현재 1-step 수준의 planner를 실제 multi-step tool planning으로 올린다.
 - 범위:
+  - task path AI-first planner baseline 유지/확장
   - tool registry 기반 후보 선택
   - plan provenance 기록
   - multi-step execution loop
@@ -55,11 +56,11 @@
 - 현재 추천 포커스: `G2`
 - 이유:
   - 현재 목표는 operator surface보다 `AI-first orchestration agent` 정렬이 우선이다.
-  - planner/tool ecosystem이 주 실행 경로가 되기 전에는 NestClaw가 tool server나 workflow app처럼 보일 위험이 더 크다.
-  - G1 후속은 필요하지만, planner provenance를 보여줄 실체가 먼저 생겨야 UX도 방향이 맞는다.
+  - task path에는 AI-first planner baseline이 들어갔지만, 아직 broader multi-step planning과 incident 공통화가 남아 있다.
+  - G1 후속은 필요하지만, planner provenance와 richer tool planning의 실체가 더 커져야 UX도 의미 있게 확장된다.
 
 ## 즉시 이어갈 작업 후보
-1. `agent-s8-llm-planner` MWU 생성 및 AI-first planner acceptance 고정
-2. tool registry 기반 후보 선택과 plan provenance schema 정의
-3. degraded mode 전환 기준과 audit/event contract 고정
-4. 그 다음 planner provenance를 UI에 표시
+1. task planner 후보군을 summary/slack beyond로 확장하고 tool eligibility 기준 고정
+2. incident path에 planner provenance와 planner/executor 공통 계약을 수렴
+3. degraded mode 전환 기준과 audit/event contract를 planner baseline 기준으로 보강
+4. 그 다음 planner provenance를 UI에 더 노출
