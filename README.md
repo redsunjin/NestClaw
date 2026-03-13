@@ -188,6 +188,7 @@
 - Web Console에서 agent 자연어 요청을 제출하고 status/events를 같은 화면에서 확인할 수 있음
 - Web Console에서 승인 큐를 조회하고 approve/reject를 처리할 수 있음
 - Web Console에서 최근 task / 최근 approval 히스토리를 볼 수 있음
+- Web Console에서 최근 task와 현재 task의 report preview / raw report 열기를 할 수 있음
 
 ### 10.2 아직 못 하는 것
 - LLM 기반 tool selection / multi-step planning

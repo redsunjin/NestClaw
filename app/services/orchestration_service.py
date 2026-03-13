@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Mapping
 from uuid import uuid4
 
@@ -37,6 +38,7 @@ class OrchestrationServiceDeps:
     task_events: list[dict[str, Any]]
     run_idempotency: dict[tuple[str, str], str]
     state_store: Any
+    reports_root: Any
     task_workflow: str
     incident_workflow: str
     agent_entrypoint: str
@@ -315,6 +317,45 @@ class OrchestrationService:
         response["entrypoint"] = self.deps.agent_entrypoint
         response["resolved_kind"] = str(task.get("agent_route") or self._resolved_kind_for_task(task))
         return response
+
+    def _get_agent_task(self, task_id: str, actor: ActorContext, *, action: str) -> dict[str, Any]:
+        task = self.deps.tasks.get(task_id)
+        if not task:
+            self.deps.error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
+        self.deps.authorize_task_access(
+            task,
+            actor.actor_id,
+            actor.actor_role,
+            allowed_roles={"requester", "reviewer", "approver", "admin"},
+            action=action,
+        )
+        return task
+
+    def _reports_root_path(self) -> Path:
+        root = Path(self.deps.reports_root)
+        if not root.is_absolute():
+            root = (Path.cwd() / root).resolve()
+        return root.resolve()
+
+    def _resolve_report_path(self, task: dict[str, Any]) -> Path:
+        report_path_value = str((task.get("result") or {}).get("report_path") or "").strip()
+        if not report_path_value:
+            self.deps.error(404, "REPORT_NOT_FOUND", f"report not found for task: {task['task_id']}")
+
+        report_path = Path(report_path_value)
+        if not report_path.is_absolute():
+            report_path = (Path.cwd() / report_path).resolve()
+        else:
+            report_path = report_path.resolve()
+
+        try:
+            report_path.relative_to(self._reports_root_path())
+        except ValueError:
+            self.deps.error(500, "REPORT_PATH_INVALID", f"report path escaped reports root: {task['task_id']}")
+
+        if not report_path.is_file():
+            self.deps.error(404, "REPORT_NOT_FOUND", f"report file not found: {task['task_id']}")
+        return report_path
 
     def _agent_recent_item(self, task: dict[str, Any]) -> dict[str, Any]:
         result = task.get("result") or {}
@@ -663,31 +704,37 @@ class OrchestrationService:
 
     def agent_status(self, task_id: str, actor: ActorContext) -> dict[str, Any]:
         with self.deps.store_lock:
-            task = self.deps.tasks.get(task_id)
-            if not task:
-                self.deps.error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
-            self.deps.authorize_task_access(
-                task,
-                actor.actor_id,
-                actor.actor_role,
-                allowed_roles={"requester", "reviewer", "approver", "admin"},
-                action="agent_status",
-            )
+            task = self._get_agent_task(task_id, actor, action="agent_status")
             return self.build_agent_status_payload(task)
 
     def agent_events(self, task_id: str, actor: ActorContext) -> dict[str, Any]:
         with self.deps.store_lock:
-            task = self.deps.tasks.get(task_id)
-            if not task:
-                self.deps.error(404, "TASK_NOT_FOUND", f"task not found: {task_id}")
-            self.deps.authorize_task_access(
-                task,
-                actor.actor_id,
-                actor.actor_role,
-                allowed_roles={"requester", "reviewer", "approver", "admin"},
-                action="agent_events",
-            )
+            task = self._get_agent_task(task_id, actor, action="agent_events")
             return self.build_agent_events_payload(task)
+
+    def agent_report(self, task_id: str, actor: ActorContext, *, max_chars: int = 4000) -> dict[str, Any]:
+        normalized_max_chars = max(200, min(int(max_chars or 4000), 20000))
+        with self.deps.store_lock:
+            task = self._get_agent_task(task_id, actor, action="agent_report")
+            report_path = self._resolve_report_path(task)
+            report_text = report_path.read_text(encoding="utf-8")
+            preview_text = report_text[:normalized_max_chars]
+            return {
+                "task_id": task["task_id"],
+                "resolved_kind": str(task.get("agent_route") or self._resolved_kind_for_task(task)),
+                "status": task.get("status"),
+                "report_path": str(report_path.relative_to(Path.cwd())),
+                "report_name": report_path.name,
+                "preview_text": preview_text,
+                "preview_chars": normalized_max_chars,
+                "truncated": len(report_text) > normalized_max_chars,
+                "raw_url": f"/api/v1/agent/report/{task['task_id']}/raw",
+            }
+
+    def agent_report_path(self, task_id: str, actor: ActorContext) -> Path:
+        with self.deps.store_lock:
+            task = self._get_agent_task(task_id, actor, action="agent_report_raw")
+            return self._resolve_report_path(task)
 
     def agent_recent(self, actor: ActorContext, *, limit: int = 10) -> dict[str, Any]:
         normalized_limit = max(1, min(int(limit or 10), 50))

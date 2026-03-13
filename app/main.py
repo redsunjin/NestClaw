@@ -1198,6 +1198,7 @@ def build_orchestration_service(*, sync_execution: bool = False) -> Orchestratio
             task_events=TASK_EVENTS,
             run_idempotency=RUN_IDEMPOTENCY,
             state_store=STATE_STORE,
+            reports_root=REPORTS_ROOT,
             task_workflow=TASK_WORKFLOW,
             incident_workflow=INCIDENT_WORKFLOW,
             agent_entrypoint=AGENT_ENTRYPOINT,
@@ -1318,6 +1319,23 @@ def agent_recent(
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
     return ORCHESTRATION_SERVICE.agent_recent(actor, limit=limit)
+
+
+@APP.get("/api/v1/agent/report/{task_id}")
+def agent_report(
+    task_id: str,
+    max_chars: int = Query(default=4000, ge=200, le=20000),
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return ORCHESTRATION_SERVICE.agent_report(task_id, actor, max_chars=max_chars)
+
+
+@APP.get("/api/v1/agent/report/{task_id}/raw")
+def agent_report_raw(
+    task_id: str,
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> FileResponse:
+    return FileResponse(ORCHESTRATION_SERVICE.agent_report_path(task_id, actor), media_type="text/markdown")
 
 
 @APP.get("/api/v1/tools")

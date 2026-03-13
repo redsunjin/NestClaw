@@ -177,6 +177,44 @@ class TestAgentEntrypointSmoke(unittest.TestCase):
         requested_bys = {item["requested_by"] for item in payload["items"]}
         self.assertEqual(requested_bys, {"qa_user"})
 
+    def test_agent_report_preview_and_raw_are_authorized(self) -> None:
+        other_headers = {"Authorization": f"Bearer {issue_dev_jwt('other_user', 'requester')}"}
+        response = self.client.post(
+            "/api/v1/agent/submit",
+            json={
+                "task_kind": "task",
+                "title": "report preview task",
+                "request_text": "회의 메모를 요약해줘",
+                "requested_by": "qa_user",
+                "metadata": {
+                    "meeting_title": "preview sync",
+                    "meeting_date": "2026-03-13",
+                    "participants": ["Kim"],
+                    "notes": "preview note",
+                },
+            },
+            headers=self.requester_headers,
+        )
+        self.assertEqual(response.status_code, 202)
+        task_id = response.json()["task_id"]
+
+        final_payload = self._wait_status(task_id, {"DONE"})
+        self.assertIsNotNone(final_payload)
+
+        preview_response = self.client.get(f"/api/v1/agent/report/{task_id}?max_chars=500", headers=self.requester_headers)
+        self.assertEqual(preview_response.status_code, 200)
+        preview_payload = preview_response.json()
+        self.assertEqual(preview_payload["task_id"], task_id)
+        self.assertIn("preview note", preview_payload["preview_text"])
+        self.assertEqual(preview_payload["report_name"], "report.md")
+
+        raw_response = self.client.get(f"/api/v1/agent/report/{task_id}/raw", headers=self.requester_headers)
+        self.assertEqual(raw_response.status_code, 200)
+        self.assertIn("text/markdown", raw_response.headers.get("content-type", ""))
+
+        forbidden_response = self.client.get(f"/api/v1/agent/report/{task_id}", headers=other_headers)
+        self.assertEqual(forbidden_response.status_code, 403)
+
 
 if __name__ == "__main__":
     unittest.main()

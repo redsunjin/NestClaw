@@ -259,6 +259,11 @@ textarea {
   white-space: pre-wrap;
 }
 
+.report-preview-card {
+  max-height: 420px;
+  overflow: auto;
+}
+
 .tool-card {
   border: 1px solid var(--line);
   border-radius: 18px;

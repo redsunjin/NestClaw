@@ -10,6 +10,7 @@ const agentTaskIdInput = document.querySelector("#agent-task-id");
 const agentResolvedKindInput = document.querySelector("#agent-resolved-kind");
 const agentStatusInput = document.querySelector("#agent-status");
 const agentSummary = document.querySelector("#agent-summary");
+const reportPreview = document.querySelector("#report-preview");
 const recentTaskList = document.querySelector("#recent-task-list");
 const recentApprovalList = document.querySelector("#recent-approval-list");
 const approvalStatusFilterSelect = document.querySelector("#approval-status-filter");
@@ -62,6 +63,10 @@ function printOutput(title, payload) {
 
 function setAgentSummary(lines) {
   agentSummary.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+}
+
+function setReportPreview(lines) {
+  reportPreview.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
 }
 
 function parseMetadataInput() {
@@ -185,6 +190,8 @@ function renderRecentTasks(items) {
           <p class="tool-meta">updated_at: ${item.updated_at || "-"}</p>
           <div class="approval-actions">
             <button class="button subtle" type="button" data-load-task="${item.task_id}">불러오기</button>
+            ${item.report_path ? `<button class="button subtle" type="button" data-preview-report="${item.task_id}">미리보기</button>` : ""}
+            ${item.report_path ? `<button class="button subtle" type="button" data-open-report="${item.task_id}">원문 열기</button>` : ""}
           </div>
         </article>
       `
@@ -243,6 +250,41 @@ async function loadRecentTasks() {
   printOutput("최근 작업", payload);
 }
 
+async function loadReportPreview(taskId = currentTaskId) {
+  if (!taskId) {
+    printOutput("보고서 미리보기 오류", { error: "task_id를 먼저 입력하거나 최근 작업에서 선택하세요." });
+    return null;
+  }
+  const payload = await requestJson(`/api/v1/agent/report/${taskId}?max_chars=4000`);
+  setReportPreview([
+    `task_id: ${payload.task_id || "-"}`,
+    `resolved_kind: ${payload.resolved_kind || "-"}`,
+    `report: ${payload.report_name || "-"}`,
+    `truncated: ${payload.truncated ? "yes" : "no"}`,
+    "",
+    payload.preview_text || "(empty)",
+  ]);
+  printOutput("보고서 미리보기", payload);
+  return payload;
+}
+
+async function openReport(taskId = currentTaskId) {
+  if (!taskId) {
+    printOutput("보고서 열기 오류", { error: "task_id를 먼저 입력하거나 최근 작업에서 선택하세요." });
+    return;
+  }
+  const response = await fetch(`/api/v1/agent/report/${taskId}/raw`, { headers: headers() });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `failed to open report: ${response.status}`);
+  }
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  window.open(objectUrl, "_blank", "noopener");
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+  printOutput("보고서 원문 열기", { task_id: taskId, raw_url: `/api/v1/agent/report/${taskId}/raw` });
+}
+
 async function loadAgentStatus(taskId = currentTaskId) {
   if (!taskId) {
     printOutput("상태 조회 오류", { error: "task_id를 먼저 입력하거나 요청을 제출하세요." });
@@ -262,10 +304,14 @@ async function loadAgentStatus(taskId = currentTaskId) {
     result.report_path ? `report_path: ${result.report_path}` : "",
     result.actions_executed !== undefined ? `actions_executed: ${result.actions_executed}` : "",
   ].filter(Boolean));
+  if (!result.report_path) {
+    setReportPreview("아직 생성된 보고서가 없습니다.");
+  }
   printOutput("Agent 상태", payload);
   if (payload.status === "NEEDS_HUMAN_APPROVAL") {
     await loadApprovals();
   }
+  return payload;
 }
 
 async function loadAgentEvents(taskId = currentTaskId) {
@@ -308,7 +354,10 @@ async function submitAgent() {
     `entrypoint: ${payload.entrypoint || "-"}`,
   ]);
   printOutput("Agent 제출 결과", payload);
-  await loadAgentStatus(currentTaskId);
+  const statusPayload = await loadAgentStatus(currentTaskId);
+  if (((statusPayload || {}).result || {}).report_path) {
+    await loadReportPreview(currentTaskId);
+  }
 }
 
 async function loadApprovals() {
@@ -435,6 +484,22 @@ document.querySelector("#refresh-events").addEventListener("click", async () => 
   }
 });
 
+document.querySelector("#preview-report").addEventListener("click", async () => {
+  try {
+    await loadReportPreview(agentTaskIdInput.value.trim() || currentTaskId);
+  } catch (error) {
+    printOutput("보고서 미리보기 오류", { error: String(error.message || error) });
+  }
+});
+
+document.querySelector("#open-report").addEventListener("click", async () => {
+  try {
+    await openReport(agentTaskIdInput.value.trim() || currentTaskId);
+  } catch (error) {
+    printOutput("보고서 열기 오류", { error: String(error.message || error) });
+  }
+});
+
 document.querySelector("#refresh-approvals").addEventListener("click", async () => {
   try {
     await loadApprovals();
@@ -465,14 +530,39 @@ recentTaskList.addEventListener("click", async (event) => {
     return;
   }
   const taskId = target.dataset.loadTask;
+  const previewTaskId = target.dataset.previewReport;
+  const openTaskId = target.dataset.openReport;
+  if (previewTaskId) {
+    currentTaskId = previewTaskId;
+    agentTaskIdInput.value = previewTaskId;
+    try {
+      await loadReportPreview(previewTaskId);
+    } catch (error) {
+      printOutput("최근 작업 보고서 미리보기 오류", { error: String(error.message || error) });
+    }
+    return;
+  }
+  if (openTaskId) {
+    currentTaskId = openTaskId;
+    agentTaskIdInput.value = openTaskId;
+    try {
+      await openReport(openTaskId);
+    } catch (error) {
+      printOutput("최근 작업 보고서 열기 오류", { error: String(error.message || error) });
+    }
+    return;
+  }
   if (!taskId) {
     return;
   }
   currentTaskId = taskId;
   agentTaskIdInput.value = taskId;
   try {
-    await loadAgentStatus(taskId);
+    const payload = await loadAgentStatus(taskId);
     await loadAgentEvents(taskId);
+    if (((payload || {}).result || {}).report_path) {
+      await loadReportPreview(taskId);
+    }
   } catch (error) {
     printOutput("최근 작업 불러오기 오류", { error: String(error.message || error) });
   }
@@ -525,6 +615,7 @@ try {
   fillAgentExample("task");
   await loadTools();
   await loadRecentTasks();
+  setReportPreview("아직 생성된 보고서가 없습니다.");
 } catch (error) {
   printOutput("초기 로딩 오류", { error: String(error.message || error) });
 }

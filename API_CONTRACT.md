@@ -286,6 +286,33 @@ Task 이벤트 로그를 조회한다.
 }
 ```
 
+## 4.11 GET `/api/v1/agent/report/{task_id}`
+task 또는 incident 결과 보고서의 preview를 조회한다. 접근 권한은 `agent_status`와 동일하다.
+
+권한:
+- 허용 role: `requester`, `reviewer`, `approver`, `admin`
+
+쿼리:
+- `max_chars` (기본 `4000`, 최소 `200`, 최대 `20000`)
+
+응답:
+```json
+{
+  "task_id": "task_...",
+  "resolved_kind": "task",
+  "status": "DONE",
+  "report_path": "reports/task_xxx/report.md",
+  "report_name": "report.md",
+  "preview_text": "# 회의 요약\n...",
+  "preview_chars": 4000,
+  "truncated": false,
+  "raw_url": "/api/v1/agent/report/task_xxx/raw"
+}
+```
+
+## 4.12 GET `/api/v1/agent/report/{task_id}/raw`
+보고서 markdown 원문을 파일 응답으로 내려준다. 접근 권한은 `agent_status`와 동일하다.
+
 비고:
 - `task_kind=auto`는 현재 LLM intent classifier + heuristic fallback으로 분류한다.
 - execution tool catalog는 `configs/tool_registry.yaml` 기반으로 조회 가능하고, broader planner / execution adapter 일반화는 후속 단계 범위다.

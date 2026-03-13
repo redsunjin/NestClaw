@@ -277,6 +277,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("http://127.0.0.1:8000/", readme_source)
         self.assertIn("/api/v1/agent/submit", js_source)
         self.assertIn("/api/v1/agent/recent", js_source)
+        self.assertIn("/api/v1/agent/report/", js_source)
         self.assertIn("/api/v1/agent/status/", js_source)
         self.assertIn("/api/v1/agent/events/", js_source)
         self.assertIn("/api/v1/approvals", js_source)
@@ -284,6 +285,8 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("data-approve", js_source)
         self.assertIn("data-reject", js_source)
         self.assertIn("data-load-task", js_source)
+        self.assertIn("data-preview-report", js_source)
+        self.assertIn("data-open-report", js_source)
 
     def test_next_work_groups_are_grouped_and_prioritized(self) -> None:
         source = Path("NEXT_WORK_GROUPS_2026-03-13.md").read_text(encoding="utf-8")
