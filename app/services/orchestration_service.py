@@ -316,6 +316,24 @@ class OrchestrationService:
         response["resolved_kind"] = str(task.get("agent_route") or self._resolved_kind_for_task(task))
         return response
 
+    def _agent_recent_item(self, task: dict[str, Any]) -> dict[str, Any]:
+        result = task.get("result") or {}
+        return {
+            "task_id": task["task_id"],
+            "title": task.get("title"),
+            "requested_by": task.get("requested_by"),
+            "status": task.get("status"),
+            "resolved_kind": str(task.get("agent_route") or self._resolved_kind_for_task(task)),
+            "entrypoint": task.get("entrypoint") or self.deps.agent_entrypoint,
+            "updated_at": task.get("updated_at"),
+            "created_at": task.get("created_at"),
+            "current_stage": task.get("current_stage"),
+            "next_action": task.get("next_action"),
+            "approval_queue_id": task.get("approval_queue_id"),
+            "report_path": result.get("report_path"),
+            "actions_executed": result.get("actions_executed"),
+        }
+
     def create_task(self, req: Any, actor: ActorContext) -> dict[str, Any]:
         role = self.deps.authorize(actor.actor_role, {"requester", "admin"}, "create_task")
         requested_by = str(self._field(req, "requested_by", "") or "")
@@ -670,3 +688,16 @@ class OrchestrationService:
                 action="agent_events",
             )
             return self.build_agent_events_payload(task)
+
+    def agent_recent(self, actor: ActorContext, *, limit: int = 10) -> dict[str, Any]:
+        normalized_limit = max(1, min(int(limit or 10), 50))
+        with self.deps.store_lock:
+            items = list(self.deps.tasks.values())
+            if actor.actor_role == "requester":
+                items = [item for item in items if item.get("requested_by") == actor.actor_id]
+            else:
+                self.deps.authorize(actor.actor_role, {"reviewer", "approver", "admin"}, "agent_recent")
+
+            items.sort(key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""), reverse=True)
+            recent_items = [self._agent_recent_item(item) for item in items[:normalized_limit]]
+            return {"items": recent_items, "count": len(recent_items), "limit": normalized_limit}

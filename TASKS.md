@@ -160,6 +160,15 @@
 - [ ] 최소 operator UI 설계 초안 작성
 - [x] 방향 문서 고정 (`AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`)
 
+### G) Operator Surface & Next Work Groups (2026-03-13)
+- [x] Web Console에 최근 task 히스토리 패널 추가
+- [x] Web Console에 최근 approval 히스토리 패널 추가
+- [x] 다음 작업 그룹 계획 문서 고정 (`NEXT_WORK_GROUPS_2026-03-13.md`)
+- [ ] G1. Operator Surface Completion 후속
+- [ ] G2. Planning and Execution Maturity
+- [ ] G3. Tool Governance and Lifecycle
+- [ ] G4. Runtime and Live Readiness
+
 ## 즉시 시작 5개
 1. [x] API 계약서 초안 작성 (`API_CONTRACT.md`)
 2. [x] 상태 전이 다이어그램 작성 (`STATE_MACHINE.md`)

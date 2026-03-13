@@ -218,6 +218,30 @@ textarea {
   gap: 12px;
 }
 
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.history-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 252, 245, 0.82);
+  padding: 14px;
+}
+
+.subheading {
+  margin: 0 0 12px;
+  font-family: Charter, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  font-size: 1.05rem;
+}
+
 .approval-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -302,7 +326,8 @@ textarea {
   }
 
   .form-grid,
-  .form-grid.compact {
+  .form-grid.compact,
+  .history-grid {
     grid-template-columns: 1fr;
   }
 }

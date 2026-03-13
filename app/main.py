@@ -1312,6 +1312,14 @@ def agent_events(
     return ORCHESTRATION_SERVICE.agent_events(task_id, actor)
 
 
+@APP.get("/api/v1/agent/recent")
+def agent_recent(
+    limit: int = Query(default=10, ge=1, le=50),
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return ORCHESTRATION_SERVICE.agent_recent(actor, limit=limit)
+
+
 @APP.get("/api/v1/tools")
 def list_tools(
     capability_family: str | None = Query(default=None),

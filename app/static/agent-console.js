@@ -10,6 +10,8 @@ const agentTaskIdInput = document.querySelector("#agent-task-id");
 const agentResolvedKindInput = document.querySelector("#agent-resolved-kind");
 const agentStatusInput = document.querySelector("#agent-status");
 const agentSummary = document.querySelector("#agent-summary");
+const recentTaskList = document.querySelector("#recent-task-list");
+const recentApprovalList = document.querySelector("#recent-approval-list");
 const approvalStatusFilterSelect = document.querySelector("#approval-status-filter");
 const approvalGroupFilterInput = document.querySelector("#approval-group-filter");
 const approvalCommentInput = document.querySelector("#approval-comment");
@@ -167,6 +169,49 @@ function renderApprovals(items) {
     .join("");
 }
 
+function renderRecentTasks(items) {
+  if (!items.length) {
+    recentTaskList.innerHTML = '<div class="history-card"><p class="tool-meta">최근 작업이 없습니다.</p></div>';
+    return;
+  }
+  recentTaskList.innerHTML = items
+    .map(
+      (item) => `
+        <article class="history-card">
+          <h3>${item.task_id}</h3>
+          <p class="tool-meta">${item.title || "-"}</p>
+          <p class="tool-meta">kind/status: ${item.resolved_kind} / ${item.status}</p>
+          <p class="tool-meta">requested_by: ${item.requested_by}</p>
+          <p class="tool-meta">updated_at: ${item.updated_at || "-"}</p>
+          <div class="approval-actions">
+            <button class="button subtle" type="button" data-load-task="${item.task_id}">불러오기</button>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderRecentApprovals(items) {
+  if (!items.length) {
+    recentApprovalList.innerHTML = '<div class="history-card"><p class="tool-meta">최근 승인 이력이 없습니다.</p></div>';
+    return;
+  }
+  recentApprovalList.innerHTML = items
+    .map(
+      (item) => `
+        <article class="history-card">
+          <h3>${item.queue_id}</h3>
+          <p class="tool-meta">task: ${item.task_id}</p>
+          <p class="tool-meta">status/reason: ${item.status} / ${item.reason_code}</p>
+          <p class="tool-meta">requested_by: ${item.requested_by}</p>
+          <p class="tool-meta">at: ${item.resolved_at || item.created_at || "-"}</p>
+        </article>
+      `
+    )
+    .join("");
+}
+
 async function loadHealth() {
   try {
     const payload = await requestJson("/health", { headers: { "Content-Type": "application/json" } });
@@ -190,6 +235,12 @@ async function loadTools() {
   const payload = await requestJson(`/api/v1/tools${suffix}`);
   renderTools(payload.items || []);
   printOutput("도구 목록", payload);
+}
+
+async function loadRecentTasks() {
+  const payload = await requestJson("/api/v1/agent/recent?limit=8");
+  renderRecentTasks(payload.items || []);
+  printOutput("최근 작업", payload);
 }
 
 async function loadAgentStatus(taskId = currentTaskId) {
@@ -272,6 +323,15 @@ async function loadApprovals() {
   const payload = await requestJson(`/api/v1/approvals${suffix}`);
   renderApprovals(payload.items || []);
   printOutput("승인 목록", payload);
+}
+
+async function loadRecentApprovals() {
+  const payload = await requestJson("/api/v1/approvals");
+  const items = [...(payload.items || [])]
+    .sort((left, right) => String(right.resolved_at || right.created_at || "").localeCompare(String(left.resolved_at || left.created_at || "")))
+    .slice(0, 8);
+  renderRecentApprovals(items);
+  printOutput("최근 승인", { items, count: items.length });
 }
 
 async function actApproval(queueId, action) {
@@ -383,6 +443,41 @@ document.querySelector("#refresh-approvals").addEventListener("click", async () 
   }
 });
 
+document.querySelector("#refresh-recent").addEventListener("click", async () => {
+  try {
+    await loadRecentTasks();
+  } catch (error) {
+    printOutput("최근 작업 오류", { error: String(error.message || error) });
+  }
+});
+
+document.querySelector("#refresh-approval-history").addEventListener("click", async () => {
+  try {
+    await loadRecentApprovals();
+  } catch (error) {
+    printOutput("최근 승인 오류", { error: String(error.message || error) });
+  }
+});
+
+recentTaskList.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const taskId = target.dataset.loadTask;
+  if (!taskId) {
+    return;
+  }
+  currentTaskId = taskId;
+  agentTaskIdInput.value = taskId;
+  try {
+    await loadAgentStatus(taskId);
+    await loadAgentEvents(taskId);
+  } catch (error) {
+    printOutput("최근 작업 불러오기 오류", { error: String(error.message || error) });
+  }
+});
+
 approvalList.addEventListener("click", async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
@@ -429,6 +524,7 @@ await loadHealth();
 try {
   fillAgentExample("task");
   await loadTools();
+  await loadRecentTasks();
 } catch (error) {
   printOutput("초기 로딩 오류", { error: String(error.message || error) });
 }

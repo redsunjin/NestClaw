@@ -258,6 +258,34 @@ Task 이벤트 로그를 조회한다.
 }
 ```
 
+## 4.10 GET `/api/v1/agent/recent`
+최근 agent task 히스토리를 조회한다. requester는 자신의 task만 보며, reviewer/approver/admin은 전체 최근 task를 볼 수 있다.
+
+권한:
+- 허용 role: `requester`, `reviewer`, `approver`, `admin`
+
+쿼리:
+- `limit` (기본 `10`, 최대 `50`)
+
+응답:
+```json
+{
+  "items": [
+    {
+      "task_id": "task_...",
+      "title": "주간 운영회의 요약",
+      "requested_by": "qa_user",
+      "status": "DONE",
+      "resolved_kind": "task",
+      "updated_at": "2026-03-13T09:20:00+00:00",
+      "approval_queue_id": null
+    }
+  ],
+  "count": 1,
+  "limit": 10
+}
+```
+
 비고:
 - `task_kind=auto`는 현재 LLM intent classifier + heuristic fallback으로 분류한다.
 - execution tool catalog는 `configs/tool_registry.yaml` 기반으로 조회 가능하고, broader planner / execution adapter 일반화는 후속 단계 범위다.

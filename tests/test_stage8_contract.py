@@ -86,6 +86,9 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("Stage 8 실행 스케줄 업데이트", source)
         self.assertIn("2026-04-13 ~ 2026-04-24", source)
 
+    def test_next_work_groups_doc_exists(self) -> None:
+        self.assertTrue(Path("NEXT_WORK_GROUPS_2026-03-13.md").is_file())
+
     def test_product_definition_aligns_with_tool_using_execution_agent(self) -> None:
         readme_source = Path("README.md").read_text(encoding="utf-8")
         onepager_source = Path("IDEATION_ONEPAGER.md").read_text(encoding="utf-8")
@@ -273,12 +276,22 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("최소 Web Console", readme_source)
         self.assertIn("http://127.0.0.1:8000/", readme_source)
         self.assertIn("/api/v1/agent/submit", js_source)
+        self.assertIn("/api/v1/agent/recent", js_source)
         self.assertIn("/api/v1/agent/status/", js_source)
         self.assertIn("/api/v1/agent/events/", js_source)
         self.assertIn("/api/v1/approvals", js_source)
         self.assertIn("${queueId}/${action}", js_source)
         self.assertIn("data-approve", js_source)
         self.assertIn("data-reject", js_source)
+        self.assertIn("data-load-task", js_source)
+
+    def test_next_work_groups_are_grouped_and_prioritized(self) -> None:
+        source = Path("NEXT_WORK_GROUPS_2026-03-13.md").read_text(encoding="utf-8")
+        self.assertIn("G1. Operator Surface Completion", source)
+        self.assertIn("G2. Planning and Execution Maturity", source)
+        self.assertIn("G3. Tool Governance and Lifecycle", source)
+        self.assertIn("G4. Runtime and Live Readiness", source)
+        self.assertIn("현재 추천 포커스: `G1`", source)
 
     def test_slack_adapter_and_tool_draft_service_exist(self) -> None:
         slack_source = Path("app/slack_adapter.py").read_text(encoding="utf-8")

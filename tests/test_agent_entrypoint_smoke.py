@@ -131,6 +131,52 @@ class TestAgentEntrypointSmoke(unittest.TestCase):
         self.assertEqual(events_response.status_code, 200)
         self.assertGreaterEqual(events_response.json()["count"], 2)
 
+    def test_recent_agent_tasks_filters_for_requester(self) -> None:
+        other_headers = {"Authorization": f"Bearer {issue_dev_jwt('other_user', 'requester')}"}
+
+        first = self.client.post(
+            "/api/v1/agent/submit",
+            json={
+                "task_kind": "task",
+                "title": "qa user task",
+                "request_text": "회의 메모를 요약해줘",
+                "requested_by": "qa_user",
+                "metadata": {
+                    "meeting_title": "ops sync",
+                    "meeting_date": "2026-03-13",
+                    "participants": ["Kim"],
+                    "notes": "내부 메모",
+                },
+            },
+            headers=self.requester_headers,
+        )
+        self.assertEqual(first.status_code, 202)
+
+        second = self.client.post(
+            "/api/v1/agent/submit",
+            json={
+                "task_kind": "task",
+                "title": "other user task",
+                "request_text": "회의 메모를 요약해줘",
+                "requested_by": "other_user",
+                "metadata": {
+                    "meeting_title": "other sync",
+                    "meeting_date": "2026-03-13",
+                    "participants": ["Lee"],
+                    "notes": "다른 메모",
+                },
+            },
+            headers=other_headers,
+        )
+        self.assertEqual(second.status_code, 202)
+
+        recent_response = self.client.get("/api/v1/agent/recent?limit=10", headers=self.requester_headers)
+        self.assertEqual(recent_response.status_code, 200)
+        payload = recent_response.json()
+        self.assertGreaterEqual(payload["count"], 1)
+        requested_bys = {item["requested_by"] for item in payload["items"]}
+        self.assertEqual(requested_bys, {"qa_user"})
+
 
 if __name__ == "__main__":
     unittest.main()

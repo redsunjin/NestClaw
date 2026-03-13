@@ -27,6 +27,7 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("도구 카탈로그", body)
         self.assertIn("Agent 실행", body)
         self.assertIn("실행 상태", body)
+        self.assertIn("최근 히스토리", body)
         self.assertIn("승인 큐", body)
         self.assertIn("/static/agent-console.js", body)
 
@@ -36,12 +37,14 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("loadTools", js_response.text)
         self.assertIn("submitAgent", js_response.text)
         self.assertIn("/api/v1/agent/submit", js_response.text)
+        self.assertIn("/api/v1/agent/recent", js_response.text)
         self.assertIn("/api/v1/agent/status/", js_response.text)
         self.assertIn("/api/v1/agent/events/", js_response.text)
         self.assertIn("/api/v1/approvals", js_response.text)
         self.assertIn("${queueId}/${action}", js_response.text)
         self.assertIn("data-approve", js_response.text)
         self.assertIn("data-reject", js_response.text)
+        self.assertIn("data-load-task", js_response.text)
         self.assertIn("/api/v1/tool-drafts", js_response.text)
 
         css_response = self.client.get("/static/agent-console.css")
@@ -49,6 +52,7 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn(".tool-card", css_response.text)
         self.assertIn(".summary-card", css_response.text)
         self.assertIn(".approval-card", css_response.text)
+        self.assertIn(".history-card", css_response.text)
 
 
 if __name__ == "__main__":
