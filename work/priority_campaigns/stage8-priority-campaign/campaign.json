@@ -19,7 +19,9 @@
       "title": "Add cross-action data binding for richer tool sequencing",
       "unit_id": "stage8-w5-027",
       "goal": "Add cross-action data binding and richer sequencing for multi-step plans",
-      "status": "in_progress"
+      "status": "completed",
+      "completed_unit_id": "stage8-w5-027",
+      "completed_at": "2026-03-14T17:33:15+00:00"
     },
     {
       "item_id": "g1-planner-provenance-ui",
@@ -27,7 +29,7 @@
       "title": "Expose planner provenance more clearly in operator UI",
       "unit_id": "stage8-w5-028",
       "goal": "Expose planner provenance and richer plan details in quickstart and console UI",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "item_id": "g3-tool-governance-hardening",
