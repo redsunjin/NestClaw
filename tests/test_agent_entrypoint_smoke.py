@@ -176,6 +176,8 @@ class TestAgentEntrypointSmoke(unittest.TestCase):
         self.assertGreaterEqual(payload["count"], 1)
         requested_bys = {item["requested_by"] for item in payload["items"]}
         self.assertEqual(requested_bys, {"qa_user"})
+        self.assertTrue(any(item.get("planning_source") for item in payload["items"]))
+        self.assertTrue(any(item.get("planned_tool_ids") for item in payload["items"]))
 
     def test_agent_report_preview_and_raw_are_authorized(self) -> None:
         other_headers = {"Authorization": f"Bearer {issue_dev_jwt('other_user', 'requester')}"}

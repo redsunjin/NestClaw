@@ -361,6 +361,10 @@ class OrchestrationService:
 
     def _agent_recent_item(self, task: dict[str, Any]) -> dict[str, Any]:
         result = task.get("result") or {}
+        planning = task.get("planning_provenance") or {}
+        provider_selection = planning.get("provider_selection") or {}
+        planned_actions = list(task.get("planned_actions") or [])
+        action_results = list(task.get("action_results") or [])
         return {
             "task_id": task["task_id"],
             "title": task.get("title"),
@@ -375,7 +379,13 @@ class OrchestrationService:
             "approval_queue_id": task.get("approval_queue_id"),
             "report_path": result.get("report_path"),
             "actions_executed": result.get("actions_executed"),
-            "planning_source": (task.get("planning_provenance") or {}).get("source"),
+            "planning_source": planning.get("source"),
+            "planning_provider_id": provider_selection.get("provider_id"),
+            "planning_confidence": planning.get("confidence"),
+            "planning_degraded_mode": planning.get("degraded_mode"),
+            "planning_fallback_reason": planning.get("fallback_reason"),
+            "planned_tool_ids": [str(item.get("tool_id") or "") for item in planned_actions if item.get("tool_id")],
+            "executed_tool_ids": [str(item.get("tool_id") or "") for item in action_results if item.get("tool_id")],
         }
 
     def create_task(self, req: Any, actor: ActorContext) -> dict[str, Any]:

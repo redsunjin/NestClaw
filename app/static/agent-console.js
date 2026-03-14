@@ -10,6 +10,8 @@ const agentTaskIdInput = document.querySelector("#agent-task-id");
 const agentResolvedKindInput = document.querySelector("#agent-resolved-kind");
 const agentStatusInput = document.querySelector("#agent-status");
 const agentSummary = document.querySelector("#agent-summary");
+const plannerSummary = document.querySelector("#planner-summary");
+const planDetail = document.querySelector("#plan-detail");
 const reportPreview = document.querySelector("#report-preview");
 const recentTaskList = document.querySelector("#recent-task-list");
 const recentApprovalList = document.querySelector("#recent-approval-list");
@@ -68,12 +70,68 @@ function setAgentSummary(lines) {
   agentSummary.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
 }
 
+function setPlannerSummary(lines) {
+  plannerSummary.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+}
+
+function setPlanDetail(lines) {
+  planDetail.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+}
+
 function setReportPreview(lines) {
   reportPreview.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
 }
 
 function setApprovalDetail(lines) {
   approvalDetail.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+}
+
+function toolFlow(items) {
+  const values = (items || []).filter(Boolean);
+  return values.length ? values.join(" -> ") : "-";
+}
+
+function plannerLabel(item) {
+  const provider = item.planning_provider_id ? ` via ${item.planning_provider_id}` : "";
+  const degraded = item.planning_degraded_mode ? " [degraded]" : "";
+  return `${item.planning_source || "-"}${provider}${degraded}`;
+}
+
+function plannerSummaryLines(payload) {
+  const provenance = payload?.planning_provenance || {};
+  const providerSelection = provenance.provider_selection || {};
+  const plannedTools = (payload?.planned_actions || []).map((item) => item.tool_id).filter(Boolean);
+  const executedTools = (payload?.action_results || []).map((item) => item.tool_id).filter(Boolean);
+  return [
+    `planner_source: ${provenance.source || "-"}`,
+    `provider: ${providerSelection.provider_id || "-"}`,
+    `degraded_mode: ${provenance.degraded_mode ? "yes" : "no"}`,
+    provenance.confidence !== undefined && provenance.confidence !== null ? `confidence: ${provenance.confidence}` : "",
+    provenance.fallback_reason ? `fallback_reason: ${provenance.fallback_reason}` : "",
+    `planned_tools: ${toolFlow(plannedTools)}`,
+    executedTools.length ? `executed_tools: ${toolFlow(executedTools)}` : "",
+  ].filter(Boolean);
+}
+
+function planDetailLines(payload) {
+  const plannedActions = payload?.planned_actions || [];
+  const actionResults = payload?.action_results || [];
+  const lines = [
+    plannedActions.length ? "planned_actions:" : "planned_actions: none",
+    ...plannedActions.map(
+      (item, index) =>
+        `  ${index + 1}. ${item.tool_id || "-"} :: ${(item.execution_call || {}).adapter || "-"} / ${(item.execution_call || {}).method || "-"}`
+    ),
+  ];
+  if (actionResults.length) {
+    lines.push("", "action_results:");
+    lines.push(
+      ...actionResults.map(
+        (item, index) => `  ${index + 1}. ${item.tool_id || "-"} :: ${item.mode || "-"}`
+      )
+    );
+  }
+  return lines;
 }
 
 function parseMetadataInput() {
@@ -195,6 +253,8 @@ function renderRecentTasks(items) {
           <p class="tool-meta">${item.title || "-"}</p>
           <p class="tool-meta">kind/status: ${item.resolved_kind} / ${item.status}</p>
           <p class="tool-meta">requested_by: ${item.requested_by}</p>
+          <p class="tool-meta">planner: ${plannerLabel(item)}</p>
+          <p class="tool-meta">planned_tools: ${toolFlow(item.planned_tool_ids || [])}</p>
           <p class="tool-meta">updated_at: ${item.updated_at || "-"}</p>
           <div class="approval-actions">
             <button class="button subtle" type="button" data-load-task="${item.task_id}">불러오기</button>
@@ -315,6 +375,8 @@ async function loadAgentStatus(taskId = currentTaskId) {
     result.report_path ? `report_path: ${result.report_path}` : "",
     result.actions_executed !== undefined ? `actions_executed: ${result.actions_executed}` : "",
   ].filter(Boolean));
+  setPlannerSummary(plannerSummaryLines(payload));
+  setPlanDetail(planDetailLines(payload));
   if (!result.report_path) {
     setReportPreview("아직 생성된 보고서가 없습니다.");
   }
@@ -686,11 +748,13 @@ document.querySelector("#apply-draft").addEventListener("click", async () => {
   }
 });
 
-await loadHealth();
+  await loadHealth();
 try {
   fillAgentExample("task");
   await loadTools();
   await loadRecentTasks();
+  setPlannerSummary("아직 planner 정보가 없습니다.");
+  setPlanDetail("아직 plan detail이 없습니다.");
   setReportPreview("아직 생성된 보고서가 없습니다.");
   setApprovalDetail("아직 선택된 승인 항목이 없습니다.");
 } catch (error) {

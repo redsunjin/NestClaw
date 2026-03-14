@@ -312,11 +312,14 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("/api/v1/agent/status/", quick_js_source)
         self.assertIn("/api/v1/agent/report/", quick_js_source)
         self.assertIn("/api/v1/approvals/", quick_js_source)
+        self.assertIn("plannerSummaryFromPayload", quick_js_source)
         self.assertIn("/api/v1/agent/submit", js_source)
         self.assertIn("/api/v1/agent/recent", js_source)
         self.assertIn("/api/v1/agent/report/", js_source)
         self.assertIn("/api/v1/agent/status/", js_source)
         self.assertIn("/api/v1/agent/events/", js_source)
+        self.assertIn("plannerSummaryLines", js_source)
+        self.assertIn("planDetailLines", js_source)
         self.assertIn("/api/v1/approvals", js_source)
         self.assertIn("/api/v1/approvals/", js_source)
         self.assertIn("${queueId}/${action}", js_source)
@@ -326,6 +329,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("data-load-task", js_source)
         self.assertIn("data-preview-report", js_source)
         self.assertIn("data-open-report", js_source)
+        self.assertIn("planned_tool_ids", Path("app/services/orchestration_service.py").read_text(encoding="utf-8"))
 
     def test_expert_agent_operating_protocol_and_wrapper_exist(self) -> None:
         protocol_source = Path("EXPERT_AGENT_OPERATING_PROTOCOL_2026-03-13.md").read_text(encoding="utf-8")

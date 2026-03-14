@@ -224,6 +224,10 @@ textarea {
   gap: 16px;
 }
 
+.planner-grid {
+  margin-top: 16px;
+}
+
 .history-list {
   display: grid;
   gap: 12px;

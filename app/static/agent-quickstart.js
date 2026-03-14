@@ -4,6 +4,7 @@ const actedByInput = document.querySelector("#quick-acted-by");
 const requestInput = document.querySelector("#quick-request");
 const healthBadge = document.querySelector("#quick-health");
 const statusBox = document.querySelector("#quick-status");
+const plannerBox = document.querySelector("#quick-planner");
 const approvalBox = document.querySelector("#quick-approval");
 const reportBox = document.querySelector("#quick-report");
 const recentBox = document.querySelector("#quick-recent");
@@ -49,6 +50,10 @@ function setStatus(lines) {
   statusBox.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
 }
 
+function setPlanner(lines) {
+  plannerBox.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+}
+
 function setApproval(lines) {
   approvalBox.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
 }
@@ -69,6 +74,38 @@ function fillExample(kind) {
   requestInput.value = "주간 운영회의 메모를 요약하고 액션 아이템을 정리해줘";
 }
 
+function toolFlow(items) {
+  const values = (items || []).filter(Boolean);
+  return values.length ? values.join(" -> ") : "-";
+}
+
+function plannerSummaryFromPayload(payload) {
+  const provenance = payload?.planning_provenance || {};
+  const providerSelection = provenance.provider_selection || {};
+  const plannedTools = (payload?.planned_actions || []).map((item) => item.tool_id).filter(Boolean);
+  const executedTools = (payload?.action_results || []).map((item) => item.tool_id).filter(Boolean);
+  const lines = [
+    `source: ${provenance.source || "-"}`,
+    `provider: ${providerSelection.provider_id || "-"}`,
+    `degraded: ${provenance.degraded_mode ? "yes" : "no"}`,
+    provenance.confidence !== undefined && provenance.confidence !== null ? `confidence: ${provenance.confidence}` : "",
+    provenance.fallback_reason ? `fallback_reason: ${provenance.fallback_reason}` : "",
+    `planned_tools: ${toolFlow(plannedTools)}`,
+    executedTools.length ? `executed_tools: ${toolFlow(executedTools)}` : "",
+  ].filter(Boolean);
+  return lines.length ? lines : ["아직 planner 정보가 없습니다."];
+}
+
+function plannerSummaryFromRecent(item) {
+  return [
+    `planner: ${item.planning_source || "-"}`,
+    item.planning_provider_id ? `provider: ${item.planning_provider_id}` : "",
+    item.planning_degraded_mode ? "degraded: yes" : "degraded: no",
+    item.planning_fallback_reason ? `fallback: ${item.planning_fallback_reason}` : "",
+    `planned_tools: ${toolFlow(item.planned_tool_ids || [])}`,
+  ].filter(Boolean);
+}
+
 async function loadHealth() {
   try {
     const payload = await requestJson("/health", { headers: { "Content-Type": "application/json" } });
@@ -84,7 +121,7 @@ async function loadRecent() {
   const payload = await requestJson("/api/v1/agent/recent?limit=5");
   const items = payload.items || [];
   if (!items.length) {
-    recentBox.innerHTML = '<article class="recent-card"><h3>최근 요청 없음</h3><p class="recent-meta">아직 최근 요청이 없습니다.</p></article>';
+      recentBox.innerHTML = '<article class="recent-card"><h3>최근 요청 없음</h3><p class="recent-meta">아직 최근 요청이 없습니다.</p></article>';
     return;
   }
   recentBox.innerHTML = items
@@ -94,6 +131,7 @@ async function loadRecent() {
           <h3>${item.title || item.task_id}</h3>
           <p class="recent-meta">task_id: ${item.task_id}</p>
           <p class="recent-meta">kind/status: ${item.resolved_kind} / ${item.status}</p>
+          <p class="recent-meta">${plannerSummaryFromRecent(item).join(" | ")}</p>
           <div class="recent-actions">
             <button class="subtle" type="button" data-load-task="${item.task_id}">불러오기</button>
           </div>
@@ -167,6 +205,7 @@ async function loadTask(taskId = currentTaskId) {
     `status: ${payload.status || "-"}`,
     `next_action: ${payload.next_action || "-"}`,
   ]);
+  setPlanner(plannerSummaryFromPayload(payload));
   if (((payload.result || {}).report_path)) {
     await loadReport(currentTaskId);
   } else {
@@ -288,6 +327,7 @@ recentBox.addEventListener("click", async (event) => {
 await loadHealth();
 fillExample("task");
 setStatus("아직 실행된 작업이 없습니다.");
+setPlanner("아직 planner 정보가 없습니다.");
 setApproval("승인 대기 항목이 없습니다.");
 setReport("보고서가 생성되면 여기에 미리보기가 표시됩니다.");
 try {

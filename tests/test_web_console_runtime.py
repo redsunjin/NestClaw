@@ -27,6 +27,7 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("한 칸으로 시작하는 실행 에이전트", body)
         self.assertIn("요청", body)
         self.assertIn("결과", body)
+        self.assertIn("Planner", body)
         self.assertIn("/static/agent-quickstart.js", body)
 
         console_response = self.client.get("/console")
@@ -35,6 +36,7 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("NestClaw Web Console", console_body)
         self.assertIn("도구 카탈로그", console_body)
         self.assertIn("승인 상세 / 이력", console_body)
+        self.assertIn("아직 planner 정보가 없습니다.", console_body)
         self.assertIn("/static/agent-console.js", console_body)
 
     def test_static_assets_are_served(self) -> None:
@@ -45,12 +47,16 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("/api/v1/agent/report/", quick_js.text)
         self.assertIn("/api/v1/approvals/", quick_js.text)
         self.assertIn("/api/v1/agent/recent", quick_js.text)
+        self.assertIn("plannerSummaryFromPayload", quick_js.text)
+        self.assertIn("quick-planner", self.client.get("/").text)
         self.assertIn("quick-submit", self.client.get("/").text)
 
         js_response = self.client.get("/static/agent-console.js")
         self.assertEqual(js_response.status_code, 200)
         self.assertIn("loadTools", js_response.text)
         self.assertIn("submitAgent", js_response.text)
+        self.assertIn("plannerSummaryLines", js_response.text)
+        self.assertIn("planDetailLines", js_response.text)
         self.assertIn("/api/v1/agent/submit", js_response.text)
         self.assertIn("/api/v1/agent/recent", js_response.text)
         self.assertIn("/api/v1/agent/report/", js_response.text)
@@ -75,6 +81,7 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn(".history-card", css_response.text)
         self.assertIn(".report-preview-card", css_response.text)
         self.assertIn(".approval-history-card", css_response.text)
+        self.assertIn(".planner-grid", css_response.text)
 
         quick_css = self.client.get("/static/agent-quickstart.css")
         self.assertEqual(quick_css.status_code, 200)
