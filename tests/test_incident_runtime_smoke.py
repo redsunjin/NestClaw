@@ -88,6 +88,12 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
 
         self.assertIsNotNone(final_payload)
         self.assertEqual(final_payload["status"], "DONE")
+        self.assertEqual(final_payload["planning_provenance"]["source"], "deterministic_incident_planner")
+        self.assertFalse(final_payload["planning_provenance"]["degraded_mode"])
+        self.assertIn(
+            "redmine.issue.create",
+            [item["tool_id"] for item in final_payload["planning_provenance"]["eligible_tools"] if item["eligible"]],
+        )
         result = final_payload["result"]
         self.assertEqual(result["actions_executed"], 1)
         self.assertEqual(result["remaining_risk"], "human_review_recommended")
@@ -112,6 +118,7 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
         event_types = {item["event_type"] for item in events_payload["items"]}
         self.assertIn("INCIDENT_CREATED", event_types)
         self.assertIn("INCIDENT_CONTEXT_BUILT", event_types)
+        self.assertIn("INCIDENT_PLAN_GENERATED", event_types)
         self.assertIn("INCIDENT_ACTION_EXECUTED", event_types)
         self.assertIn("PLANNED_ACTION_EXECUTED", event_types)
         executed_events = [item for item in events_payload["items"] if item["event_type"] == "INCIDENT_ACTION_EXECUTED"]
@@ -124,6 +131,7 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
         approval_payload = self._wait_incident_status(task_id, {"NEEDS_HUMAN_APPROVAL"})
 
         self.assertIsNotNone(approval_payload)
+        self.assertEqual(approval_payload["planning_provenance"]["source"], "deterministic_incident_planner")
         self.assertEqual(approval_payload["approval_reason"], "high_risk_action")
         queue_id = approval_payload["approval_queue_id"]
 

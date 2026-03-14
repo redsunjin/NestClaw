@@ -749,12 +749,56 @@ def _incident_notify_channel(task: dict[str, Any]) -> str | None:
     return channel or None
 
 
-def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
+def _incident_tool_eligibility(task: dict[str, Any]) -> list[dict[str, Any]]:
+    eligibility = [
+        {
+            "tool_id": _incident_ticket_tool_id(),
+            "eligible": True,
+            "reason": "incident_ticket_required",
+        }
+    ]
+    notify_channel = _incident_notify_channel(task)
+    eligibility.append(
+        {
+            "tool_id": _incident_slack_tool_id(),
+            "eligible": bool(notify_channel),
+            "reason": "notify_channel_available" if notify_channel else "notify_channel_missing",
+        }
+    )
+    return eligibility
+
+
+def _build_incident_planning_provenance(
+    task: dict[str, Any],
+    planned_actions: list[dict[str, Any]],
+    eligibility: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "actions": [
+            {
+                "tool_id": str(item.get("tool_id") or ""),
+                "reason": "incident_deterministic_baseline",
+                "payload_overrides": {},
+            }
+            for item in planned_actions
+        ],
+        "source": "deterministic_incident_planner",
+        "rationale": "incident workflow uses deterministic planner baseline before incident llm planner rollout",
+        "confidence": 1.0,
+        "provider_selection": dict(task.get("provider_selection") or {}),
+        "eligible_tools": [dict(item) for item in eligibility],
+        "fallback_reason": None,
+        "degraded_mode": False,
+    }
+
+
+def _build_incident_planned_actions(task: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     incident = task.get("incident") or {}
     context = task.get("incident_context") or {}
     risk_level = _incident_risk_level(task)
     evidence_links = _collect_incident_evidence(context)
     summary = _incident_summary(task)
+    eligibility = _incident_tool_eligibility(task)
     actions: list[dict[str, Any]] = []
     try:
         capability = get_tool_capability(TOOL_REGISTRY, _incident_ticket_tool_id())
@@ -832,6 +876,11 @@ def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
 
+    return actions, _build_incident_planning_provenance(task, actions, eligibility)
+
+
+def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
+    actions, _ = _build_incident_planned_actions(task)
     return actions
 
 
@@ -1220,14 +1269,30 @@ def _execute_incident_once(task_id: str) -> bool:
             evidence_count=len(knowledge.get("evidence", [])),
             signal_count=len(system.get("signals", [])),
         )
-        _set_stage(task, "executor")
-        action_cards = _build_incident_action_cards(task)
+        planned_actions, planning_provenance = _build_incident_planned_actions(task)
+        action_cards = planned_actions
         task["action_cards"] = action_cards
-        task["planned_actions"] = action_cards
+        task["planned_actions"] = planned_actions
+        task["planning_provenance"] = planning_provenance
         task["updated_at"] = _now_iso()
         _persist_task(task)
+        planner_selection = dict(planning_provenance.get("provider_selection") or {})
+        _log_event(
+            task_id,
+            "INCIDENT_PLAN_GENERATED",
+            source=planning_provenance.get("source"),
+            confidence=planning_provenance.get("confidence"),
+            degraded_mode=planning_provenance.get("degraded_mode"),
+            provider_id=planner_selection.get("provider_id"),
+            provider_type=planner_selection.get("provider_type"),
+            engine=planner_selection.get("engine"),
+            model=planner_selection.get("model"),
+            action_count=len(planned_actions),
+            selected_tools=",".join(str(item.get("tool_id") or "") for item in planned_actions),
+        )
         _log_event(task_id, "INCIDENT_ACTIONS_PLANNED", count=len(action_cards))
         _log_event(task_id, "PLANNED_ACTIONS_BUILT", count=len(action_cards))
+        _set_stage(task, "executor")
 
         for action_card in action_cards:
             decision = _evaluate_incident_action_gate(task, action_card, approved_reasons)

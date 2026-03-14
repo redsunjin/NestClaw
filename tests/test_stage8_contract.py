@@ -24,9 +24,12 @@ class TestStage8Contract(unittest.TestCase):
     def test_micro_workflow_assets_exist(self) -> None:
         self.assertTrue(Path("MICRO_AGENT_WORKFLOW.md").is_file())
         self.assertTrue(Path("scripts/run_micro_cycle.sh").is_file())
+        self.assertTrue(Path("scripts/run_priority_campaign.sh").is_file())
         self.assertTrue(Path("scripts/run_stage8_self_eval.sh").is_file())
         self.assertTrue(Path("scripts/run_stage8_sandbox_e2e.sh").is_file())
         self.assertTrue(Path("scripts/run_stage8_live_rehearsal.sh").is_file())
+        self.assertTrue(Path("PRIORITY_CAMPAIGN_PROTOCOL_2026-03-15.md").is_file())
+        self.assertTrue(Path("work/priority_campaigns/stage8-priority-campaign/campaign.json").is_file())
         self.assertTrue(Path("scripts/stage8_live_rehearsal_runner.py").is_file())
         self.assertTrue(Path("work/micro_units/stage8-w2-001/WORK_UNIT.md").is_file())
         self.assertTrue(Path("work/micro_units/stage8-w3-002/WORK_UNIT.md").is_file())
@@ -259,6 +262,8 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("slack.message.send", planner_source)
         self.assertIn("NEWCLAW_ENABLE_LLM_PLANNER", planner_source)
         self.assertIn("task_type=DEFAULT_PLANNER_TASK_TYPE", planner_source)
+        self.assertIn("_build_incident_planned_actions", main_source)
+        self.assertIn("INCIDENT_PLAN_GENERATED", main_source)
         self.assertIn("planned_actions", main_source)
         self.assertIn("eligible_tools", planner_source)
         self.assertIn("_task_tool_eligibility", main_source)
@@ -323,11 +328,14 @@ class TestStage8Contract(unittest.TestCase):
     def test_expert_agent_operating_protocol_and_wrapper_exist(self) -> None:
         protocol_source = Path("EXPERT_AGENT_OPERATING_PROTOCOL_2026-03-13.md").read_text(encoding="utf-8")
         script_source = Path("scripts/run_expert_agent_workflow.sh").read_text(encoding="utf-8")
+        campaign_source = Path("PRIORITY_CAMPAIGN_PROTOCOL_2026-03-15.md").read_text(encoding="utf-8")
+        campaign_script = Path("scripts/run_priority_campaign.sh").read_text(encoding="utf-8")
         self.assertIn("Plan -> Review -> Implement -> Evaluate -> Sync", protocol_source)
         self.assertIn("A03", protocol_source)
         self.assertIn("AI-First Planner Design", protocol_source)
         self.assertIn("scripts/run_micro_cycle.sh", protocol_source)
         self.assertIn("scripts/run_expert_agent_workflow.sh", protocol_source)
+        self.assertIn("Priority Campaign Layer", protocol_source)
         self.assertIn("prepare <unit-id>", script_source)
         self.assertIn("status <unit-id>", script_source)
         self.assertIn("verify <unit-id>", script_source)
@@ -336,6 +344,9 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("A01 Product Planner + A03 LLM Orchestrator", script_source)
         self.assertIn("Sync evidence recorded", script_source)
         self.assertIn("COMPLETED", script_source)
+        self.assertIn("pending -> in_progress -> completed", campaign_source)
+        self.assertIn("start-next <campaign-id>", campaign_script)
+        self.assertIn("advance <campaign-id>", campaign_script)
 
     def test_next_work_groups_are_grouped_and_prioritized(self) -> None:
         source = Path("NEXT_WORK_GROUPS_2026-03-13.md").read_text(encoding="utf-8")
@@ -344,8 +355,8 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("G3. Tool Governance and Lifecycle", source)
         self.assertIn("G4. Runtime and Live Readiness", source)
         self.assertIn("현재 추천 포커스: `G2`", source)
-        self.assertIn("incident path에 planner provenance", source)
         self.assertIn("cross-action data binding", source)
+        self.assertIn("stage8-priority-campaign", source)
 
     def test_slack_adapter_and_tool_draft_service_exist(self) -> None:
         slack_source = Path("app/slack_adapter.py").read_text(encoding="utf-8")

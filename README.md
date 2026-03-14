@@ -193,15 +193,17 @@
 - Web Console에서 최근 task와 현재 task의 report preview / raw report 열기를 할 수 있음
 - Web Console에서 approval 상세와 comment/history를 drill-down 할 수 있음
 - 전문가 에이전트 운영 프로토콜 문서와 wrapper script를 통해 `Plan -> Review -> Implement -> Evaluate -> Sync` 절차를 강제할 수 있음
+- priority campaign 레이어를 통해 여러 우선순위 MWU를 `pending -> in_progress -> completed`로 끊김 없이 이어갈 수 있음
 
 ### 10.1.1 현재 제품 위치
 - 현재 NestClaw는 `AI-first orchestration agent`로 가는 전환기 상태다.
 - `task` workflow는 이제 LLM planner가 기본 경로고, 실패나 비활성 시에만 degraded mode fallback으로 내려간다.
 - task planner 범위는 `summary + ticket + slack`까지 넓어졌지만, 여전히 tool set이 좁고 `incident` workflow는 deterministic/dry-run 중심이다.
-- 따라서 현재 런타임은 `task path AI-first baseline` 단계이며, product 전체로 보면 아직 완성형 multi-tool orchestration agent는 아니다.
+- incident workflow도 이제 `planned_actions + planning_provenance` 관측 계약을 공유하지만, planner 자체는 아직 deterministic/dry-run 중심이다.
+- 따라서 현재 런타임은 `task AI-first baseline + incident common contract` 단계이며, product 전체로 보면 아직 완성형 multi-tool orchestration agent는 아니다.
 
 ### 10.2 아직 못 하는 것
-- broader registry 기반 multi-step planning 확장 (`task` beyond summary/ticket/slack, `incident` planner 공통화)
+- broader registry 기반 multi-step planning 확장 (`task` beyond summary/ticket/slack, incident AI planner, richer cross-action binding)
 - live RAG 기반 reasoning
 - production-ready MCP host packaging / remote transport hardening
 - 운영자용 전용 GUI 콘솔
@@ -213,7 +215,7 @@
 - `configs/tool_registry.yaml` 기반 execution tool catalog와 capability schema를 실제 실행 계층에 연결했다
 - `model registry selection -> provider invocation`은 summary path에 연결했다
 - `planned_actions -> execution_call -> adapter dispatch` 공통 루프를 task/incident에 적용했다
-- 다음 1순위는 incident path에 planner provenance와 planner/executor 공통 계약을 수렴시키는 broader multi-step tool planning이다
+- 다음 1순위는 cross-action data binding과 richer sequencing을 넣어 multi-step plan의 실행 품질을 높이는 것이다
 - tool registry apply는 source yaml이 아니라 `work/tool_registry_runtime.yaml` overlay에 반영한다
 - incident workflow는 broader execution agent의 첫 번째 high-risk vertical이며, 이후 일반 업무/운영 작업/티켓 처리 흐름으로 확장한다
 - 그 다음 단계는 action-card/tool planning 공통 루프와 최소 operator UI다
@@ -415,7 +417,9 @@ bash scripts/manage_local_postgres.sh dsn
 - Stage 8 자체평가 스크립트: `scripts/run_stage8_self_eval.sh`
 - 마이크로 사이클 스크립트: `scripts/run_micro_cycle.sh`
 - 전문가 에이전트 wrapper: `scripts/run_expert_agent_workflow.sh`
+- priority campaign wrapper: `scripts/run_priority_campaign.sh`
 - 전문가 에이전트 프로토콜: `EXPERT_AGENT_OPERATING_PROTOCOL_2026-03-13.md`
+- priority campaign 프로토콜: `PRIORITY_CAMPAIGN_PROTOCOL_2026-03-15.md`
 - 브라우저 스모크 스크립트: `scripts/run_browser_smoke.sh`
 - Postgres 리허설 스크립트: `scripts/run_postgres_rehearsal.sh`
 - 자동 반복 배치: `scripts/run_auto_cycle.sh`
