@@ -4,7 +4,15 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from app.tool_registry import get_tool_capability, list_tool_capabilities, load_tool_registry, upsert_tool_registry_tool
+from app.tool_registry import (
+    compact_overlay_tool_registry,
+    get_tool_capability,
+    list_tool_capabilities,
+    load_tool_registry,
+    remove_tool_registry_tool,
+    upsert_tool_registry_tool,
+    validate_tool_capability,
+)
 
 
 class TestToolRegistryContract(unittest.TestCase):
@@ -80,6 +88,65 @@ class TestToolRegistryContract(unittest.TestCase):
             self.assertEqual(capability.tool_id, "slack.message.contract_test")
             overlay_registry = load_tool_registry(overlay_path, overlay_path=None)
             self.assertEqual(overlay_registry.tools[0].tool_id, "slack.message.contract_test")
+
+    def test_validate_tool_capability_rejects_unknown_adapter(self) -> None:
+        report = validate_tool_capability(
+            {
+                "tool_id": "custom.tool.invalid",
+                "title": "Invalid Tool",
+                "description": "bad adapter",
+                "adapter": "unknown_adapter",
+                "method": "run",
+                "action_type": "custom_tool_invalid",
+                "external_system": "custom",
+                "capability_family": "general",
+                "default_risk_level": "medium",
+                "default_approval_required": False,
+                "supports_dry_run": True,
+                "required_payload_fields": ["input"],
+            }
+        )
+        self.assertFalse(report["valid"])
+        failed_checks = {item["name"] for item in report["checks"] if item["status"] == "FAIL"}
+        self.assertIn("adapter_known", failed_checks)
+
+    def test_compact_and_remove_overlay_registry_tool(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            base_path = Path(tmp_dir) / "tool_registry.yaml"
+            overlay_path = Path(tmp_dir) / "tool_registry_runtime.yaml"
+
+            base_tool = {
+                "tool_id": "slack.message.base",
+                "title": "Base Slack Tool",
+                "description": "base tool",
+                "adapter": "slack_api",
+                "method": "message.send",
+                "action_type": "slack_message_base",
+                "external_system": "slack",
+                "capability_family": "messaging",
+                "default_risk_level": "medium",
+                "default_approval_required": False,
+                "supports_dry_run": True,
+                "required_payload_fields": ["channel", "text"],
+            }
+            overlay_tool = {
+                **base_tool,
+                "tool_id": "slack.message.overlay_only",
+                "title": "Overlay Slack Tool",
+                "action_type": "slack_message_overlay_only",
+            }
+
+            upsert_tool_registry_tool(base_path, base_tool)
+            upsert_tool_registry_tool(overlay_path, base_tool)
+            upsert_tool_registry_tool(overlay_path, overlay_tool)
+
+            compact_result = compact_overlay_tool_registry(base_path, overlay_path)
+            self.assertEqual(compact_result["removed_count"], 1)
+
+            overlay_registry = load_tool_registry(overlay_path, overlay_path=None)
+            self.assertEqual([item.tool_id for item in overlay_registry.tools], ["slack.message.overlay_only"])
+            self.assertTrue(remove_tool_registry_tool(overlay_path, "slack.message.overlay_only"))
+            self.assertFalse(overlay_path.exists())
 
 
 if __name__ == "__main__":

@@ -207,6 +207,30 @@ def _tool_apply_payload(
     return payload, exit_code
 
 
+def _tool_validate_payload(
+    *,
+    draft_id: str,
+    actor_id: str,
+    actor_role: str,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    return _invoke(CLI_TOOL_DRAFT_SERVICE.validate_draft, draft_id, actor)
+
+
+def _tool_rollback_payload(
+    *,
+    tool_id: str,
+    acted_by: str,
+    actor_id: str,
+    actor_role: str,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    payload, exit_code = _invoke(CLI_TOOL_DRAFT_SERVICE.rollback_tool, tool_id, {"acted_by": acted_by}, actor)
+    if exit_code == 0:
+        CLI_TOOL_CATALOG_SERVICE.deps.registry = build_tool_catalog_service().deps.registry
+    return payload, exit_code
+
+
 def _print_status(payload: dict[str, Any]) -> None:
     print("\n[상태 보고]")
     print(f"- Task ID: {payload.get('task_id', '-')}")
@@ -281,6 +305,9 @@ def _print_tool_draft(payload: dict[str, Any]) -> None:
         print(f"- Tool ID: {tool.get('tool_id', '-')}")
         print(f"- Adapter: {tool.get('adapter', '-')}")
         print(f"- Method: {tool.get('method', '-')}")
+    validation = payload.get("validation") or {}
+    if validation:
+        print(f"- Validation: {'PASS' if validation.get('valid') else 'FAIL'}")
     print()
 
 
@@ -295,6 +322,12 @@ def _emit_payload(payload: dict[str, Any], *, as_json: bool, command: str) -> No
         _print_tool_draft(payload)
         return
     if command == "tool-apply":
+        _print_tool_draft(payload)
+        return
+    if command == "tool-validate":
+        _print_tool_draft(payload)
+        return
+    if command == "tool-rollback":
         _print_tool_draft(payload)
         return
     if command == "events":
@@ -501,6 +534,19 @@ def build_parser() -> argparse.ArgumentParser:
     tool_apply_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default="approver")
     tool_apply_parser.add_argument("--json", action="store_true")
 
+    tool_validate_parser = subparsers.add_parser("tool-validate", help="validate a tool registration draft")
+    tool_validate_parser.add_argument("--draft-id", required=True)
+    tool_validate_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    tool_validate_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    tool_validate_parser.add_argument("--json", action="store_true")
+
+    tool_rollback_parser = subparsers.add_parser("tool-rollback", help="rollback the latest applied overlay change for a tool")
+    tool_rollback_parser.add_argument("--tool-id", required=True)
+    tool_rollback_parser.add_argument("--acted-by", required=True)
+    tool_rollback_parser.add_argument("--actor-id")
+    tool_rollback_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default="approver")
+    tool_rollback_parser.add_argument("--json", action="store_true")
+
     return parser
 
 
@@ -608,6 +654,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             actor_role=args.actor_role,
         )
         _emit_payload(payload, as_json=args.json, command="tool-apply")
+        return exit_code
+
+    if args.command == "tool-validate":
+        payload, exit_code = _tool_validate_payload(
+            draft_id=args.draft_id,
+            actor_id=args.actor_id,
+            actor_role=args.actor_role,
+        )
+        _emit_payload(payload, as_json=args.json, command="tool-validate")
+        return exit_code
+
+    if args.command == "tool-rollback":
+        payload, exit_code = _tool_rollback_payload(
+            tool_id=args.tool_id,
+            acted_by=args.acted_by,
+            actor_id=args.actor_id or args.acted_by,
+            actor_role=args.actor_role,
+        )
+        _emit_payload(payload, as_json=args.json, command="tool-rollback")
         return exit_code
 
     parser.print_help()

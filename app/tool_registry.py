@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import re
 from typing import Any, Mapping
 
 
@@ -63,6 +64,13 @@ class ToolRegistry:
 
 
 _CACHE: dict[str, tuple[tuple[int, ...], ToolRegistry]] = {}
+VALID_RISK_LEVELS = {"low", "medium", "high", "critical"}
+KNOWN_TOOL_ADAPTERS: dict[str, set[str]] = {
+    "provider_invoker": {"internal"},
+    "redmine_mcp": {"redmine"},
+    "slack_api": {"slack"},
+}
+TOOL_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:[._][a-z0-9]+)*(?:\.[a-z0-9]+(?:[._][a-z0-9]+)*)+$")
 
 
 def _indent(line: str) -> int:
@@ -241,6 +249,73 @@ def save_tool_registry(path: str | Path, registry: ToolRegistry) -> None:
     _CACHE.clear()
 
 
+def validate_tool_capability(tool: ToolCapability | Mapping[str, Any]) -> dict[str, Any]:
+    capability = tool if isinstance(tool, ToolCapability) else _tool_capability_from_mapping(tool)
+    checks: list[dict[str, str]] = []
+
+    def add_check(name: str, condition: bool, success: str, failure: str) -> None:
+        checks.append(
+            {
+                "name": name,
+                "status": "PASS" if condition else "FAIL",
+                "detail": success if condition else failure,
+            }
+        )
+
+    add_check("tool_id_present", bool(capability.tool_id), "tool id is present", "tool id is required")
+    add_check(
+        "tool_id_format",
+        bool(TOOL_ID_PATTERN.match(capability.tool_id)),
+        "tool id format is valid",
+        "tool id must use dotted lowercase segments",
+    )
+    add_check("title_present", bool(capability.title), "title is present", "title is required")
+    add_check("description_present", bool(capability.description), "description is present", "description is required")
+    add_check("adapter_present", bool(capability.adapter), "adapter is present", "adapter is required")
+    add_check("method_present", bool(capability.method), "method is present", "method is required")
+    add_check("action_type_present", bool(capability.action_type), "action type is present", "action type is required")
+    add_check(
+        "external_system_present",
+        bool(capability.external_system),
+        "external system is present",
+        "external system is required",
+    )
+    add_check(
+        "capability_family_present",
+        bool(capability.capability_family),
+        "capability family is present",
+        "capability family is required",
+    )
+    add_check(
+        "risk_level_valid",
+        capability.default_risk_level in VALID_RISK_LEVELS,
+        f"risk level {capability.default_risk_level} is supported",
+        f"unsupported risk level: {capability.default_risk_level}",
+    )
+    add_check(
+        "required_fields_present",
+        bool(capability.required_payload_fields),
+        "required payload fields are present",
+        "at least one required payload field is required",
+    )
+    adapter_systems = KNOWN_TOOL_ADAPTERS.get(capability.adapter)
+    add_check(
+        "adapter_known",
+        adapter_systems is not None,
+        f"adapter {capability.adapter} is recognized",
+        f"unknown adapter: {capability.adapter}",
+    )
+    if adapter_systems is not None:
+        add_check(
+            "adapter_system_match",
+            capability.external_system in adapter_systems,
+            f"adapter {capability.adapter} matches external system {capability.external_system}",
+            f"adapter {capability.adapter} does not match external system {capability.external_system}",
+        )
+    valid = all(item["status"] == "PASS" for item in checks)
+    return {"tool_id": capability.tool_id, "valid": valid, "checks": checks}
+
+
 def upsert_tool_registry_tool(path: str | Path, tool: ToolCapability | Mapping[str, Any]) -> ToolCapability:
     target = Path(path)
     if isinstance(tool, ToolCapability):
@@ -258,8 +333,28 @@ def upsert_tool_registry_tool(path: str | Path, tool: ToolCapability | Mapping[s
         tools = {}
         version = 1
     tools[capability.tool_id] = capability
-    save_tool_registry(target, ToolRegistry(version=version, tools=tuple(tools.values())))
+    ordered = tuple(sorted(tools.values(), key=lambda item: item.tool_id))
+    save_tool_registry(target, ToolRegistry(version=version, tools=ordered))
     return capability
+
+
+def remove_tool_registry_tool(path: str | Path, tool_id: str) -> bool:
+    target = Path(path)
+    if not target.is_file():
+        return False
+    existing_registry = _load_registry_from_path(target)
+    tools = {item.tool_id: item for item in existing_registry.tools}
+    normalized = tool_id.strip()
+    if normalized not in tools:
+        return False
+    del tools[normalized]
+    if tools:
+        ordered = tuple(sorted(tools.values(), key=lambda item: item.tool_id))
+        save_tool_registry(target, ToolRegistry(version=existing_registry.version, tools=ordered))
+    else:
+        target.unlink()
+        _CACHE.clear()
+    return True
 
 
 def load_tool_registry(
@@ -298,6 +393,42 @@ def load_tool_capability_overlay(path: str | Path = DEFAULT_TOOL_REGISTRY_OVERLA
     if overlay is None:
         return ()
     return overlay.tools
+
+
+def compact_overlay_tool_registry(
+    base_path: str | Path = DEFAULT_TOOL_REGISTRY_PATH,
+    overlay_path: str | Path = DEFAULT_TOOL_REGISTRY_OVERLAY_PATH,
+) -> dict[str, Any]:
+    target = Path(overlay_path)
+    if not target.is_file():
+        return {
+            "overlay_path": str(target),
+            "overlay_exists": False,
+            "kept_count": 0,
+            "removed_count": 0,
+        }
+
+    base_registry = load_tool_registry(base_path, overlay_path=None)
+    overlay_registry = _load_registry_from_path(target)
+    base_by_id = {item.tool_id: item for item in base_registry.tools}
+    kept_tools = tuple(
+        sorted(
+            (item for item in overlay_registry.tools if base_by_id.get(item.tool_id) != item),
+            key=lambda item: item.tool_id,
+        )
+    )
+    removed_count = len(overlay_registry.tools) - len(kept_tools)
+    if kept_tools:
+        save_tool_registry(target, ToolRegistry(version=overlay_registry.version, tools=kept_tools))
+    else:
+        target.unlink()
+        _CACHE.clear()
+    return {
+        "overlay_path": str(target),
+        "overlay_exists": True,
+        "kept_count": len(kept_tools),
+        "removed_count": removed_count,
+    }
 
 
 def list_tool_capabilities(

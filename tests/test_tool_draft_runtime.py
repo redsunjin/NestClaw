@@ -51,6 +51,14 @@ class TestToolDraftRuntime(unittest.TestCase):
         self.assertIn("slack_api", get_payload["content"])
         self.assertEqual(get_payload["status"], "DRAFT_REVIEW_REQUIRED")
 
+        validate_response = self.client.get(
+            f"/api/v1/tool-drafts/{create_payload['draft_id']}/validate",
+            headers=self.requester_headers,
+        )
+        self.assertEqual(validate_response.status_code, 200)
+        validate_payload = validate_response.json()
+        self.assertTrue(validate_payload["validation"]["valid"])
+
         apply_response = self.client.post(
             f"/api/v1/tool-drafts/{create_payload['draft_id']}/apply",
             json={"acted_by": "qa_approver"},
@@ -60,11 +68,26 @@ class TestToolDraftRuntime(unittest.TestCase):
         apply_payload = apply_response.json()
         self.assertEqual(apply_payload["status"], "APPLIED")
         self.assertEqual(apply_payload["tool"]["tool_id"], "slack.message.ops_broadcast")
+        self.assertTrue(apply_payload["validation"]["valid"])
 
         list_response = self.client.get("/api/v1/tools", headers=self.requester_headers)
         self.assertEqual(list_response.status_code, 200)
         tool_ids = {item["tool_id"] for item in list_response.json()["items"]}
         self.assertIn("slack.message.ops_broadcast", tool_ids)
+
+        rollback_response = self.client.post(
+            "/api/v1/tools/slack.message.ops_broadcast/rollback",
+            json={"acted_by": "qa_approver"},
+            headers=self.approver_headers,
+        )
+        self.assertEqual(rollback_response.status_code, 200)
+        rollback_payload = rollback_response.json()
+        self.assertEqual(rollback_payload["status"], "ROLLED_BACK")
+        self.assertEqual(rollback_payload["tool_id"], "slack.message.ops_broadcast")
+
+        list_after_rollback = self.client.get("/api/v1/tools", headers=self.requester_headers)
+        tool_ids_after_rollback = {item["tool_id"] for item in list_after_rollback.json()["items"]}
+        self.assertNotIn("slack.message.ops_broadcast", tool_ids_after_rollback)
 
 
 if __name__ == "__main__":

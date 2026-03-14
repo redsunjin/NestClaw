@@ -23,13 +23,18 @@ class ToolDraftServiceDeps:
     error: Callable[..., None]
     now_iso: Callable[[], str]
     drafts_root: Path
+    validate_tool_spec: Callable[[dict[str, Any]], dict[str, Any]]
     apply_tool_spec: Callable[[dict[str, Any], str], dict[str, Any]]
+    rollback_tool: Callable[[str, str], dict[str, Any]]
 
 
 class ToolDraftService:
     def __init__(self, deps: ToolDraftServiceDeps) -> None:
         self.deps = deps
         self.deps.drafts_root.mkdir(parents=True, exist_ok=True)
+
+    def _draft_path(self, draft_id: str) -> Path:
+        return self.deps.drafts_root / f"{draft_id}.yaml"
 
     def _field(self, req: Any, name: str, default: Any = None) -> Any:
         if isinstance(req, Mapping):
@@ -255,7 +260,7 @@ class ToolDraftService:
             "required_payload_fields": required_payload_fields,
         }
         draft_id = f"tooldraft_{uuid4().hex[:10]}"
-        path = self.deps.drafts_root / f"{draft_id}.yaml"
+        path = self._draft_path(draft_id)
         content = self._render_yaml(draft_id, actor.actor_id, request_text, spec)
         path.write_text(content, encoding="utf-8")
         return {
@@ -271,7 +276,7 @@ class ToolDraftService:
         normalized = str(draft_id or "").strip()
         if not normalized:
             self.deps.error(400, "INVALID_REQUEST", "draft_id is required")
-        path = self.deps.drafts_root / f"{normalized}.yaml"
+        path = self._draft_path(normalized)
         if not path.is_file():
             self.deps.error(404, "TOOL_DRAFT_NOT_FOUND", f"tool draft not found: {draft_id}")
         content = path.read_text(encoding="utf-8")
@@ -284,6 +289,18 @@ class ToolDraftService:
             "content": content,
         }
 
+    def validate_draft(self, draft_id: str, actor: ActorContext) -> dict[str, Any]:
+        self.deps.authorize(actor.actor_role, set(VALID_ROLES), "validate_tool_draft")
+        draft = self.get_draft(draft_id, actor)
+        validation = self.deps.validate_tool_spec(dict(draft["tool"]))
+        return {
+            "draft_id": draft["draft_id"],
+            "status": draft["status"],
+            "tool": draft["tool"],
+            "validation": validation,
+            "path": draft["path"],
+        }
+
     def apply_draft(self, draft_id: str, req: Any, actor: ActorContext) -> dict[str, Any]:
         role = self.deps.authorize(actor.actor_role, {"approver", "admin"}, "apply_tool_draft")
         acted_by = str(self._field(req, "acted_by", "") or "").strip()
@@ -293,9 +310,12 @@ class ToolDraftService:
         draft = self.get_draft(draft_id, actor)
         if draft["status"] == "APPLIED":
             self.deps.error(409, "INVALID_DRAFT_STATE", f"tool draft already applied: {draft_id}")
+        validation = self.deps.validate_tool_spec(dict(draft["tool"]))
+        if not bool(validation.get("valid")):
+            self.deps.error(400, "INVALID_TOOL_DRAFT", f"tool draft failed validation: {draft_id}")
 
         applied_tool = self.deps.apply_tool_spec(dict(draft["tool"]), actor.actor_id)
-        path = self.deps.drafts_root / f"{draft_id}.yaml"
+        path = self._draft_path(draft_id)
         content = self._render_draft_document(
             draft_id=draft_id,
             status="APPLIED",
@@ -311,7 +331,20 @@ class ToolDraftService:
             "status": "APPLIED",
             "applied_by": actor.actor_id,
             "actor_role": role,
-            "tool": applied_tool,
+            "tool": dict(applied_tool.get("tool") or {}),
+            "validation": validation,
+            "history_path": applied_tool.get("history_path"),
             "path": str(path),
             "content": content,
+        }
+
+    def rollback_tool(self, tool_id: str, req: Any, actor: ActorContext) -> dict[str, Any]:
+        role = self.deps.authorize(actor.actor_role, {"approver", "admin"}, "rollback_tool")
+        acted_by = str(self._field(req, "acted_by", "") or "").strip()
+        if acted_by != actor.actor_id:
+            self.deps.error(403, "FORBIDDEN", "acted_by must match authenticated actor")
+        result = self.deps.rollback_tool(str(tool_id or "").strip(), actor.actor_id)
+        return {
+            **result,
+            "actor_role": role,
         }

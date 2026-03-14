@@ -257,6 +257,22 @@ class NewClawMcpServer:
                 },
                 handler=self._handle_catalog_get_draft,
             ),
+            "catalog.validate_draft": ToolSpec(
+                name="catalog.validate_draft",
+                title="Validate Tool Registration Draft",
+                description="Validate a tool draft against registry governance rules.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "draft_id": {"type": "string"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["draft_id", "actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_catalog_validate_draft,
+            ),
             "catalog.apply_draft": ToolSpec(
                 name="catalog.apply_draft",
                 title="Apply Tool Registration Draft",
@@ -273,6 +289,23 @@ class NewClawMcpServer:
                     "additionalProperties": False,
                 },
                 handler=self._handle_catalog_apply_draft,
+            ),
+            "catalog.rollback_tool": ToolSpec(
+                name="catalog.rollback_tool",
+                title="Rollback Applied Tool Change",
+                description="Rollback the latest applied overlay change for a tool.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "tool_id": {"type": "string"},
+                        "acted_by": {"type": "string"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["tool_id", "acted_by", "actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_catalog_rollback_tool,
             ),
         }
 
@@ -363,10 +396,22 @@ class NewClawMcpServer:
         actor = self._tool_actor(arguments, default_role="requester")
         return _invoke(self.tool_draft_service.get_draft, str(arguments.get("draft_id") or ""), actor)
 
+    def _handle_catalog_validate_draft(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="requester")
+        return _invoke(self.tool_draft_service.validate_draft, str(arguments.get("draft_id") or ""), actor)
+
     def _handle_catalog_apply_draft(self, arguments: dict[str, Any]) -> dict[str, Any]:
         actor = self._tool_actor(arguments, default_role="approver")
         payload = {"acted_by": arguments.get("acted_by")}
         result = _invoke(self.tool_draft_service.apply_draft, str(arguments.get("draft_id") or ""), payload, actor)
+        if "error" not in result:
+            self.tool_catalog_service = build_tool_catalog_service()
+        return result
+
+    def _handle_catalog_rollback_tool(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="approver")
+        payload = {"acted_by": arguments.get("acted_by")}
+        result = _invoke(self.tool_draft_service.rollback_tool, str(arguments.get("tool_id") or ""), payload, actor)
         if "error" not in result:
             self.tool_catalog_service = build_tool_catalog_service()
         return result

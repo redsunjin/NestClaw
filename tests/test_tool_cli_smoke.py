@@ -97,6 +97,16 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertEqual(payload["tool"]["adapter"], "slack_api")
         self.assertEqual(payload["tool"]["method"], "message.send")
 
+        exit_code, validate_payload = self._run_cli_json(
+            "tool-validate",
+            "--draft-id",
+            str(payload["draft_id"]),
+            "--actor-id",
+            "qa_user",
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(validate_payload["validation"]["valid"])
+
         exit_code, apply_payload = self._run_cli_json(
             "tool-apply",
             "--draft-id",
@@ -112,6 +122,21 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         tool_ids = {item["tool_id"] for item in tools_payload["items"]}
         self.assertIn("slack.message.ops_cli", tool_ids)
+
+        exit_code, rollback_payload = self._run_cli_json(
+            "tool-rollback",
+            "--tool-id",
+            "slack.message.ops_cli",
+            "--acted-by",
+            "qa_approver",
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(rollback_payload["status"], "ROLLED_BACK")
+
+        exit_code, tools_after_payload = self._run_cli_json("tools", "--actor-id", "qa_user")
+        self.assertEqual(exit_code, 0)
+        tool_ids_after = {item["tool_id"] for item in tools_after_payload["items"]}
+        self.assertNotIn("slack.message.ops_cli", tool_ids_after)
 
     def test_approve_command_resumes_pending_task(self) -> None:
         exit_code, submit_payload = self._run_cli_json(

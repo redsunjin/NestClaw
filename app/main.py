@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
+import json
 import os
 from pathlib import Path
 from threading import Lock, Thread
@@ -44,9 +45,13 @@ from app.services import (
 from app.tool_registry import (
     DEFAULT_TOOL_REGISTRY_OVERLAY_PATH,
     ToolRegistryError,
+    compact_overlay_tool_registry,
     get_tool_capability,
+    load_overlay_tool_registry,
     load_tool_registry,
+    remove_tool_registry_tool,
     upsert_tool_registry_tool,
+    validate_tool_capability,
 )
 
 
@@ -153,6 +158,7 @@ TASKS, TASK_EVENTS, APPROVAL_QUEUE, APPROVAL_ACTIONS, RUN_IDEMPOTENCY = STATE_ST
 REPORTS_ROOT = Path("reports")
 TOOL_DRAFTS_ROOT = Path("work/tool_drafts")
 TOOL_REGISTRY_OVERLAY_PATH = DEFAULT_TOOL_REGISTRY_OVERLAY_PATH
+TOOL_REGISTRY_HISTORY_ROOT = Path("work/tool_registry_history")
 MAX_RETRY = 1
 
 TEMPLATE_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
@@ -228,8 +234,61 @@ def _reload_tool_registry_runtime() -> None:
     TOOL_CATALOG_SERVICE.deps.registry = TOOL_REGISTRY
 
 
+def _overlay_tool_snapshot(tool_id: str) -> dict[str, Any] | None:
+    overlay = load_overlay_tool_registry(TOOL_REGISTRY_OVERLAY_PATH)
+    if overlay is None:
+        return None
+    try:
+        capability = get_tool_capability(overlay, tool_id)
+    except ToolRegistryError:
+        return None
+    return capability.as_dict()
+
+
+def _validate_tool_spec_for_registry(tool_spec: dict[str, Any]) -> dict[str, Any]:
+    return validate_tool_capability(dict(tool_spec))
+
+
+def _tool_registry_history_path(tool_id: str) -> Path:
+    safe_tool_id = tool_id.replace(".", "_")
+    stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return TOOL_REGISTRY_HISTORY_ROOT / f"{stamp}_{safe_tool_id}_{uuid4().hex[:6]}.json"
+
+
+def _write_tool_registry_history(entry: dict[str, Any]) -> Path:
+    TOOL_REGISTRY_HISTORY_ROOT.mkdir(parents=True, exist_ok=True)
+    path = _tool_registry_history_path(str(entry.get("tool_id") or "tool"))
+    path.write_text(json.dumps(entry, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
+
+def _latest_tool_registry_apply_history(tool_id: str) -> tuple[dict[str, Any], Path]:
+    normalized = tool_id.replace(".", "_")
+    candidates = sorted(TOOL_REGISTRY_HISTORY_ROOT.glob(f"*_{normalized}_*.json"))
+    for path in reversed(candidates):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if str(payload.get("action") or "") == "apply":
+            return payload, path
+    _error(404, "TOOL_HISTORY_NOT_FOUND", f"tool history not found: {tool_id}")
+
+
 def _apply_tool_spec_to_registry(tool_spec: dict[str, Any], acted_by: str) -> dict[str, Any]:
+    validation = _validate_tool_spec_for_registry(tool_spec)
+    if not bool(validation.get("valid")):
+        _error(400, "INVALID_TOOL_SPEC", f"tool spec failed validation: {tool_spec.get('tool_id')}")
+    previous_overlay = _overlay_tool_snapshot(str(tool_spec.get("tool_id") or ""))
     capability = upsert_tool_registry_tool(TOOL_REGISTRY_OVERLAY_PATH, tool_spec)
+    history_path = _write_tool_registry_history(
+        {
+            "action": "apply",
+            "acted_by": acted_by,
+            "applied_at": _now_iso(),
+            "tool_id": capability.tool_id,
+            "previous_overlay": previous_overlay,
+            "applied_tool": capability.as_dict(),
+        }
+    )
+    compaction = compact_overlay_tool_registry(overlay_path=TOOL_REGISTRY_OVERLAY_PATH)
     _reload_tool_registry_runtime()
     _log_event(
         "system_tool_registry",
@@ -239,7 +298,47 @@ def _apply_tool_spec_to_registry(tool_spec: dict[str, Any], acted_by: str) -> di
         method=capability.method,
         acted_by=acted_by,
     )
-    return capability.as_dict()
+    return {
+        "tool": capability.as_dict(),
+        "validation": validation,
+        "history_path": str(history_path),
+        "overlay_maintenance": compaction,
+    }
+
+
+def _rollback_tool_spec_in_registry(tool_id: str, acted_by: str) -> dict[str, Any]:
+    normalized = str(tool_id or "").strip()
+    if not normalized:
+        _error(400, "INVALID_REQUEST", "tool_id is required")
+    history_entry, history_path = _latest_tool_registry_apply_history(normalized)
+    previous_overlay = history_entry.get("previous_overlay")
+    restored_tool: dict[str, Any] | None = None
+    action = "removed_overlay_tool"
+    if isinstance(previous_overlay, dict) and previous_overlay.get("tool_id"):
+        restored_capability = upsert_tool_registry_tool(TOOL_REGISTRY_OVERLAY_PATH, previous_overlay)
+        restored_tool = restored_capability.as_dict()
+        action = "restored_previous_overlay"
+    else:
+        removed = remove_tool_registry_tool(TOOL_REGISTRY_OVERLAY_PATH, normalized)
+        if not removed:
+            _error(409, "ROLLBACK_NOTHING_TO_DO", f"tool overlay not found for rollback: {normalized}")
+    compaction = compact_overlay_tool_registry(overlay_path=TOOL_REGISTRY_OVERLAY_PATH)
+    _reload_tool_registry_runtime()
+    _log_event(
+        "system_tool_registry",
+        "TOOL_REGISTRY_ROLLED_BACK",
+        tool_id=normalized,
+        acted_by=acted_by,
+        rollback_action=action,
+    )
+    return {
+        "tool_id": normalized,
+        "status": "ROLLED_BACK",
+        "rollback_action": action,
+        "restored_tool": restored_tool,
+        "history_path": str(history_path),
+        "overlay_maintenance": compaction,
+    }
 
 
 def _normalize_role(actor_role: str) -> str:
@@ -1604,7 +1703,9 @@ def build_tool_draft_service() -> ToolDraftService:
             error=_error,
             now_iso=_now_iso,
             drafts_root=TOOL_DRAFTS_ROOT,
+            validate_tool_spec=_validate_tool_spec_for_registry,
             apply_tool_spec=_apply_tool_spec_to_registry,
+            rollback_tool=_rollback_tool_spec_in_registry,
         )
     )
 
@@ -1712,6 +1813,14 @@ def get_tool_draft(
     return TOOL_DRAFT_SERVICE.get_draft(draft_id, actor)
 
 
+@APP.get("/api/v1/tool-drafts/{draft_id}/validate")
+def validate_tool_draft(
+    draft_id: str,
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return TOOL_DRAFT_SERVICE.validate_draft(draft_id, actor)
+
+
 @APP.post("/api/v1/tool-drafts/{draft_id}/apply")
 def apply_tool_draft(
     draft_id: str,
@@ -1719,6 +1828,15 @@ def apply_tool_draft(
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
     return TOOL_DRAFT_SERVICE.apply_draft(draft_id, req, actor)
+
+
+@APP.post("/api/v1/tools/{tool_id}/rollback")
+def rollback_tool(
+    tool_id: str,
+    req: ApplyToolDraftRequest,
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return TOOL_DRAFT_SERVICE.rollback_tool(tool_id, req, actor)
 
 
 @APP.post("/api/v1/task/create", status_code=201)

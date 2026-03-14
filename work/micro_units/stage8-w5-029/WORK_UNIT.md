@@ -4,7 +4,7 @@
 - goal: `Add tool validation harness, rollback path, and overlay cleanup automation`
 - target_stage: `8`
 - created_at_utc: `20260314T173821Z`
-- status: `PLAN_PENDING`
+- status: `SYNC_PENDING`
 
 ## Roles
 - Plan Lead: A01 (Product Owner)
@@ -15,10 +15,10 @@
 - Sync Lead: A09 (Release Sync)
 
 ## Phase Checklist
-- [ ] Plan gate passed
-- [ ] Review gate passed
-- [ ] Implement gate passed
-- [ ] Evaluate gate passed
+- [x] Plan gate passed
+- [x] Review gate passed
+- [x] Implement gate passed
+- [x] Evaluate gate passed
 - [ ] Sync evidence recorded
 
 ## Files

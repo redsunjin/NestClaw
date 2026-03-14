@@ -128,7 +128,9 @@ class TestMcpServerSmoke(unittest.TestCase):
                 "catalog.get",
                 "catalog.create_draft",
                 "catalog.get_draft",
+                "catalog.validate_draft",
                 "catalog.apply_draft",
+                "catalog.rollback_tool",
             },
         )
 
@@ -204,6 +206,23 @@ class TestMcpServerSmoke(unittest.TestCase):
         get_payload = get_response["result"]["structuredContent"]
         self.assertIn("slack_api", get_payload["content"])
 
+        validate_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 24_1,
+                "method": "tools/call",
+                "params": {
+                    "name": "catalog.validate_draft",
+                    "arguments": {
+                        "draft_id": create_payload["draft_id"],
+                        "actor_id": "qa_user",
+                    },
+                },
+            }
+        )
+        validate_payload = validate_response["result"]["structuredContent"]
+        self.assertTrue(validate_payload["validation"]["valid"])
+
         apply_response = self._request(
             {
                 "jsonrpc": "2.0",
@@ -237,6 +256,38 @@ class TestMcpServerSmoke(unittest.TestCase):
         list_after_payload = list_after_apply["result"]["structuredContent"]
         tool_ids = {item["tool_id"] for item in list_after_payload["items"]}
         self.assertIn("slack.message.ops_mcp", tool_ids)
+
+        rollback_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 27,
+                "method": "tools/call",
+                "params": {
+                    "name": "catalog.rollback_tool",
+                    "arguments": {
+                        "tool_id": "slack.message.ops_mcp",
+                        "acted_by": "qa_approver",
+                        "actor_id": "qa_approver",
+                    },
+                },
+            }
+        )
+        rollback_payload = rollback_response["result"]["structuredContent"]
+        self.assertEqual(rollback_payload["status"], "ROLLED_BACK")
+
+        list_after_rollback = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 28,
+                "method": "tools/call",
+                "params": {
+                    "name": "catalog.list",
+                    "arguments": {"actor_id": "qa_user"},
+                },
+            }
+        )
+        tool_ids_after_rollback = {item["tool_id"] for item in list_after_rollback["result"]["structuredContent"]["items"]}
+        self.assertNotIn("slack.message.ops_mcp", tool_ids_after_rollback)
 
     def test_agent_submit_and_status_tool_flow(self) -> None:
         response = self._request(
