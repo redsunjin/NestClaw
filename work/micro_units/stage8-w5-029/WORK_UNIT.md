@@ -1,10 +1,10 @@
 # Micro Work Unit Card
 
-- unit_id: `stage8-w5-028`
-- goal: `Expose planner provenance and richer plan details in quickstart and console UI`
+- unit_id: `stage8-w5-029`
+- goal: `Add tool validation harness, rollback path, and overlay cleanup automation`
 - target_stage: `8`
-- created_at_utc: `20260314T173315Z`
-- status: `DONE`
+- created_at_utc: `20260314T173821Z`
+- status: `PLAN_PENDING`
 
 ## Roles
 - Plan Lead: A01 (Product Owner)
@@ -15,11 +15,11 @@
 - Sync Lead: A09 (Release Sync)
 
 ## Phase Checklist
-- [x] Plan gate passed
-- [x] Review gate passed
-- [x] Implement gate passed
-- [x] Evaluate gate passed
-- [x] Sync evidence recorded
+- [ ] Plan gate passed
+- [ ] Review gate passed
+- [ ] Implement gate passed
+- [ ] Evaluate gate passed
+- [ ] Sync evidence recorded
 
 ## Files
 - `PLAN_NOTES.md`

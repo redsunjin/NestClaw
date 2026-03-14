@@ -29,7 +29,9 @@
       "title": "Expose planner provenance more clearly in operator UI",
       "unit_id": "stage8-w5-028",
       "goal": "Expose planner provenance and richer plan details in quickstart and console UI",
-      "status": "in_progress"
+      "status": "completed",
+      "completed_unit_id": "stage8-w5-028",
+      "completed_at": "2026-03-14T17:38:21+00:00"
     },
     {
       "item_id": "g3-tool-governance-hardening",
@@ -37,7 +39,7 @@
       "title": "Harden tool governance lifecycle",
       "unit_id": "stage8-w5-029",
       "goal": "Add tool validation harness, rollback path, and overlay cleanup automation",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "item_id": "g4-live-readiness",
