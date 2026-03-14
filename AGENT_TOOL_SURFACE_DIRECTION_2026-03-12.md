@@ -12,12 +12,12 @@
   - 비대화형 tool CLI가 있다. (`submit/status/events/approve/reject --json`)
   - MCP server가 있다. (`agent.submit/status/events`, `approval.*`)
   - model registry 기반 provider selection logging과 LLM intent classifier fallback 경로가 있다.
-  - task workflow에는 LLM planner baseline이 들어갔고, task status/event에 `planning_provenance`를 남긴다.
+  - task workflow에는 LLM planner baseline이 들어갔고, task status/event에 `planning_provenance`, `eligible_tools`를 남긴다.
   - Redmine MCP live bridge 경로와 rehearsal script가 준비되어 있다.
 - 현재 한계:
   - 현재 기본 runtime은 `task path AI-first baseline + broader fallback/transitional state`에 가깝다.
-  - classifier는 `task` / `incident` 분기를 담당하고, task planner는 `summary/slack` 좁은 tool set까지만 다룬다.
-  - tool registry / capability schema와 catalog 조회 표면은 생겼고 task planner가 일부 사용하지만, broader multi-tool/incident planner로는 아직 확장되지 않았다.
+  - classifier는 `task` / `incident` 분기를 담당하고, task planner는 `summary/ticket/slack` 좁은 tool set까지만 다룬다.
+  - tool registry / capability schema와 catalog 조회 표면은 생겼고 task planner가 일부 사용하지만, incident planner 공통화와 richer cross-action planning은 아직 없다.
   - summary workflow를 제외하면 model registry selection이 아직 provider invocation으로 넓게 이어지지 않는다.
   - RAG 어댑터는 여전히 dry-run 중심이다.
   - Stage 8 전체 readiness는 sandbox/live env 부재로 `7/8` 상태다.
@@ -91,8 +91,8 @@ MCP 원칙:
 - auth, approval, audit, idempotency는 HTTP/CLI와 동일 정책 사용
 
 ## 권장 실행 순서
-1. broader multi-step planning으로 확장
-- 현재 task path에 들어간 `AI-first planner -> policy gate -> executor` baseline을 broader multi-tool planning으로 확장한다.
+1. incident planner 공통화와 richer sequencing
+- 현재 task path에 들어간 `AI-first planner -> policy gate -> executor` baseline을 incident path와 richer sequencing으로 확장한다.
 
 2. incident/provider/RAG 확장
 - task/incident planning contract를 수렴하고, summary path에 한정된 provider invocation을 incident planning/reporting으로 넓힌다.
@@ -102,7 +102,7 @@ MCP 원칙:
 
 ## 다음 MWU 후보
 1. `agent-s9-tool-planning-loop`
-- 목적: task planner 후보군을 늘리고 task/incident action-card를 registry 기반 multi-step planner/executor 계약으로 수렴
+- 목적: incident planner provenance와 task/incident action-card를 registry 기반 multi-step planner/executor 계약으로 수렴
 
 2. `agent-s10-incident-provider-rag`
 - 목적: incident planning/reporting의 provider invocation과 live retrieval을 확장

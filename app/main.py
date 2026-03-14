@@ -164,6 +164,7 @@ INCIDENT_WORKFLOW = "incident"
 INCIDENT_RUN_MODES = {"dry-run", "mcp-live", "live"}
 AGENT_ENTRYPOINT = "agent"
 SENSITIVE_TEXT_HINTS = ("internal only", "confidential", "sensitive", "민감", "내부 전용")
+TASK_TICKET_HINTS = ("ticket", "issue", "follow-up", "follow up", "tracker", "redmine", "후속", "티켓", "이슈", "등록")
 
 
 def _build_incident_adapter_registry() -> dict[str, Any]:
@@ -512,10 +513,83 @@ def _task_summary_tool_id() -> str:
     return tool_id or "internal.summary.generate"
 
 
+def _task_ticket_tool_id() -> str:
+    tool_id = str(os.getenv("NEWCLAW_TASK_TICKET_TOOL_ID") or "redmine.issue.create").strip()
+    return tool_id or "redmine.issue.create"
+
+
+def _is_truthy_value(raw: Any) -> bool:
+    if isinstance(raw, bool):
+        return raw
+    return str(raw or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _task_notify_channel(task: dict[str, Any]) -> str | None:
     metadata = dict((task.get("agent_request") or {}).get("metadata") or {})
     channel = str(metadata.get("notify_channel") or os.getenv("NEWCLAW_TASK_NOTIFY_CHANNEL") or "").strip()
     return channel or None
+
+
+def _task_ticket_project_id(task: dict[str, Any]) -> str | None:
+    metadata = dict((task.get("agent_request") or {}).get("metadata") or {})
+    task_input = dict(task.get("input") or {})
+    project_id = str(
+        metadata.get("ticket_project_id")
+        or metadata.get("project_id")
+        or task_input.get("ticket_project_id")
+        or task_input.get("project_id")
+        or os.getenv("NEWCLAW_TASK_TICKET_PROJECT_ID")
+        or ""
+    ).strip()
+    return project_id or None
+
+
+def _task_ticket_requested(task: dict[str, Any]) -> bool:
+    metadata = dict((task.get("agent_request") or {}).get("metadata") or {})
+    for key in ("create_ticket", "followup_ticket", "ticket_required"):
+        if _is_truthy_value(metadata.get(key)):
+            return True
+    haystack = " ".join(
+        str(item or "")
+        for item in (
+            _task_request_text(task),
+            metadata.get("ticket_subject"),
+            metadata.get("notes"),
+            dict(task.get("input") or {}).get("notes"),
+        )
+    ).lower()
+    return any(token in haystack for token in TASK_TICKET_HINTS)
+
+
+def _task_ticket_subject(task: dict[str, Any]) -> str:
+    metadata = dict((task.get("agent_request") or {}).get("metadata") or {})
+    task_input = dict(task.get("input") or {})
+    subject = str(metadata.get("ticket_subject") or "").strip()
+    if subject:
+        return subject
+    meeting_title = str(task_input.get("meeting_title") or task.get("title") or "Agent Request").strip()
+    return f"[Follow-up] {meeting_title}"
+
+
+def _task_ticket_priority(task: dict[str, Any]) -> str:
+    metadata = dict((task.get("agent_request") or {}).get("metadata") or {})
+    priority = str(metadata.get("ticket_priority") or "Normal").strip()
+    return priority or "Normal"
+
+
+def _task_ticket_description(task: dict[str, Any]) -> str:
+    task_input = dict(task.get("input") or {})
+    participants = task_input.get("participants") or []
+    participant_text = ", ".join(str(item) for item in participants) if isinstance(participants, list) and participants else "N/A"
+    return (
+        "# Task Follow-up Request\n\n"
+        f"- title: {task_input.get('meeting_title', task.get('title', 'Agent Request'))}\n"
+        f"- date: {task_input.get('meeting_date', 'N/A')}\n"
+        f"- requested_by: {task.get('requested_by', 'unknown')}\n"
+        f"- participants: {participant_text}\n\n"
+        "## Notes\n"
+        f"{task_input.get('notes', _task_request_text(task))}\n"
+    )
 
 
 def _task_planner_selection_context(task: dict[str, Any]) -> dict[str, Any]:
@@ -535,18 +609,51 @@ def _task_request_text(task: dict[str, Any]) -> str:
 
 def _task_candidate_capabilities(task: dict[str, Any]) -> list[Any]:
     capabilities: list[Any] = []
-    try:
-        capabilities.append(get_tool_capability(TOOL_REGISTRY, _task_summary_tool_id()))
-    except ToolRegistryError as exc:
-        raise RuntimeError(str(exc)) from exc
-
-    notify_channel = _task_notify_channel(task)
-    if notify_channel:
+    for item in _task_tool_eligibility(task):
+        if not item["eligible"]:
+            continue
         try:
-            capabilities.append(get_tool_capability(TOOL_REGISTRY, _task_slack_tool_id()))
+            capabilities.append(get_tool_capability(TOOL_REGISTRY, str(item["tool_id"])))
         except ToolRegistryError as exc:
             raise RuntimeError(str(exc)) from exc
     return capabilities
+
+
+def _task_tool_eligibility(task: dict[str, Any]) -> list[dict[str, Any]]:
+    eligibility = [
+        {
+            "tool_id": _task_summary_tool_id(),
+            "eligible": True,
+            "reason": "always_required_summary",
+        }
+    ]
+    notify_channel = _task_notify_channel(task)
+    eligibility.append(
+        {
+            "tool_id": _task_slack_tool_id(),
+            "eligible": bool(notify_channel),
+            "reason": "notify_channel_available" if notify_channel else "notify_channel_missing",
+        }
+    )
+    ticket_project_id = _task_ticket_project_id(task)
+    ticket_requested = _task_ticket_requested(task)
+    if ticket_project_id and ticket_requested:
+        reason = "ticket_project_available_and_intent_detected"
+        eligible = True
+    elif not ticket_project_id:
+        reason = "ticket_project_missing"
+        eligible = False
+    else:
+        reason = "ticket_intent_missing"
+        eligible = False
+    eligibility.append(
+        {
+            "tool_id": _task_ticket_tool_id(),
+            "eligible": eligible,
+            "reason": reason,
+        }
+    )
+    return eligibility
 
 
 def _task_slack_message(task: dict[str, Any]) -> str:
@@ -565,6 +672,13 @@ def _task_payload_for_tool(
     payload_overrides = dict(payload_overrides or {})
     if capability.tool_id == _task_summary_tool_id():
         payload = dict(task.get("input") or {})
+    elif capability.tool_id == _task_ticket_tool_id():
+        payload = {
+            "project_id": _task_ticket_project_id(task) or "",
+            "subject": _task_ticket_subject(task),
+            "description": _task_ticket_description(task),
+            "priority": _task_ticket_priority(task),
+        }
     elif capability.tool_id == _task_slack_tool_id():
         payload = {
             "channel": _task_notify_channel(task) or "",
@@ -604,6 +718,7 @@ def _task_planned_action(task: dict[str, Any], capability: Any, *, payload_overr
 def _build_task_planned_actions(task: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     metadata = dict((task.get("agent_request") or {}).get("metadata") or {})
     selection_context = _task_planner_selection_context(task)
+    eligibility = _task_tool_eligibility(task)
     capabilities = _task_candidate_capabilities(task)
     decision = TASK_PLANNER.plan_task_actions(
         request_text=_task_request_text(task),
@@ -612,6 +727,7 @@ def _build_task_planned_actions(task: dict[str, Any]) -> tuple[list[dict[str, An
         available_tools=capabilities,
         sensitivity=str(selection_context.get("sensitivity") or "low"),
         external_send=bool(selection_context.get("external_send", False)),
+        eligibility=eligibility,
         default_notify_channel=_task_notify_channel(task),
     )
     capability_map = {item.tool_id: item for item in capabilities}

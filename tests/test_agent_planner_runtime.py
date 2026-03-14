@@ -27,7 +27,7 @@ class TestAgentPlannerRuntime(unittest.TestCase):
         self.reviewer_headers = {"Authorization": f"Bearer {issue_dev_jwt('qa_reviewer', 'reviewer')}"}
         self.payload = {
             "task_kind": "task",
-            "request_text": "운영회의를 요약하고 슬랙으로 공유해줘",
+            "request_text": "운영회의를 요약하고 후속 티켓을 만들고 슬랙으로 공유해줘",
             "requested_by": "qa_user",
             "metadata": {
                 "meeting_title": "ops sync",
@@ -35,6 +35,8 @@ class TestAgentPlannerRuntime(unittest.TestCase):
                 "participants": ["Kim"],
                 "notes": "summary for operations team",
                 "notify_channel": "#ops-alerts",
+                "ticket_project_id": "OPS",
+                "create_ticket": True,
             },
         }
 
@@ -59,8 +61,17 @@ class TestAgentPlannerRuntime(unittest.TestCase):
         self.assertIsNotNone(payload)
         self.assertEqual(payload["planning_provenance"]["source"], "heuristic_fallback")
         self.assertTrue(payload["planning_provenance"]["degraded_mode"])
-        self.assertEqual([item["tool_id"] for item in payload["planned_actions"]], ["internal.summary.generate", "slack.message.send"])
-        self.assertEqual(payload["action_results"][1]["tool_id"], "slack.message.send")
+        self.assertEqual(
+            [item["tool_id"] for item in payload["planned_actions"]],
+            ["internal.summary.generate", "redmine.issue.create", "slack.message.send"],
+        )
+        self.assertIn(
+            "redmine.issue.create",
+            [item["tool_id"] for item in payload["planning_provenance"]["eligible_tools"] if item["eligible"]],
+        )
+        self.assertEqual(payload["action_results"][1]["tool_id"], "redmine.issue.create")
+        self.assertEqual(payload["action_results"][1]["mode"], "dry-run")
+        self.assertEqual(payload["action_results"][2]["tool_id"], "slack.message.send")
 
         events_response = self.client.get(f"/api/v1/agent/events/{task_id}", headers=self.reviewer_headers)
         self.assertEqual(events_response.status_code, 200)
@@ -72,8 +83,9 @@ class TestAgentPlannerRuntime(unittest.TestCase):
         planner_json = (
             '{"actions":['
             '{"tool_id":"internal.summary.generate","reason":"generate summary first"},'
+            '{"tool_id":"redmine.issue.create","reason":"open follow-up ticket"},'
             '{"tool_id":"slack.message.send","reason":"notify team","payload_overrides":{"channel":"#ops-alerts"}}'
-            '],"confidence":0.93,"rationale":"summary then notify"}'
+            '],"confidence":0.93,"rationale":"summary then ticket then notify"}'
         )
         with (
             patch.dict(
@@ -93,7 +105,14 @@ class TestAgentPlannerRuntime(unittest.TestCase):
         self.assertEqual(payload["planning_provenance"]["source"], "llm")
         self.assertFalse(payload["planning_provenance"]["degraded_mode"])
         self.assertEqual(payload["planning_provenance"]["provider_selection"]["provider_id"], "local_lmstudio")
-        self.assertEqual([item["tool_id"] for item in payload["planned_actions"]], ["internal.summary.generate", "slack.message.send"])
+        self.assertEqual(
+            [item["tool_id"] for item in payload["planned_actions"]],
+            ["internal.summary.generate", "redmine.issue.create", "slack.message.send"],
+        )
+        self.assertIn(
+            "redmine.issue.create",
+            [item["tool_id"] for item in payload["planning_provenance"]["eligible_tools"] if item["eligible"]],
+        )
 
         events_response = self.client.get(f"/api/v1/agent/events/{task_id}", headers=self.reviewer_headers)
         self.assertEqual(events_response.status_code, 200)

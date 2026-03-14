@@ -56,11 +56,11 @@
 - 현재 추천 포커스: `G2`
 - 이유:
   - 현재 목표는 operator surface보다 `AI-first orchestration agent` 정렬이 우선이다.
-  - task path에는 AI-first planner baseline이 들어갔지만, 아직 broader multi-step planning과 incident 공통화가 남아 있다.
+  - task path에는 AI-first planner baseline과 summary/ticket/slack candidate expansion이 들어갔지만, 아직 incident 공통화가 남아 있다.
   - G1 후속은 필요하지만, planner provenance와 richer tool planning의 실체가 더 커져야 UX도 의미 있게 확장된다.
 
 ## 즉시 이어갈 작업 후보
-1. task planner 후보군을 summary/slack beyond로 확장하고 tool eligibility 기준 고정
-2. incident path에 planner provenance와 planner/executor 공통 계약을 수렴
+1. incident path에 planner provenance와 planner/executor 공통 계약을 수렴
+2. task/incident 공통 executor에서 cross-action data binding 기준을 고정
 3. degraded mode 전환 기준과 audit/event contract를 planner baseline 기준으로 보강
 4. 그 다음 planner provenance를 UI에 더 노출

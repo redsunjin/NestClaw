@@ -159,6 +159,7 @@
 - [x] tool planning / execution adapter 공통 루프 정리 (`app/main.py`, `stage8-w5-012`)
 - [x] 최소 operator UI 설계 초안 작성 (`/`, `/console`, `stage8-w5-022`)
 - [x] task workflow를 AI-first LLM planner baseline으로 승격 (`app/agent_planner.py`, `app/main.py`, `stage8-w5-024`)
+- [x] task planner 후보군을 `summary + ticket + slack`으로 확장하고 eligibility provenance 추가 (`stage8-w5-025`)
 - [x] 방향 문서 고정 (`AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`)
 
 ### G) Operator Surface & Next Work Groups (2026-03-13)
@@ -171,8 +172,8 @@
 - [x] 다음 작업 그룹 계획 문서 고정 (`NEXT_WORK_GROUPS_2026-03-13.md`)
 - [x] AI-first orchestration agent 기준으로 우선순위/프로토콜 재정렬 (`stage8-w5-023`)
 - [ ] G2. Planning and Execution Maturity
-- [ ] G2 baseline 확장: broader multi-step planner 후보군 추가 (`task` beyond summary/slack)
 - [ ] G2 공통화: `incident` planner provenance / planner-executor 계약 수렴
+- [ ] G2 execution maturity: cross-action data binding 또는 richer tool sequencing
 - [ ] G1. Operator Surface Completion 후속
 - [ ] G3. Tool Governance and Lifecycle
 - [ ] G4. Runtime and Live Readiness

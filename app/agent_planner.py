@@ -21,7 +21,20 @@ from app.tool_registry import ToolCapability
 DEFAULT_PLANNER_TIMEOUT_SECONDS = 8.0
 DEFAULT_PLANNER_TASK_TYPE = "plan_actions"
 SUMMARY_TOOL_ID = "internal.summary.generate"
+TICKET_TOOL_ID = "redmine.issue.create"
 SLACK_TOOL_ID = "slack.message.send"
+TICKET_HINTS = {
+    "ticket",
+    "issue",
+    "follow-up",
+    "follow up",
+    "tracker",
+    "redmine",
+    "후속",
+    "티켓",
+    "이슈",
+    "등록",
+}
 NOTIFY_HINTS = {
     "slack",
     "notify",
@@ -105,6 +118,11 @@ def _looks_like_notify_request(request_text: str, metadata: Mapping[str, Any]) -
     return any(token in haystack for token in NOTIFY_HINTS)
 
 
+def _looks_like_ticket_request(request_text: str, metadata: Mapping[str, Any]) -> bool:
+    haystack = f"{request_text} {_flatten_text(dict(metadata))}".lower()
+    return any(token in haystack for token in TICKET_HINTS)
+
+
 def _build_planner_prompt(
     *,
     request_text: str,
@@ -136,6 +154,7 @@ def _build_planner_prompt(
         'Schema: {"actions":[{"tool_id":"...","reason":"...","payload_overrides":{...}}],"confidence":0.0,"rationale":"..."}\n'
         f"Rules:\n"
         f"- The first action must be {SUMMARY_TOOL_ID}.\n"
+        f"- Use {TICKET_TOOL_ID} only when follow-up/ticket intent exists and the request context includes a ticket project.\n"
         f"- Use {SLACK_TOOL_ID} only when a notification/share intent exists and a channel is available.\n"
         f"- Do not invent tools outside the allowed tool list.\n"
         f"- Keep the plan short and executable.\n"
@@ -165,6 +184,7 @@ class TaskPlanningDecision:
     rationale: str | None = None
     confidence: float | None = None
     provider_selection: dict[str, Any] | None = None
+    eligible_tools: tuple[dict[str, Any], ...] = ()
     fallback_reason: str | None = None
     degraded_mode: bool = False
 
@@ -175,6 +195,7 @@ class TaskPlanningDecision:
             "rationale": self.rationale,
             "confidence": self.confidence,
             "provider_selection": self.provider_selection,
+            "eligible_tools": [dict(item) for item in self.eligible_tools],
             "fallback_reason": self.fallback_reason,
             "degraded_mode": self.degraded_mode,
         }
@@ -192,12 +213,20 @@ class AgentPlanner:
         available_tools: Sequence[ToolCapability],
         default_notify_channel: str | None,
         provider_selection: Mapping[str, Any],
+        eligibility: Sequence[Mapping[str, Any]] | None,
         source: str,
         rationale: str,
         fallback_reason: str | None = None,
     ) -> TaskPlanningDecision:
         tools_by_id = {item.tool_id: item for item in available_tools}
         actions = [PlannerAction(tool_id=SUMMARY_TOOL_ID, reason="baseline summary action")]
+        if TICKET_TOOL_ID in tools_by_id and _looks_like_ticket_request(request_text, metadata):
+            actions.append(
+                PlannerAction(
+                    tool_id=TICKET_TOOL_ID,
+                    reason="ticket/follow-up intent detected",
+                )
+            )
         if (
             default_notify_channel
             and SLACK_TOOL_ID in tools_by_id
@@ -216,6 +245,7 @@ class AgentPlanner:
             rationale=rationale,
             confidence=0.55,
             provider_selection=dict(provider_selection),
+            eligible_tools=tuple(dict(item) for item in (eligibility or ())),
             fallback_reason=fallback_reason,
             degraded_mode=True,
         )
@@ -270,6 +300,7 @@ class AgentPlanner:
         available_tools: Sequence[ToolCapability],
         sensitivity: str,
         external_send: bool,
+        eligibility: Sequence[Mapping[str, Any]] | None = None,
         default_notify_channel: str | None = None,
     ) -> TaskPlanningDecision:
         provider_selection = select_provider(
@@ -286,6 +317,7 @@ class AgentPlanner:
                 available_tools=available_tools,
                 default_notify_channel=default_notify_channel,
                 provider_selection=provider_selection,
+                eligibility=eligibility,
                 source="heuristic_fallback",
                 rationale="live planner disabled",
             )
@@ -299,6 +331,7 @@ class AgentPlanner:
                 available_tools=available_tools,
                 default_notify_channel=default_notify_channel,
                 provider_selection=provider_selection,
+                eligibility=eligibility,
                 source="heuristic_fallback",
                 rationale="selected planner provider is unsupported",
                 fallback_reason="unsupported_provider",
@@ -364,6 +397,7 @@ class AgentPlanner:
                 rationale=rationale,
                 confidence=confidence,
                 provider_selection=provider_selection,
+                eligible_tools=tuple(dict(item) for item in (eligibility or ())),
                 degraded_mode=False,
             )
         except Exception as exc:
@@ -373,6 +407,7 @@ class AgentPlanner:
                 available_tools=available_tools,
                 default_notify_channel=default_notify_channel,
                 provider_selection=provider_selection,
+                eligibility=eligibility,
                 source="llm_error_fallback",
                 rationale="planner call failed; deterministic plan applied",
                 fallback_reason=str(exc),

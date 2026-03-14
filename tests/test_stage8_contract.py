@@ -255,10 +255,13 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("MODEL_PROVIDER_INVOKED", main_source)
         self.assertIn("invoke_meeting_summary", main_source)
         self.assertIn("internal.summary.generate", main_source)
+        self.assertIn("redmine.issue.create", planner_source)
         self.assertIn("slack.message.send", planner_source)
         self.assertIn("NEWCLAW_ENABLE_LLM_PLANNER", planner_source)
         self.assertIn("task_type=DEFAULT_PLANNER_TASK_TYPE", planner_source)
         self.assertIn("planned_actions", main_source)
+        self.assertIn("eligible_tools", planner_source)
+        self.assertIn("_task_tool_eligibility", main_source)
         self.assertIn("execution_call", main_source)
         self.assertIn("PLANNED_ACTION_EXECUTED", main_source)
         self.assertIn("provider_invocation", service_source)
@@ -341,8 +344,8 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("G3. Tool Governance and Lifecycle", source)
         self.assertIn("G4. Runtime and Live Readiness", source)
         self.assertIn("현재 추천 포커스: `G2`", source)
-        self.assertIn("task planner 후보군을 summary/slack beyond로 확장", source)
         self.assertIn("incident path에 planner provenance", source)
+        self.assertIn("cross-action data binding", source)
 
     def test_slack_adapter_and_tool_draft_service_exist(self) -> None:
         slack_source = Path("app/slack_adapter.py").read_text(encoding="utf-8")

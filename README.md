@@ -181,7 +181,7 @@
 - Redmine MCP live bridge 및 rehearsal script를 통해 sandbox 연동 경로 준비
 - `configs/model_registry.yaml`를 runtime에서 읽고 provider selection과 intent classification provenance를 status/event에 기록
 - `meeting_summary` workflow는 provider selection 뒤 실제 provider invocation을 시도하고 실패 시 템플릿 renderer로 fallback
-- `task` workflow는 LLM planner baseline을 통해 `internal.summary.generate`와 `slack.message.send` 중 필요한 action plan을 만들고, `planning_provenance`를 상태/이벤트에 기록
+- `task` workflow는 LLM planner를 통해 `internal.summary.generate`, `redmine.issue.create`, `slack.message.send` 중 필요한 action plan을 만들고, `planning_provenance.eligible_tools`를 상태/이벤트에 기록
 - local LM Studio(`http://localhost:1234`)를 intent classifier provider로 등록해 사용할 수 있음
 - `slack.message.send` tool capability를 catalog에 등록했고 incident workflow에서 `notify_channel` 입력 시 함께 계획/실행할 수 있음
 - `/api/v1/tool-drafts`, `tool-draft`, `catalog.create_draft/get_draft`를 통해 reviewable tool registration draft를 생성할 수 있음
@@ -197,11 +197,11 @@
 ### 10.1.1 현재 제품 위치
 - 현재 NestClaw는 `AI-first orchestration agent`로 가는 전환기 상태다.
 - `task` workflow는 이제 LLM planner가 기본 경로고, 실패나 비활성 시에만 degraded mode fallback으로 내려간다.
-- 다만 planner 범위가 아직 `summary + slack`의 좁은 tool set에 한정돼 있고, `incident` workflow는 여전히 deterministic/dry-run 중심이다.
+- task planner 범위는 `summary + ticket + slack`까지 넓어졌지만, 여전히 tool set이 좁고 `incident` workflow는 deterministic/dry-run 중심이다.
 - 따라서 현재 런타임은 `task path AI-first baseline` 단계이며, product 전체로 보면 아직 완성형 multi-tool orchestration agent는 아니다.
 
 ### 10.2 아직 못 하는 것
-- broader registry 기반 multi-step planning 확장 (`task` beyond summary/slack, `incident` planner 공통화)
+- broader registry 기반 multi-step planning 확장 (`task` beyond summary/ticket/slack, `incident` planner 공통화)
 - live RAG 기반 reasoning
 - production-ready MCP host packaging / remote transport hardening
 - 운영자용 전용 GUI 콘솔
@@ -213,7 +213,7 @@
 - `configs/tool_registry.yaml` 기반 execution tool catalog와 capability schema를 실제 실행 계층에 연결했다
 - `model registry selection -> provider invocation`은 summary path에 연결했다
 - `planned_actions -> execution_call -> adapter dispatch` 공통 루프를 task/incident에 적용했다
-- 다음 1순위는 task planner 후보를 더 넓히고 incident path까지 수렴시키는 broader multi-step tool planning이다
+- 다음 1순위는 incident path에 planner provenance와 planner/executor 공통 계약을 수렴시키는 broader multi-step tool planning이다
 - tool registry apply는 source yaml이 아니라 `work/tool_registry_runtime.yaml` overlay에 반영한다
 - incident workflow는 broader execution agent의 첫 번째 high-risk vertical이며, 이후 일반 업무/운영 작업/티켓 처리 흐름으로 확장한다
 - 그 다음 단계는 action-card/tool planning 공통 루프와 최소 operator UI다
