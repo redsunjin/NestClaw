@@ -28,8 +28,10 @@ class TestStage8Contract(unittest.TestCase):
         self.assertTrue(Path("scripts/run_stage8_self_eval.sh").is_file())
         self.assertTrue(Path("scripts/run_stage8_sandbox_e2e.sh").is_file())
         self.assertTrue(Path("scripts/run_stage8_live_rehearsal.sh").is_file())
+        self.assertTrue(Path("scripts/run_stage8_readiness_bundle.sh").is_file())
         self.assertTrue(Path("scripts/run_tool_registry_maintenance.sh").is_file())
         self.assertTrue(Path("PRIORITY_CAMPAIGN_PROTOCOL_2026-03-15.md").is_file())
+        self.assertTrue(Path("STAGE8_RUNTIME_READINESS_GUIDE_2026-03-15.md").is_file())
         self.assertTrue(Path("work/priority_campaigns/stage8-priority-campaign/campaign.json").is_file())
         self.assertTrue(Path("scripts/stage8_live_rehearsal_runner.py").is_file())
         self.assertTrue(Path("work/micro_units/stage8-w2-001/WORK_UNIT.md").is_file())
@@ -362,6 +364,17 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("pending -> in_progress -> completed", campaign_source)
         self.assertIn("start-next <campaign-id>", campaign_script)
         self.assertIn("advance <campaign-id>", campaign_script)
+
+    def test_stage8_readiness_bundle_assets_exist(self) -> None:
+        source = Path("scripts/run_stage8_readiness_bundle.sh").read_text(encoding="utf-8")
+        guide_source = Path("STAGE8_RUNTIME_READINESS_GUIDE_2026-03-15.md").read_text(encoding="utf-8")
+        self.assertIn("run_stage8_self_eval.sh", source)
+        self.assertIn("run_stage8_sandbox_e2e.sh", source)
+        self.assertIn("run_stage8_live_rehearsal.sh", source)
+        self.assertIn("NEWCLAW_REDMINE_MCP_ENDPOINT", source)
+        self.assertIn("BLOCKED", source)
+        self.assertIn("readiness", guide_source.lower())
+        self.assertIn("NEWCLAW_STAGE8_SANDBOX_BASE_URL", guide_source)
 
     def test_next_work_groups_are_grouped_and_prioritized(self) -> None:
         source = Path("NEXT_WORK_GROUPS_2026-03-13.md").read_text(encoding="utf-8")

@@ -415,6 +415,7 @@ bash scripts/manage_local_postgres.sh dsn
 - 계획 QA 스크립트: `scripts/run_plan_qa.sh`
 - 실행 스크립트: `scripts/run_dev_qa_cycle.sh`
 - Stage 8 자체평가 스크립트: `scripts/run_stage8_self_eval.sh`
+- Stage 8 readiness bundle: `scripts/run_stage8_readiness_bundle.sh`
 - 마이크로 사이클 스크립트: `scripts/run_micro_cycle.sh`
 - 전문가 에이전트 wrapper: `scripts/run_expert_agent_workflow.sh`
 - priority campaign wrapper: `scripts/run_priority_campaign.sh`
@@ -440,6 +441,7 @@ bash scripts/manage_local_postgres.sh dsn
 bash scripts/run_dev_qa_cycle.sh 4
 bash scripts/run_dev_qa_cycle.sh 8
 bash scripts/run_stage8_self_eval.sh
+bash scripts/run_stage8_readiness_bundle.sh
 bash scripts/run_micro_cycle.sh status stage8-w2-001
 bash scripts/run_expert_agent_workflow.sh status stage8-w5-022 8
 bash scripts/run_expert_agent_workflow.sh sync stage8-w5-022 8
