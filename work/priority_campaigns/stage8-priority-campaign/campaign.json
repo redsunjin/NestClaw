@@ -39,7 +39,9 @@
       "title": "Harden tool governance lifecycle",
       "unit_id": "stage8-w5-029",
       "goal": "Add tool validation harness, rollback path, and overlay cleanup automation",
-      "status": "in_progress"
+      "status": "completed",
+      "completed_unit_id": "stage8-w5-029",
+      "completed_at": "2026-03-14T17:47:00+00:00"
     },
     {
       "item_id": "g4-live-readiness",
@@ -47,7 +49,7 @@
       "title": "Close live readiness evidence gap",
       "unit_id": "stage8-w5-030",
       "goal": "Collect live rehearsal and runtime readiness evidence for remaining Stage 8 gaps",
-      "status": "pending"
+      "status": "in_progress"
     }
   ]
 }
