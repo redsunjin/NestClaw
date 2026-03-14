@@ -1,10 +1,10 @@
 # Micro Work Unit Card
 
-- unit_id: `stage8-w5-026`
-- goal: `Converge incident planning provenance and common planner-executor contract`
+- unit_id: `stage8-w5-027`
+- goal: `Add cross-action data binding and richer sequencing for multi-step plans`
 - target_stage: `8`
-- created_at_utc: `20260314T172203Z`
-- status: `DONE`
+- created_at_utc: `20260314T172635Z`
+- status: `SYNC_PENDING`
 
 ## Roles
 - Plan Lead: A01 (Product Owner)
@@ -19,7 +19,7 @@
 - [x] Review gate passed
 - [x] Implement gate passed
 - [x] Evaluate gate passed
-- [x] Sync evidence recorded
+- [ ] Sync evidence recorded
 
 ## Files
 - `PLAN_NOTES.md`

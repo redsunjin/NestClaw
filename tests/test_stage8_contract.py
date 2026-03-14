@@ -267,6 +267,8 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn("planned_actions", main_source)
         self.assertIn("eligible_tools", planner_source)
         self.assertIn("_task_tool_eligibility", main_source)
+        self.assertIn("BINDING_SUMMARY_OUTPUT", main_source)
+        self.assertIn("_apply_execution_bindings", main_source)
         self.assertIn("execution_call", main_source)
         self.assertIn("PLANNED_ACTION_EXECUTED", main_source)
         self.assertIn("provider_invocation", service_source)

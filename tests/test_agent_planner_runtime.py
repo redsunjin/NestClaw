@@ -71,7 +71,9 @@ class TestAgentPlannerRuntime(unittest.TestCase):
         )
         self.assertEqual(payload["action_results"][1]["tool_id"], "redmine.issue.create")
         self.assertEqual(payload["action_results"][1]["mode"], "dry-run")
+        self.assertIn("# 회의 결과 요약", payload["action_results"][1]["request_payload"]["description"])
         self.assertEqual(payload["action_results"][2]["tool_id"], "slack.message.send")
+        self.assertIn("# 회의 결과 요약", payload["action_results"][2]["request_payload"]["text_preview"])
 
         events_response = self.client.get(f"/api/v1/agent/events/{task_id}", headers=self.reviewer_headers)
         self.assertEqual(events_response.status_code, 200)
@@ -113,6 +115,8 @@ class TestAgentPlannerRuntime(unittest.TestCase):
             "redmine.issue.create",
             [item["tool_id"] for item in payload["planning_provenance"]["eligible_tools"] if item["eligible"]],
         )
+        self.assertIn("# 회의 결과 요약", payload["action_results"][1]["request_payload"]["description"])
+        self.assertIn("# 회의 결과 요약", payload["action_results"][2]["request_payload"]["text_preview"])
 
         events_response = self.client.get(f"/api/v1/agent/events/{task_id}", headers=self.reviewer_headers)
         self.assertEqual(events_response.status_code, 200)

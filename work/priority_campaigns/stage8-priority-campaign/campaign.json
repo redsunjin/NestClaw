@@ -9,7 +9,9 @@
       "title": "Converge incident planning provenance and planner/executor contract",
       "unit_id": "stage8-w5-026",
       "goal": "Converge incident planning provenance and common planner-executor contract",
-      "status": "in_progress"
+      "status": "completed",
+      "completed_unit_id": "stage8-w5-026",
+      "completed_at": "2026-03-14T17:26:35+00:00"
     },
     {
       "item_id": "g2-cross-action-binding",
@@ -17,7 +19,7 @@
       "title": "Add cross-action data binding for richer tool sequencing",
       "unit_id": "stage8-w5-027",
       "goal": "Add cross-action data binding and richer sequencing for multi-step plans",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "item_id": "g1-planner-provenance-ui",

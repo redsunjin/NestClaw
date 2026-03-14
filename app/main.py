@@ -165,6 +165,8 @@ INCIDENT_RUN_MODES = {"dry-run", "mcp-live", "live"}
 AGENT_ENTRYPOINT = "agent"
 SENSITIVE_TEXT_HINTS = ("internal only", "confidential", "sensitive", "민감", "내부 전용")
 TASK_TICKET_HINTS = ("ticket", "issue", "follow-up", "follow up", "tracker", "redmine", "후속", "티켓", "이슈", "등록")
+BINDING_SUMMARY_OUTPUT = "{{summary_output}}"
+BINDING_SUMMARY_EXCERPT = "{{summary_excerpt}}"
 
 
 def _build_incident_adapter_registry() -> dict[str, Any]:
@@ -587,6 +589,8 @@ def _task_ticket_description(task: dict[str, Any]) -> str:
         f"- date: {task_input.get('meeting_date', 'N/A')}\n"
         f"- requested_by: {task.get('requested_by', 'unknown')}\n"
         f"- participants: {participant_text}\n\n"
+        "## Summary Output\n"
+        f"{BINDING_SUMMARY_OUTPUT}\n\n"
         "## Notes\n"
         f"{task_input.get('notes', _task_request_text(task))}\n"
     )
@@ -660,7 +664,8 @@ def _task_slack_message(task: dict[str, Any]) -> str:
     task_input = dict(task.get("input") or {})
     return (
         f"[NestClaw] {task_input.get('meeting_title', 'Agent Request')} "
-        f"summary requested by {task.get('requested_by', 'unknown')}."
+        f"summary requested by {task.get('requested_by', 'unknown')}.\n\n"
+        f"{BINDING_SUMMARY_EXCERPT}"
     )
 
 
@@ -1028,18 +1033,47 @@ def _execution_call_for_action(planned_action: dict[str, Any]) -> dict[str, Any]
     return dict(planned_action.get("mcp_call") or {})
 
 
+def _summary_binding_context(prior_results: list[dict[str, Any]] | None) -> dict[str, str]:
+    summary_output = ""
+    for item in prior_results or []:
+        output_text = str(item.get("output_text") or "").strip()
+        if output_text:
+            summary_output = output_text
+            break
+    excerpt = summary_output[:280] if summary_output else ""
+    return {
+        BINDING_SUMMARY_OUTPUT: summary_output,
+        BINDING_SUMMARY_EXCERPT: excerpt,
+    }
+
+
+def _apply_execution_bindings(value: Any, binding_context: dict[str, str]) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _apply_execution_bindings(item, binding_context) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_apply_execution_bindings(item, binding_context) for item in value]
+    if isinstance(value, str):
+        resolved = value
+        for token, token_value in binding_context.items():
+            resolved = resolved.replace(token, token_value)
+        return resolved
+    return value
+
+
 def _dispatch_planned_action(
     task: dict[str, Any],
     planned_action: dict[str, Any],
     *,
     actor_context: dict[str, Any] | None = None,
     mcp_dry_run: bool = True,
+    prior_results: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     task_id = str(task.get("task_id") or "")
     execution_call = _execution_call_for_action(planned_action)
     adapter_name = str(execution_call.get("adapter") or "").strip()
     method = str(execution_call.get("method") or "").strip()
-    payload = dict(execution_call.get("payload") or {})
+    binding_context = _summary_binding_context(prior_results)
+    payload = dict(_apply_execution_bindings(dict(execution_call.get("payload") or {}), binding_context))
     if bool(payload.get("simulate_timeout")):
         raise TimeoutError("simulated incident mcp timeout")
 
@@ -1081,6 +1115,7 @@ def _dispatch_planned_action(
             "method": method,
             "mode": invocation.get("result_source"),
             "provider_invocation": invocation,
+            "request_payload": dict(payload),
             "output_text": summary_result.output_text,
         }
 
@@ -1103,6 +1138,7 @@ def _dispatch_planned_action(
         "method": method,
         "mode": mcp_result.get("mode"),
         "external_ref": mcp_result.get("response", {}).get("external_ref"),
+        "request_payload": dict(mcp_result.get("request_payload") or payload),
     }
     _log_event(
         task_id,
@@ -1191,7 +1227,9 @@ def _execute_once(task_id: str) -> bool:
             raise ValueError(f"unsupported template_type at runtime: {template_type}")
         planned_actions = list(task.get("planned_actions") or [])
 
-    action_results = [_dispatch_planned_action(task, planned_action) for planned_action in planned_actions]
+    action_results: list[dict[str, Any]] = []
+    for planned_action in planned_actions:
+        action_results.append(_dispatch_planned_action(task, planned_action, prior_results=action_results))
     summary_result = action_results[0]
     report_text = str(summary_result["output_text"])
 
@@ -1356,6 +1394,7 @@ def _execute_incident_once(task_id: str) -> bool:
                 action_card,
                 actor_context=actor_context,
                 mcp_dry_run=mcp_dry_run,
+                prior_results=action_results,
             )
         )
 
