@@ -134,6 +134,11 @@
 - Stage 8 종료 요약: `STAGE8_CLOSEOUT_SUMMARY_2026-03-06.md`
 - Stage 8 live rehearsal runbook: `STAGE8_LIVE_REHEARSAL_RUNBOOK_2026-03-07.md`
 - Agent tool surface 방향: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
+- Agent 통합 명세: `NESTCLAW_AGENT_INTEGRATION_SPEC.md`
+- Capability manifest: `NESTCLAW_CAPABILITY_MANIFEST.md`
+- Operator dashboard 원칙: `NESTCLAW_OPERATOR_DASHBOARD_PRINCIPLES.md`
+- Assistive chat panel 검토: `NESTCLAW_ASSISTIVE_CHAT_PANEL_REVIEW_2026-04-04.md`
+- 상위 에이전트/MCP/CLI/HTTP 예제: `NESTCLAW_INTEGRATION_EXAMPLES.md`
 - Stage 8 마이크로 작업 프로토콜: `MICRO_AGENT_WORKFLOW.md`
 
 ## 10) 현재 구현 상태
@@ -186,6 +191,7 @@
 - `slack.message.send` tool capability를 catalog에 등록했고 incident workflow에서 `notify_channel` 입력 시 함께 계획/실행할 수 있음
 - `/api/v1/tool-drafts`, `tool-draft`, `catalog.create_draft/get_draft`를 통해 reviewable tool registration draft를 생성할 수 있음
 - approver/admin은 draft를 `overlay registry`에 apply할 수 있고, apply 직후 catalog/runtime이 새 tool을 즉시 반영함
+- `/api/v1/capabilities`, `newclaw capabilities`, `catalog.manifest`로 현재 runtime capability manifest를 조회할 수 있음
 - 브라우저 root(`/`)는 단일 사용 Quickstart 화면이고, 고급 운영 화면은 `/console`에 제공함
 - Web Console에서 agent 자연어 요청을 제출하고 status/events를 같은 화면에서 확인할 수 있음
 - Web Console에서 승인 큐를 조회하고 approve/reject를 처리할 수 있음
@@ -211,6 +217,8 @@
 ### 10.3 다음 고도화 방향
 - `코어 서비스 -> HTTP/CLI/MCP 공통 표면` 구조로 재구성
 - menu형 CLI를 유지하되, 별도로 비대화형 tool CLI를 제공
+- 별도의 인간용 interactive TUI는 새 표면으로 만들지 않고, 다른 terminal/agent가 HTTP/CLI/MCP로 같은 runtime을 호출하게 한다
+- 사람을 위한 대화형 표면이 필요하면 `/console` 안의 보조 chat panel로 제한하고, 주 역할은 여전히 operator dashboard로 둔다
 - MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`, `catalog.*`를 직접 호출 가능하게 확장
 - `configs/tool_registry.yaml` 기반 execution tool catalog와 capability schema를 실제 실행 계층에 연결했다
 - `model registry selection -> provider invocation`은 summary path에 연결했다
@@ -225,6 +233,7 @@
 - NestClaw는 독립 UI로도 쓸 수 있지만, 상위 UX/상위 에이전트가 호출하는 하위 orchestration runtime이 될 수도 있다.
 - 예: `rfs-cli -> NestClaw -> Slack/Redmine/...`
 - 이 구조에서도 계획/도구 선택/승인 판단의 주체는 NestClaw이며, 상위 호출자는 고수준 목표만 넘긴다.
+- 따라서 사람용 TUI를 별도로 늘리기보다, agent-facing CLI와 MCP/HTTP 계약을 더 단단하게 만드는 편이 우선이다.
 
 코드 위치:
 - 서버: `app/main.py`
@@ -283,6 +292,7 @@ http://127.0.0.1:8000/console
 python3 app/cli.py submit --requested-by qa_user --task-kind task --request-text "운영회의 요약" --metadata-json '{"meeting_title":"ops sync","meeting_date":"2026-03-12","participants":["Kim"],"notes":"internal only"}' --json
 python3 app/cli.py status --task-id <task_id> --actor-id qa_user --json
 python3 app/cli.py events --task-id <task_id> --actor-id qa_user --json
+python3 app/cli.py capabilities --actor-id qa_user --json
 ```
 
 4. interactive menu CLI 실행

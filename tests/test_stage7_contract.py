@@ -55,6 +55,8 @@ class TestStage7Contract(unittest.TestCase):
         source = Path("scripts/run_browser_smoke.sh").read_text(encoding="utf-8")
         self.assertIn("vendor_imports/skills/skills/.curated/playwright/scripts/playwright_cli.sh", source)
         self.assertIn("TMPDIR", source)
+        self.assertIn("playwright session unavailable", source)
+        self.assertIn("connect ENOENT ${SESSION_NAME}", source)
 
     def test_cycle_script_supports_strict_gate_mode(self) -> None:
         source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")

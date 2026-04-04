@@ -12,7 +12,13 @@ if __package__ in {None, ""}:
 from fastapi import HTTPException
 
 from app.auth import ActorContext, VALID_ROLES
-from app.main import build_approval_service, build_orchestration_service, build_tool_catalog_service, build_tool_draft_service
+from app.main import (
+    build_approval_service,
+    build_capability_manifest_service,
+    build_orchestration_service,
+    build_tool_catalog_service,
+    build_tool_draft_service,
+)
 
 
 DEFAULT_ACTOR_ID = "user_cli"
@@ -23,6 +29,7 @@ VALID_INCIDENT_RUN_MODES = ("dry-run", "mcp-live", "live")
 CLI_ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=True)
 CLI_APPROVAL_SERVICE = build_approval_service(sync_execution=True)
 CLI_TOOL_CATALOG_SERVICE = build_tool_catalog_service()
+CLI_CAPABILITY_MANIFEST_SERVICE = build_capability_manifest_service()
 CLI_TOOL_DRAFT_SERVICE = build_tool_draft_service()
 
 MENU_ACTOR_ID = DEFAULT_ACTOR_ID
@@ -46,9 +53,9 @@ def _actor_context(actor_id: str, actor_role: str, *, source: str = "cli") -> Ac
     return ActorContext(actor_id=actor_id.strip(), actor_role=normalized_role, source=source)
 
 
-def _invoke(callable_obj: Any, *args: Any) -> tuple[dict[str, Any], int]:
+def _invoke(callable_obj: Any, *args: Any, **kwargs: Any) -> tuple[dict[str, Any], int]:
     try:
-        payload = callable_obj(*args)
+        payload = callable_obj(*args, **kwargs)
     except HTTPException as exc:
         return _coerce_http_error(exc), 1
     except ValueError as exc:
@@ -113,6 +120,22 @@ def _events_payload(task_id: str, *, actor_id: str, actor_role: str) -> tuple[di
     return _invoke(CLI_ORCHESTRATION_SERVICE.agent_events, task_id, actor)
 
 
+def _recent_payload(*, limit: int, actor_id: str, actor_role: str) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    return _invoke(CLI_ORCHESTRATION_SERVICE.agent_recent, actor, limit=limit)
+
+
+def _report_payload(
+    task_id: str,
+    *,
+    max_chars: int,
+    actor_id: str,
+    actor_role: str,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    return _invoke(CLI_ORCHESTRATION_SERVICE.agent_report, task_id, actor, max_chars=max_chars)
+
+
 def _approve_payload(
     queue_id: str,
     *,
@@ -137,6 +160,27 @@ def _reject_payload(
     return _invoke(CLI_APPROVAL_SERVICE.reject, queue_id, {"acted_by": acted_by, "comment": comment}, actor)
 
 
+def _approvals_payload(
+    *,
+    status: str | None,
+    approver_group: str | None,
+    actor_id: str,
+    actor_role: str,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    return _invoke(CLI_APPROVAL_SERVICE.list_approvals, status, approver_group, actor)
+
+
+def _approval_detail_payload(
+    queue_id: str,
+    *,
+    actor_id: str,
+    actor_role: str,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    return _invoke(CLI_APPROVAL_SERVICE.get_approval, queue_id, actor)
+
+
 def _tools_payload(
     *,
     actor_id: str,
@@ -149,6 +193,15 @@ def _tools_payload(
     if tool_id:
         return _invoke(CLI_TOOL_CATALOG_SERVICE.get_tool, tool_id, actor)
     return _invoke(CLI_TOOL_CATALOG_SERVICE.list_tools, capability_family, external_system, actor)
+
+
+def _capabilities_payload(
+    *,
+    actor_id: str,
+    actor_role: str,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    return _invoke(CLI_CAPABILITY_MANIFEST_SERVICE.get_manifest, actor)
 
 
 def _tool_draft_payload(
@@ -273,6 +326,71 @@ def _print_approval_result(payload: dict[str, Any]) -> None:
     print()
 
 
+def _print_approval_detail(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    item = payload.get("item") or {}
+    task_summary = payload.get("task_summary") or {}
+    print("\n[승인 상세]")
+    print(f"- Queue ID: {payload.get('queue_id', '-')}")
+    print(f"- 승인 상태: {item.get('status', '-')}")
+    print(f"- 사유: {item.get('reason_code', '-')}")
+    print(f"- 요청자: {item.get('requested_by', '-')}")
+    print(f"- Task ID: {task_summary.get('task_id', item.get('task_id', '-'))}")
+    print(f"- Task 상태: {task_summary.get('status', '-')}")
+    actions = payload.get("actions") or []
+    if actions:
+      print("- 이력:")
+      for action in actions:
+          line = f"  - {action.get('created_at', '-')} {action.get('action', '-')} by {action.get('acted_by', '-')}"
+          if action.get("comment"):
+              line += f" :: {action.get('comment')}"
+          print(line)
+    print()
+
+
+def _print_approvals(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    print("\n[승인 목록]")
+    for item in payload.get("items", []):
+        print(
+            f"- {item.get('queue_id', '-')}: {item.get('status', '-')} / "
+            f"{item.get('reason_code', '-')} / task={item.get('task_id', '-')}"
+        )
+    print()
+
+
+def _print_recent(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    print("\n[최근 작업]")
+    for item in payload.get("items", []):
+        print(
+            f"- {item.get('task_id', '-')}: {item.get('resolved_kind', '-')} / {item.get('status', '-')} / "
+            f"{item.get('title', '-')}"
+        )
+    print()
+
+
+def _print_report(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    print("\n[보고서 미리보기]")
+    print(f"- Task ID: {payload.get('task_id', '-')}")
+    print(f"- 종류: {payload.get('resolved_kind', '-')}")
+    print(f"- 상태: {payload.get('status', '-')}")
+    print(f"- 파일: {payload.get('report_path', '-')}")
+    print(f"- Raw URL: {payload.get('raw_url', '-')}")
+    print()
+    print(payload.get("preview_text", ""))
+    print()
+
+
 def _print_tools(payload: dict[str, Any]) -> None:
     if "error" in payload:
         _print_status(payload)
@@ -290,6 +408,24 @@ def _print_tools(payload: dict[str, Any]) -> None:
     print(f"- 분류: {payload.get('capability_family', '-')}")
     print(f"- 메서드: {payload.get('method', '-')}")
     print(f"- Dry-run 지원: {payload.get('supports_dry_run', '-')}")
+    print()
+
+
+def _print_capabilities(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    print("\n[Capability Manifest]")
+    print(f"- Product posture: {payload.get('product_posture', '-')}")
+    print(f"- Primary entrypoint: {payload.get('primary_entrypoint', '-')}")
+    print(f"- Roles: {', '.join(payload.get('roles', [])) or '-'}")
+    tool_catalog = payload.get("tool_catalog") or {}
+    print(f"- Tool count: {tool_catalog.get('count', '-')}")
+    readiness = (payload.get("readiness") or {}).get("stage8_live_readiness") or {}
+    print(f"- Stage8 live readiness: {readiness.get('status', '-')}")
+    missing = readiness.get("missing_env") or []
+    if missing:
+        print(f"- Missing env: {', '.join(missing)}")
     print()
 
 
@@ -317,6 +453,21 @@ def _emit_payload(payload: dict[str, Any], *, as_json: bool, command: str) -> No
         return
     if command == "tools":
         _print_tools(payload)
+        return
+    if command == "capabilities":
+        _print_capabilities(payload)
+        return
+    if command == "recent":
+        _print_recent(payload)
+        return
+    if command == "report":
+        _print_report(payload)
+        return
+    if command == "approvals":
+        _print_approvals(payload)
+        return
+    if command == "approval-get":
+        _print_approval_detail(payload)
         return
     if command == "tool-draft":
         _print_tool_draft(payload)
@@ -483,6 +634,32 @@ def build_parser() -> argparse.ArgumentParser:
     events_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
     events_parser.add_argument("--json", action="store_true")
 
+    recent_parser = subparsers.add_parser("recent", help="show recent agent tasks")
+    recent_parser.add_argument("--limit", type=int, default=10)
+    recent_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    recent_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    recent_parser.add_argument("--json", action="store_true")
+
+    report_parser = subparsers.add_parser("report", help="show agent report preview")
+    report_parser.add_argument("--task-id", required=True)
+    report_parser.add_argument("--max-chars", type=int, default=4000)
+    report_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    report_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    report_parser.add_argument("--json", action="store_true")
+
+    approvals_parser = subparsers.add_parser("approvals", help="list approval queue items")
+    approvals_parser.add_argument("--status")
+    approvals_parser.add_argument("--approver-group")
+    approvals_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    approvals_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default="approver")
+    approvals_parser.add_argument("--json", action="store_true")
+
+    approval_get_parser = subparsers.add_parser("approval-get", help="show one approval queue item")
+    approval_get_parser.add_argument("--queue-id", required=True)
+    approval_get_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    approval_get_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default="approver")
+    approval_get_parser.add_argument("--json", action="store_true")
+
     approve_parser = subparsers.add_parser("approve", help="approve a pending queue item")
     approve_parser.add_argument("--queue-id", required=True)
     approve_parser.add_argument("--acted-by", required=True)
@@ -506,6 +683,11 @@ def build_parser() -> argparse.ArgumentParser:
     tools_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
     tools_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
     tools_parser.add_argument("--json", action="store_true")
+
+    capabilities_parser = subparsers.add_parser("capabilities", help="show current orchestration capability manifest")
+    capabilities_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    capabilities_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    capabilities_parser.add_argument("--json", action="store_true")
 
     tool_draft_parser = subparsers.add_parser("tool-draft", help="create or fetch a tool registration draft")
     tool_draft_parser.add_argument("--draft-id")
@@ -590,6 +772,40 @@ def main(argv: Sequence[str] | None = None) -> int:
         _emit_payload(payload, as_json=args.json, command="events")
         return exit_code
 
+    if args.command == "recent":
+        payload, exit_code = _recent_payload(limit=args.limit, actor_id=args.actor_id, actor_role=args.actor_role)
+        _emit_payload(payload, as_json=args.json, command="recent")
+        return exit_code
+
+    if args.command == "report":
+        payload, exit_code = _report_payload(
+            args.task_id,
+            max_chars=args.max_chars,
+            actor_id=args.actor_id,
+            actor_role=args.actor_role,
+        )
+        _emit_payload(payload, as_json=args.json, command="report")
+        return exit_code
+
+    if args.command == "approvals":
+        payload, exit_code = _approvals_payload(
+            status=args.status,
+            approver_group=args.approver_group,
+            actor_id=args.actor_id,
+            actor_role=args.actor_role,
+        )
+        _emit_payload(payload, as_json=args.json, command="approvals")
+        return exit_code
+
+    if args.command == "approval-get":
+        payload, exit_code = _approval_detail_payload(
+            args.queue_id,
+            actor_id=args.actor_id,
+            actor_role=args.actor_role,
+        )
+        _emit_payload(payload, as_json=args.json, command="approval-get")
+        return exit_code
+
     if args.command == "approve":
         payload, exit_code = _approve_payload(
             args.queue_id,
@@ -621,6 +837,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             external_system=args.external_system,
         )
         _emit_payload(payload, as_json=args.json, command="tools")
+        return exit_code
+
+    if args.command == "capabilities":
+        payload, exit_code = _capabilities_payload(actor_id=args.actor_id, actor_role=args.actor_role)
+        _emit_payload(payload, as_json=args.json, command="capabilities")
         return exit_code
 
     if args.command == "tool-draft":

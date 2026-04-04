@@ -121,11 +121,15 @@ class TestMcpServerSmoke(unittest.TestCase):
                 "agent.submit",
                 "agent.status",
                 "agent.events",
+                "agent.recent",
+                "agent.report",
                 "approval.list",
+                "approval.get",
                 "approval.approve",
                 "approval.reject",
                 "catalog.list",
                 "catalog.get",
+                "catalog.manifest",
                 "catalog.create_draft",
                 "catalog.get_draft",
                 "catalog.validate_draft",
@@ -133,6 +137,79 @@ class TestMcpServerSmoke(unittest.TestCase):
                 "catalog.rollback_tool",
             },
         )
+
+    def test_catalog_manifest_returns_runtime_capabilities(self) -> None:
+        response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 20,
+                "method": "tools/call",
+                "params": {
+                    "name": "catalog.manifest",
+                    "arguments": {"actor_id": "qa_user"},
+                },
+            }
+        )
+        payload = response["result"]["structuredContent"]
+        self.assertEqual(payload["product_posture"], "orchestration_backend_with_human_dashboard")
+        self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
+        self.assertIn("requester", payload["roles"])
+        self.assertGreaterEqual(int(payload["tool_catalog"]["count"]), 6)
+
+    def test_agent_recent_and_report_tools_cover_observe_loop(self) -> None:
+        submit_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 20_1,
+                "method": "tools/call",
+                "params": {
+                    "name": "agent.submit",
+                    "arguments": {
+                        "request_text": "주간 운영회의 메모를 요약하고 액션 아이템을 정리해줘",
+                        "requested_by": "qa_user",
+                        "task_kind": "task",
+                        "metadata": {
+                            "meeting_title": "ops sync",
+                            "meeting_date": "2026-03-12",
+                            "participants": ["Kim"],
+                            "notes": "internal only",
+                        },
+                        "actor_id": "qa_user",
+                    },
+                },
+            }
+        )
+        submit_payload = submit_response["result"]["structuredContent"]
+        task_id = submit_payload["task_id"]
+
+        recent_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 20_2,
+                "method": "tools/call",
+                "params": {
+                    "name": "agent.recent",
+                    "arguments": {"actor_id": "qa_user", "limit": 5},
+                },
+            }
+        )
+        recent_payload = recent_response["result"]["structuredContent"]
+        self.assertIn(task_id, {item["task_id"] for item in recent_payload["items"]})
+
+        report_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 20_3,
+                "method": "tools/call",
+                "params": {
+                    "name": "agent.report",
+                    "arguments": {"task_id": task_id, "actor_id": "qa_user", "max_chars": 500},
+                },
+            }
+        )
+        report_payload = report_response["result"]["structuredContent"]
+        self.assertEqual(report_payload["task_id"], task_id)
+        self.assertEqual(report_payload["status"], "DONE")
 
     def test_catalog_tools_return_registered_capabilities(self) -> None:
         list_response = self._request(
@@ -167,6 +244,48 @@ class TestMcpServerSmoke(unittest.TestCase):
         get_payload = get_response["result"]["structuredContent"]
         self.assertEqual(get_payload["adapter"], "redmine_mcp")
         self.assertEqual(get_payload["method"], "issue.create")
+
+    def test_approval_get_returns_detail(self) -> None:
+        submit_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 22_1,
+                "method": "tools/call",
+                "params": {
+                    "name": "agent.submit",
+                    "arguments": {
+                        "request_text": "요약 결과를 외부 전송 해주세요",
+                        "requested_by": "qa_user",
+                        "task_kind": "task",
+                        "metadata": {
+                            "meeting_title": "approval-needed",
+                            "meeting_date": "2026-03-12",
+                            "participants": ["Ops"],
+                            "notes": "요약 결과를 외부 전송 해주세요",
+                        },
+                        "actor_id": "qa_user",
+                    },
+                },
+            }
+        )
+        submit_payload = submit_response["result"]["structuredContent"]
+        queue_id = submit_payload["approval_queue_id"]
+        task_id = submit_payload["task_id"]
+
+        detail_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 22_2,
+                "method": "tools/call",
+                "params": {
+                    "name": "approval.get",
+                    "arguments": {"queue_id": queue_id, "actor_id": "qa_approver", "actor_role": "approver"},
+                },
+            }
+        )
+        detail_payload = detail_response["result"]["structuredContent"]
+        self.assertEqual(detail_payload["queue_id"], queue_id)
+        self.assertEqual(detail_payload["task_summary"]["task_id"], task_id)
 
     def test_catalog_draft_tools_create_and_fetch_draft(self) -> None:
         create_response = self._request(

@@ -60,6 +60,8 @@ Delivery Surfaces
 
 ## CLI 방향
 현재 menu CLI는 유지하되, 다음 단계의 기본은 비대화형 CLI다.
+별도의 인간용 interactive TUI를 새 제품 표면으로 만드는 것은 우선순위가 아니다.
+대신 다른 terminal/agent/client가 같은 service 계층을 호출할 수 있는 agent-facing CLI를 강화한다.
 
 권장 명령:
 - `newclaw submit --text "..." --kind auto --json`
@@ -73,6 +75,7 @@ CLI 원칙:
 - exit code 고정
 - stdin/json 입력 지원
 - 대화형 menu는 데모/로컬 운영 보조 경로로만 유지
+- 사람을 위한 별도 TUI보다 에이전트를 위한 non-interactive CLI가 우선이다
 
 ## MCP 방향
 MCP는 CLI를 감싸는 것이 아니라, 같은 코어 서비스를 tool로 노출한다.
@@ -99,6 +102,7 @@ MCP 원칙:
 
 3. operator UI 정리
 - planner provenance와 approval reasoning이 보이는 최소 운영 콘솔을 붙인다.
+- dashboard 안에 chat 기능이 들어오더라도 operator workflow를 보조하는 수준으로 제한한다.
 
 ## 다음 MWU 후보
 1. `agent-s9-tool-planning-loop`

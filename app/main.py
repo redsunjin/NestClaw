@@ -35,6 +35,8 @@ from app.slack_adapter import execute_slack_action
 from app.services import (
     ApprovalService,
     ApprovalServiceDeps,
+    CapabilityManifestService,
+    CapabilityManifestServiceDeps,
     OrchestrationService,
     OrchestrationServiceDeps,
     ToolCatalogService,
@@ -1696,6 +1698,15 @@ def build_tool_catalog_service() -> ToolCatalogService:
     )
 
 
+def build_capability_manifest_service() -> CapabilityManifestService:
+    return CapabilityManifestService(
+        CapabilityManifestServiceDeps(
+            registry=TOOL_REGISTRY,
+            authorize=_authorize,
+        )
+    )
+
+
 def build_tool_draft_service() -> ToolDraftService:
     return ToolDraftService(
         ToolDraftServiceDeps(
@@ -1713,6 +1724,7 @@ def build_tool_draft_service() -> ToolDraftService:
 ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=False)
 APPROVAL_SERVICE = build_approval_service(sync_execution=False)
 TOOL_CATALOG_SERVICE = build_tool_catalog_service()
+CAPABILITY_MANIFEST_SERVICE = build_capability_manifest_service()
 TOOL_DRAFT_SERVICE = build_tool_draft_service()
 
 
@@ -1787,6 +1799,13 @@ def list_tools(
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
     return TOOL_CATALOG_SERVICE.list_tools(capability_family, external_system, actor)
+
+
+@APP.get("/api/v1/capabilities")
+def capabilities(
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return CAPABILITY_MANIFEST_SERVICE.get_manifest(actor)
 
 
 @APP.get("/api/v1/tools/{tool_id}")

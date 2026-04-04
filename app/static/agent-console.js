@@ -30,6 +30,9 @@ const toolList = document.querySelector("#tool-list");
 const approvalList = document.querySelector("#approval-list");
 const approvalDetail = document.querySelector("#approval-detail");
 const healthBadge = document.querySelector("#health-badge");
+const readinessBadge = document.querySelector("#readiness-badge");
+const capabilitySummary = document.querySelector("#capability-summary");
+const roleScopedElements = [...document.querySelectorAll("[data-role-scope]")];
 let currentTaskId = "";
 let currentApprovalQueueId = "";
 
@@ -64,6 +67,21 @@ async function requestJson(url, options = {}) {
 
 function printOutput(title, payload) {
   output.textContent = `${title}\n\n${JSON.stringify(payload, null, 2)}`;
+}
+
+function isElevatedRole(role = actorRoleSelect.value) {
+  return ["approver", "admin"].includes(role);
+}
+
+function applyRoleVisibility() {
+  const role = actorRoleSelect.value;
+  roleScopedElements.forEach((element) => {
+    const allowed = String(element.dataset.roleScope || "")
+      .split(/\s+/)
+      .filter(Boolean);
+    const isVisible = !allowed.length || allowed.includes(role);
+    element.classList.toggle("is-role-hidden", !isVisible);
+  });
 }
 
 function setAgentSummary(lines) {
@@ -110,6 +128,22 @@ function plannerSummaryLines(payload) {
     provenance.fallback_reason ? `fallback_reason: ${provenance.fallback_reason}` : "",
     `planned_tools: ${toolFlow(plannedTools)}`,
     executedTools.length ? `executed_tools: ${toolFlow(executedTools)}` : "",
+  ].filter(Boolean);
+}
+
+function capabilitySummaryLines(payload) {
+  const families = (payload?.workflow_families || [])
+    .map((item) => `${item.kind}: ${item.status}`)
+    .join("\n");
+  const toolCount = payload?.tool_catalog?.count ?? "-";
+  const readiness = payload?.readiness?.stage8_live_readiness || {};
+  const missing = (readiness.missing_env || []).slice(0, 2);
+  return [
+    `entrypoint: ${payload?.primary_entrypoint || "-"}`,
+    families ? `families: ${families}` : "",
+    `tool_count: ${toolCount}`,
+    `live_readiness: ${readiness.status || "-"}`,
+    missing.length ? `missing_env: ${missing.join(", ")}` : "",
   ].filter(Boolean);
 }
 
@@ -216,6 +250,7 @@ function renderTools(items) {
 }
 
 function renderApprovals(items) {
+  const elevated = isElevatedRole();
   if (!items.length) {
     approvalList.innerHTML = '<div class="approval-card"><h3>승인 항목 없음</h3><p class="tool-meta">현재 필터에 맞는 승인 요청이 없습니다.</p></div>';
     return;
@@ -231,8 +266,8 @@ function renderApprovals(items) {
           <p class="tool-meta">approver_group: ${item.approver_group}</p>
           <div class="approval-actions">
             <button class="button subtle" type="button" data-approval-detail="${item.queue_id}">상세/이력</button>
-            <button class="button subtle" type="button" data-approve="${item.queue_id}">Approve</button>
-            <button class="button danger" type="button" data-reject="${item.queue_id}">Reject</button>
+            ${elevated ? `<button class="button subtle" type="button" data-approve="${item.queue_id}">Approve</button>` : ""}
+            ${elevated ? `<button class="button danger" type="button" data-reject="${item.queue_id}">Reject</button>` : ""}
           </div>
         </article>
       `
@@ -299,6 +334,16 @@ async function loadHealth() {
     healthBadge.textContent = "서버 오류";
     healthBadge.className = "badge fail";
   }
+}
+
+async function loadCapabilities() {
+  const payload = await requestJson("/api/v1/capabilities");
+  capabilitySummary.textContent = capabilitySummaryLines(payload).join("\n");
+  const readiness = payload?.readiness?.stage8_live_readiness || {};
+  const isReady = readiness.status === "ready";
+  readinessBadge.textContent = isReady ? "ready" : "blocked";
+  readinessBadge.className = `badge ${isReady ? "ok" : "pending"}`;
+  return payload;
 }
 
 async function loadTools() {
@@ -381,7 +426,7 @@ async function loadAgentStatus(taskId = currentTaskId) {
     setReportPreview("아직 생성된 보고서가 없습니다.");
   }
   printOutput("Agent 상태", payload);
-  if (payload.status === "NEEDS_HUMAN_APPROVAL") {
+  if (payload.status === "NEEDS_HUMAN_APPROVAL" && isElevatedRole()) {
     await loadApprovals();
   }
   return payload;
@@ -748,8 +793,19 @@ document.querySelector("#apply-draft").addEventListener("click", async () => {
   }
 });
 
-  await loadHealth();
+actorRoleSelect.addEventListener("change", async () => {
+  applyRoleVisibility();
+  try {
+    await loadCapabilities();
+  } catch (error) {
+    printOutput("Capability 로딩 오류", { error: String(error.message || error) });
+  }
+});
+
+applyRoleVisibility();
+await loadHealth();
 try {
+  await loadCapabilities();
   fillAgentExample("task");
   await loadTools();
   await loadRecentTasks();

@@ -63,6 +63,12 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(status_payload["status"], "DONE")
 
+        exit_code, report_payload = self._run_cli_json("report", "--task-id", task_id, "--actor-id", "qa_user")
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(report_payload["task_id"], task_id)
+        self.assertEqual(report_payload["status"], "DONE")
+        self.assertIn("report.md", report_payload["report_name"])
+
         exit_code, events_payload = self._run_cli_json("events", "--task-id", task_id, "--actor-id", "qa_user")
         self.assertEqual(exit_code, 0)
         self.assertGreaterEqual(int(events_payload["count"]), 3)
@@ -78,6 +84,58 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertIn("internal.summary.generate", tool_ids)
         self.assertIn("redmine.issue.create", tool_ids)
         self.assertIn("slack.message.send", tool_ids)
+
+    def test_capabilities_command_returns_manifest(self) -> None:
+        exit_code, payload = self._run_cli_json("capabilities", "--actor-id", "qa_user")
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(payload["product_posture"], "orchestration_backend_with_human_dashboard")
+        self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
+        self.assertIn("catalog.manifest", payload["controls"]["safe_for_upper_agents"])
+
+    def test_recent_approvals_and_approval_get_cover_observe_loop(self) -> None:
+        exit_code, submit_payload = self._run_cli_json(
+            "submit",
+            "--requested-by",
+            "qa_user",
+            "--task-kind",
+            "task",
+            "--request-text",
+            "요약 결과를 외부 전송 해주세요",
+            "--metadata-json",
+            json.dumps(
+                {
+                    "meeting_title": "approval-needed",
+                    "meeting_date": "2026-03-12",
+                    "participants": ["Ops"],
+                    "notes": "요약 결과를 외부 전송 해주세요",
+                },
+                ensure_ascii=False,
+            ),
+        )
+        self.assertEqual(exit_code, 0)
+        task_id = str(submit_payload["task_id"])
+        queue_id = str(submit_payload["approval_queue_id"])
+
+        exit_code, recent_payload = self._run_cli_json("recent", "--actor-id", "qa_user")
+        self.assertEqual(exit_code, 0)
+        self.assertIn(task_id, {item["task_id"] for item in recent_payload["items"]})
+
+        exit_code, approvals_payload = self._run_cli_json("approvals", "--actor-role", "approver", "--actor-id", "qa_approver")
+        self.assertEqual(exit_code, 0)
+        self.assertIn(queue_id, {item["queue_id"] for item in approvals_payload["items"]})
+
+        exit_code, approval_detail_payload = self._run_cli_json(
+            "approval-get",
+            "--queue-id",
+            queue_id,
+            "--actor-role",
+            "approver",
+            "--actor-id",
+            "qa_approver",
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(approval_detail_payload["queue_id"], queue_id)
+        self.assertEqual(approval_detail_payload["task_summary"]["task_id"], task_id)
 
     def test_tool_draft_command_creates_reviewable_slack_draft(self) -> None:
         exit_code, payload = self._run_cli_json(

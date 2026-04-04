@@ -121,20 +121,18 @@ async function loadRecent() {
   const payload = await requestJson("/api/v1/agent/recent?limit=5");
   const items = payload.items || [];
   if (!items.length) {
-      recentBox.innerHTML = '<article class="recent-card"><h3>최근 요청 없음</h3><p class="recent-meta">아직 최근 요청이 없습니다.</p></article>';
+      recentBox.innerHTML = '<article class="recent-row recent-empty"><span class="recent-title">최근 요청 없음</span><span class="recent-meta-inline">아직 최근 요청이 없습니다.</span></article>';
     return;
   }
   recentBox.innerHTML = items
     .map(
       (item) => `
-        <article class="recent-card">
-          <h3>${item.title || item.task_id}</h3>
-          <p class="recent-meta">task_id: ${item.task_id}</p>
-          <p class="recent-meta">kind/status: ${item.resolved_kind} / ${item.status}</p>
-          <p class="recent-meta">${plannerSummaryFromRecent(item).join(" | ")}</p>
-          <div class="recent-actions">
-            <button class="subtle" type="button" data-load-task="${item.task_id}">불러오기</button>
+        <article class="recent-row">
+          <div class="recent-copy">
+            <p class="recent-title">${item.title || item.task_id}</p>
+            <p class="recent-meta-inline">${item.resolved_kind} / ${item.status} / ${toolFlow(item.planned_tool_ids || [])}</p>
           </div>
+          <button class="subtle compact-button" type="button" data-load-task="${item.task_id}">불러오기</button>
         </article>
       `
     )

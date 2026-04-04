@@ -12,7 +12,13 @@ if __package__ in {None, ""}:
 from fastapi import HTTPException
 
 from app.auth import ActorContext, VALID_ROLES
-from app.main import build_approval_service, build_orchestration_service, build_tool_catalog_service, build_tool_draft_service
+from app.main import (
+    build_approval_service,
+    build_capability_manifest_service,
+    build_orchestration_service,
+    build_tool_catalog_service,
+    build_tool_draft_service,
+)
 
 
 SERVER_NAME = "newclaw-mcp"
@@ -50,9 +56,9 @@ def _actor_context(actor_id: str, actor_role: str, *, source: str = "mcp") -> Ac
     return ActorContext(actor_id=normalized_actor_id, actor_role=normalized_role, source=source)
 
 
-def _invoke(callable_obj: Callable[..., dict[str, Any]], *args: Any) -> dict[str, Any]:
+def _invoke(callable_obj: Callable[..., dict[str, Any]], *args: Any, **kwargs: Any) -> dict[str, Any]:
     try:
-        return callable_obj(*args)
+        return callable_obj(*args, **kwargs)
     except HTTPException as exc:
         return _coerce_http_error(exc)
     except ValueError as exc:
@@ -66,6 +72,7 @@ class NewClawMcpServer:
         self.orchestration_service = build_orchestration_service(sync_execution=True)
         self.approval_service = build_approval_service(sync_execution=True)
         self.tool_catalog_service = build_tool_catalog_service()
+        self.capability_manifest_service = build_capability_manifest_service()
         self.tool_draft_service = build_tool_draft_service()
         self.initialized = False
         self.tools = self._build_tools()
@@ -126,6 +133,39 @@ class NewClawMcpServer:
                 },
                 handler=self._handle_agent_events,
             ),
+            "agent.recent": ToolSpec(
+                name="agent.recent",
+                title="Get Recent Agent Tasks",
+                description="Fetch recent agent tasks visible to the current actor.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_agent_recent,
+            ),
+            "agent.report": ToolSpec(
+                name="agent.report",
+                title="Get Agent Report Preview",
+                description="Fetch report preview and raw URL for a completed agent workflow.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "task_id": {"type": "string"},
+                        "max_chars": {"type": "integer"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["task_id", "actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_agent_report,
+            ),
             "approval.list": ToolSpec(
                 name="approval.list",
                 title="List Approvals",
@@ -142,6 +182,22 @@ class NewClawMcpServer:
                     "additionalProperties": False,
                 },
                 handler=self._handle_approval_list,
+            ),
+            "approval.get": ToolSpec(
+                name="approval.get",
+                title="Get Approval Detail",
+                description="Fetch one approval queue item with action history.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "queue_id": {"type": "string"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["queue_id", "actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_approval_get,
             ),
             "approval.approve": ToolSpec(
                 name="approval.approve",
@@ -211,6 +267,21 @@ class NewClawMcpServer:
                     "additionalProperties": False,
                 },
                 handler=self._handle_catalog_get,
+            ),
+            "catalog.manifest": ToolSpec(
+                name="catalog.manifest",
+                title="Get Orchestration Capability Manifest",
+                description="Fetch the current capability manifest for NestClaw orchestration runtime.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_catalog_manifest,
             ),
             "catalog.create_draft": ToolSpec(
                 name="catalog.create_draft",
@@ -356,6 +427,21 @@ class NewClawMcpServer:
         actor = self._tool_actor(arguments, default_role="requester")
         return _invoke(self.orchestration_service.agent_events, str(arguments.get("task_id") or ""), actor)
 
+    def _handle_agent_recent(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="requester")
+        limit = int(arguments.get("limit") or 10)
+        return _invoke(self.orchestration_service.agent_recent, actor, limit=limit)
+
+    def _handle_agent_report(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="requester")
+        max_chars = int(arguments.get("max_chars") or 4000)
+        return _invoke(
+            self.orchestration_service.agent_report,
+            str(arguments.get("task_id") or ""),
+            actor,
+            max_chars=max_chars,
+        )
+
     def _handle_approval_list(self, arguments: dict[str, Any]) -> dict[str, Any]:
         actor = self._tool_actor(arguments, default_role="approver")
         return _invoke(
@@ -364,6 +450,10 @@ class NewClawMcpServer:
             arguments.get("approver_group"),
             actor,
         )
+
+    def _handle_approval_get(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="approver")
+        return _invoke(self.approval_service.get_approval, str(arguments.get("queue_id") or ""), actor)
 
     def _handle_approval_approve(self, arguments: dict[str, Any]) -> dict[str, Any]:
         actor = self._tool_actor(arguments, default_role="approver")
@@ -387,6 +477,10 @@ class NewClawMcpServer:
     def _handle_catalog_get(self, arguments: dict[str, Any]) -> dict[str, Any]:
         actor = self._tool_actor(arguments, default_role="requester")
         return _invoke(self.tool_catalog_service.get_tool, str(arguments.get("tool_id") or ""), actor)
+
+    def _handle_catalog_manifest(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="requester")
+        return _invoke(self.capability_manifest_service.get_manifest, actor)
 
     def _handle_catalog_create_draft(self, arguments: dict[str, Any]) -> dict[str, Any]:
         actor = self._tool_actor(arguments, default_role="requester")

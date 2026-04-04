@@ -24,10 +24,10 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("text/html", response.headers.get("content-type", ""))
         body = response.text
         self.assertIn("NestClaw Quickstart", body)
-        self.assertIn("한 칸으로 시작하는 실행 에이전트", body)
-        self.assertIn("요청", body)
-        self.assertIn("결과", body)
-        self.assertIn("Planner", body)
+        self.assertIn("한 줄 오케스트레이션", body)
+        self.assertIn("Identity", body)
+        self.assertIn("Runtime", body)
+        self.assertIn("Planner Provenance", body)
         self.assertIn("/static/agent-quickstart.js", body)
 
         console_response = self.client.get("/console")
@@ -36,6 +36,8 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("NestClaw Web Console", console_body)
         self.assertIn("도구 카탈로그", console_body)
         self.assertIn("승인 상세 / 이력", console_body)
+        self.assertIn("Capability / Readiness", console_body)
+        self.assertIn("capability-summary", console_body)
         self.assertIn("아직 planner 정보가 없습니다.", console_body)
         self.assertIn("/static/agent-console.js", console_body)
 
@@ -62,6 +64,7 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("/api/v1/agent/report/", js_response.text)
         self.assertIn("/api/v1/agent/status/", js_response.text)
         self.assertIn("/api/v1/agent/events/", js_response.text)
+        self.assertIn("/api/v1/capabilities", js_response.text)
         self.assertIn("/api/v1/approvals", js_response.text)
         self.assertIn("/api/v1/approvals/", js_response.text)
         self.assertIn("${queueId}/${action}", js_response.text)
@@ -81,11 +84,11 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn(".history-card", css_response.text)
         self.assertIn(".report-preview-card", css_response.text)
         self.assertIn(".approval-history-card", css_response.text)
-        self.assertIn(".planner-grid", css_response.text)
+        self.assertIn(".console-layout", css_response.text)
 
         quick_css = self.client.get("/static/agent-quickstart.css")
         self.assertEqual(quick_css.status_code, 200)
-        self.assertIn(".status-grid", quick_css.text)
+        self.assertIn(".results-grid", quick_css.text)
         self.assertIn(".recent-card", quick_css.text)
 
 

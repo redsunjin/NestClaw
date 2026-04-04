@@ -441,7 +441,35 @@ workflow 종류를 몰라도 단일 경로로 이벤트 로그를 조회한다.
 }
 ```
 
-## 4.14 POST `/api/v1/tool-drafts`
+## 4.14 GET `/api/v1/capabilities`
+현재 orchestration runtime의 capability manifest를 조회한다.
+
+권한:
+- 허용 role: `requester`, `reviewer`, `approver`, `admin`
+
+응답:
+```json
+{
+  "manifest_version": "2026-04-04",
+  "product_posture": "orchestration_backend_with_human_dashboard",
+  "primary_entrypoint": "agent.submit/status/events",
+  "workflow_families": [
+    {"kind": "task", "status": "ai_first_baseline"},
+    {"kind": "incident", "status": "common_contract_deterministic_planner"}
+  ],
+  "tool_catalog": {
+    "count": 7
+  },
+  "readiness": {
+    "stage8_live_readiness": {
+      "status": "blocked",
+      "missing_env": ["NEWCLAW_STAGE8_LIVE_ENABLED"]
+    }
+  }
+}
+```
+
+## 4.15 POST `/api/v1/tool-drafts`
 새 도구를 production registry에 바로 반영하지 않고, reviewable draft로 생성한다.
 
 권한:
@@ -470,7 +498,7 @@ workflow 종류를 몰라도 단일 경로로 이벤트 로그를 조회한다.
 }
 ```
 
-## 4.15 GET `/api/v1/tool-drafts/{draft_id}`
+## 4.16 GET `/api/v1/tool-drafts/{draft_id}`
 생성된 tool registration draft 내용을 조회한다.
 
 응답:
@@ -482,7 +510,7 @@ workflow 종류를 몰라도 단일 경로로 이벤트 로그를 조회한다.
 }
 ```
 
-## 4.16 POST `/api/v1/tool-drafts/{draft_id}/apply`
+## 4.17 POST `/api/v1/tool-drafts/{draft_id}/apply`
 approver/admin이 review한 draft를 overlay registry에 반영한다.
 source registry(`configs/tool_registry.yaml`)는 직접 수정하지 않는다.
 

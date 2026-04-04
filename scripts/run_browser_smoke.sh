@@ -81,6 +81,11 @@ pw() {
   PLAYWRIGHT_CLI_SESSION="${SESSION_NAME}" TMPDIR="${tmpdir_value}" "${PWCLI}" --session "${SESSION_NAME}" "$@"
 }
 
+playwright_session_unavailable() {
+  local message="$1"
+  [[ "$message" == *"connect ENOENT ${SESSION_NAME}"* ]]
+}
+
 if ! command -v npx >/dev/null 2>&1; then
   skip "npx not found on PATH"
 fi
@@ -149,7 +154,11 @@ if ! is_server_up; then
 fi
 
 if ! pw open "${BASE_URL}/docs" >/tmp/newclaw_browser_smoke.out 2>/tmp/newclaw_browser_smoke.err; then
-  fail "failed to open /docs: $(tr '\n' ' ' </tmp/newclaw_browser_smoke.err)"
+  open_docs_error="$(tr '\n' ' ' </tmp/newclaw_browser_smoke.err)"
+  if playwright_session_unavailable "${open_docs_error}"; then
+    skip "playwright session unavailable: ${SESSION_NAME}"
+  fi
+  fail "failed to open /docs: ${open_docs_error}"
 fi
 
 title="$(pw eval "document.title" 2>/tmp/newclaw_browser_smoke.err || true)"
@@ -159,7 +168,11 @@ if [[ "${title}" != *"Swagger UI"* ]]; then
 fi
 
 if ! pw open "${BASE_URL}/openapi.json" >/tmp/newclaw_browser_smoke.out 2>/tmp/newclaw_browser_smoke.err; then
-  fail "failed to open /openapi.json: $(tr '\n' ' ' </tmp/newclaw_browser_smoke.err)"
+  openapi_error="$(tr '\n' ' ' </tmp/newclaw_browser_smoke.err)"
+  if playwright_session_unavailable "${openapi_error}"; then
+    skip "playwright session unavailable: ${SESSION_NAME}"
+  fi
+  fail "failed to open /openapi.json: ${openapi_error}"
 fi
 
 openapi_text="$(pw eval "document.body ? document.body.innerText : ''" 2>/tmp/newclaw_browser_smoke.err || true)"
