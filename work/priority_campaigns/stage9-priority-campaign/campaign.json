@@ -36,7 +36,8 @@
       "title": "Expose action sequencing and execution detail in operator surfaces",
       "unit_id": "stage9-w1-004",
       "goal": "Deliver surface parity first, then operator dashboard capability/readiness visibility, with full regression on each sub-step",
-      "status": "pending"
+      "status": "completed",
+      "completed_unit_id": "stage9-w1-004"
     },
     {
       "item_id": "g4-pilot-readiness-pack",

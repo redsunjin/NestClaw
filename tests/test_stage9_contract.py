@@ -38,6 +38,11 @@ class TestStage9Contract(unittest.TestCase):
         self.assertEqual(data["items"][2]["unit_id"], "stage9-w1-003")
         self.assertEqual(data["items"][2]["status"], "completed")
         self.assertEqual(data["items"][2]["completed_unit_id"], "stage9-w1-003")
+        self.assertEqual(data["items"][3]["unit_id"], "stage9-w1-004")
+        self.assertEqual(data["items"][3]["status"], "completed")
+        self.assertEqual(data["items"][3]["completed_unit_id"], "stage9-w1-004")
+        self.assertEqual(data["items"][4]["unit_id"], "stage9-w1-005")
+        self.assertEqual(data["items"][4]["status"], "pending")
 
     def test_stage9_first_micro_unit_is_initialized(self) -> None:
         work_unit = Path("work/micro_units/stage9-w1-001/WORK_UNIT.md").read_text(encoding="utf-8")
@@ -64,6 +69,16 @@ class TestStage9Contract(unittest.TestCase):
         self.assertIn("incident AI planner baseline", work_unit)
         self.assertIn("deterministic fallback", plan_notes)
         self.assertIn("planner rationale", review_notes)
+
+    def test_stage9_fourth_micro_unit_is_initialized(self) -> None:
+        work_unit = Path("work/micro_units/stage9-w1-004/WORK_UNIT.md").read_text(encoding="utf-8")
+        plan_notes = Path("work/micro_units/stage9-w1-004/PLAN_NOTES.md").read_text(encoding="utf-8")
+        review_notes = Path("work/micro_units/stage9-w1-004/REVIEW_NOTES.md").read_text(encoding="utf-8")
+        self.assertIn("stage9-w1-004", work_unit)
+        self.assertIn("status: `DONE`", work_unit)
+        self.assertIn("planner rationale, fallback state, and action sequencing", work_unit)
+        self.assertIn("operator dashboard", plan_notes)
+        self.assertIn("action rail", review_notes)
 
     def test_cycle_scripts_support_stage9(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
@@ -96,6 +111,19 @@ class TestStage9Contract(unittest.TestCase):
         self.assertIn("record_provider_selection(", main_source)
         self.assertIn("write_report(", main_source)
         self.assertIn("finalize_execution(", main_source)
+
+    def test_operator_surfaces_expose_transparency_slots(self) -> None:
+        console_html = Path("app/static/agent-console.html").read_text(encoding="utf-8")
+        quickstart_html = Path("app/static/agent-quickstart.html").read_text(encoding="utf-8")
+        orchestration_source = Path("app/services/orchestration_service.py").read_text(encoding="utf-8")
+        self.assertIn("planner-signal-strip", console_html)
+        self.assertIn("planner-rationale", console_html)
+        self.assertIn("execution-detail", console_html)
+        self.assertIn("quick-planner-signals", quickstart_html)
+        self.assertIn("quick-action-rail", quickstart_html)
+        self.assertIn("quick-execution-rail", quickstart_html)
+        self.assertIn('"planning_rationale"', orchestration_source)
+        self.assertIn('"run_mode"', orchestration_source)
 
 
 if __name__ == "__main__":

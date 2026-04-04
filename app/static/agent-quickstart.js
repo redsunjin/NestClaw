@@ -5,7 +5,11 @@ const requestInput = document.querySelector("#quick-request");
 const healthBadge = document.querySelector("#quick-health");
 const statusBox = document.querySelector("#quick-status");
 const plannerBox = document.querySelector("#quick-planner");
+const plannerSignals = document.querySelector("#quick-planner-signals");
+const rationaleBox = document.querySelector("#quick-rationale");
 const approvalBox = document.querySelector("#quick-approval");
+const actionRail = document.querySelector("#quick-action-rail");
+const executionRail = document.querySelector("#quick-execution-rail");
 const reportBox = document.querySelector("#quick-report");
 const recentBox = document.querySelector("#quick-recent");
 const output = document.querySelector("#quick-output");
@@ -54,6 +58,10 @@ function setPlanner(lines) {
   plannerBox.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
 }
 
+function setRationale(lines) {
+  rationaleBox.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+}
+
 function setApproval(lines) {
   approvalBox.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
 }
@@ -79,11 +87,108 @@ function toolFlow(items) {
   return values.length ? values.join(" -> ") : "-";
 }
 
-function plannerSummaryFromPayload(payload) {
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function planningContext(payload) {
   const provenance = payload?.planning_provenance || {};
   const providerSelection = provenance.provider_selection || {};
-  const plannedTools = (payload?.planned_actions || []).map((item) => item.tool_id).filter(Boolean);
-  const executedTools = (payload?.action_results || []).map((item) => item.tool_id).filter(Boolean);
+  return {
+    provenance,
+    providerSelection,
+    plannedActions: payload?.planned_actions || [],
+    actionResults: payload?.action_results || [],
+    runMode: payload?.run_mode || "",
+    approvalQueueId: payload?.approval_queue_id || "",
+    reportPath: (payload?.result || {}).report_path || "",
+    status: payload?.status || "",
+  };
+}
+
+function signalChip(label, tone = "muted") {
+  return `<span class="signal-chip signal-chip-${tone}">${escapeHtml(label)}</span>`;
+}
+
+function renderPlannerSignals(payload) {
+  const { provenance, providerSelection, runMode, approvalQueueId, reportPath, status } = planningContext(payload);
+  const chips = [
+    signalChip(`planner ${provenance.source || "-"}`, provenance.source ? "ok" : "muted"),
+    signalChip(`provider ${providerSelection.provider_id || "-"}`, "muted"),
+    signalChip(provenance.degraded_mode ? "degraded" : "standard", provenance.degraded_mode ? "warn" : "ok"),
+  ];
+  if (provenance.fallback_reason) {
+    chips.push(signalChip(`fallback ${provenance.fallback_reason}`, "warn"));
+  }
+  if (runMode) {
+    chips.push(signalChip(`run ${runMode}`, runMode === "dry-run" ? "muted" : "warn"));
+  }
+  if (approvalQueueId || status === "NEEDS_HUMAN_APPROVAL") {
+    chips.push(signalChip("approval required", "warn"));
+  }
+  if (reportPath) {
+    chips.push(signalChip("report ready", "ok"));
+  }
+  plannerSignals.innerHTML = chips.join("");
+}
+
+function payloadSummary(payload) {
+  if (!payload || typeof payload !== "object") {
+    return "-";
+  }
+  const priorityKeys = ["subject", "service", "summary", "title", "meeting_title", "text_preview", "description"];
+  for (const key of priorityKeys) {
+    if (payload[key]) {
+      return String(payload[key]);
+    }
+  }
+  const keys = Object.keys(payload);
+  if (!keys.length) {
+    return "-";
+  }
+  const summary = keys
+    .slice(0, 3)
+    .map((key) => `${key}=${String(payload[key])}`)
+    .join(" / ");
+  return summary.length > 140 ? `${summary.slice(0, 137)}...` : summary;
+}
+
+function actionStepMarkup(item, index, type) {
+  const executionCall = item.execution_call || {};
+  const adapter = executionCall.adapter || item.adapter || "-";
+  const method = executionCall.method || item.method || "-";
+  const note = type === "planned" ? item.reason || payloadSummary(executionCall.payload || {}) : payloadSummary(item.request_payload || {});
+  const statusNote = type === "executed" ? `${item.status || item.mode || "-"}${item.mode ? ` · ${item.mode}` : ""}` : "";
+  return `
+    <article class="action-step${type === "executed" ? " execution-step" : ""}">
+      <div class="step-index">${index + 1}</div>
+      <div class="step-body">
+        <p class="step-title">${escapeHtml(item.tool_id || "-")}</p>
+        <p class="step-meta">${escapeHtml(adapter)} / ${escapeHtml(method)}</p>
+        ${statusNote ? `<p class="step-note">${escapeHtml(statusNote)}</p>` : ""}
+        ${note && note !== "-" ? `<p class="step-note muted">${escapeHtml(note)}</p>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function renderRail(element, items, type, emptyText) {
+  if (!(items || []).length) {
+    element.textContent = emptyText;
+    return;
+  }
+  element.innerHTML = items.map((item, index) => actionStepMarkup(item, index, type)).join("");
+}
+
+function plannerSummaryFromPayload(payload) {
+  const { provenance, providerSelection, plannedActions, actionResults } = planningContext(payload);
+  const plannedTools = plannedActions.map((item) => item.tool_id).filter(Boolean);
+  const executedTools = actionResults.map((item) => item.tool_id).filter(Boolean);
   const lines = [
     `source: ${provenance.source || "-"}`,
     `provider: ${providerSelection.provider_id || "-"}`,
@@ -102,6 +207,7 @@ function plannerSummaryFromRecent(item) {
     item.planning_provider_id ? `provider: ${item.planning_provider_id}` : "",
     item.planning_degraded_mode ? "degraded: yes" : "degraded: no",
     item.planning_fallback_reason ? `fallback: ${item.planning_fallback_reason}` : "",
+    item.run_mode ? `run_mode: ${item.run_mode}` : "",
     `planned_tools: ${toolFlow(item.planned_tool_ids || [])}`,
   ].filter(Boolean);
 }
@@ -121,7 +227,7 @@ async function loadRecent() {
   const payload = await requestJson("/api/v1/agent/recent?limit=5");
   const items = payload.items || [];
   if (!items.length) {
-      recentBox.innerHTML = '<article class="recent-row recent-empty"><span class="recent-title">최근 요청 없음</span><span class="recent-meta-inline">아직 최근 요청이 없습니다.</span></article>';
+    recentBox.innerHTML = '<article class="recent-row recent-empty"><span class="recent-title">최근 요청 없음</span><span class="recent-meta-inline">아직 최근 요청이 없습니다.</span></article>';
     return;
   }
   recentBox.innerHTML = items
@@ -131,6 +237,12 @@ async function loadRecent() {
           <div class="recent-copy">
             <p class="recent-title">${item.title || item.task_id}</p>
             <p class="recent-meta-inline">${item.resolved_kind} / ${item.status} / ${toolFlow(item.planned_tool_ids || [])}</p>
+            <div class="signal-strip signal-strip-compact">
+              ${signalChip(item.planning_degraded_mode ? "degraded" : "standard", item.planning_degraded_mode ? "warn" : "ok")}
+              ${item.run_mode ? signalChip(`run ${item.run_mode}`, item.run_mode === "dry-run" ? "muted" : "warn") : ""}
+              ${item.report_path ? signalChip("report ready", "ok") : ""}
+            </div>
+            <p class="recent-meta-inline">${escapeHtml(item.planning_rationale || item.planning_fallback_reason || plannerSummaryFromRecent(item).join(" / "))}</p>
           </div>
           <button class="subtle compact-button" type="button" data-load-task="${item.task_id}">불러오기</button>
         </article>
@@ -192,6 +304,10 @@ async function loadTask(taskId = currentTaskId) {
     setStatus("아직 실행된 작업이 없습니다.");
     setApproval("승인 대기 항목이 없습니다.");
     setReport("보고서가 생성되면 여기에 미리보기가 표시됩니다.");
+    setRationale("아직 planner rationale이 없습니다.");
+    renderPlannerSignals({});
+    renderRail(actionRail, [], "planned", "아직 action sequence가 없습니다.");
+    renderRail(executionRail, [], "executed", "아직 execution detail이 없습니다.");
     return null;
   }
   const payload = await requestJson(`/api/v1/agent/status/${taskId}`);
@@ -204,6 +320,13 @@ async function loadTask(taskId = currentTaskId) {
     `next_action: ${payload.next_action || "-"}`,
   ]);
   setPlanner(plannerSummaryFromPayload(payload));
+  setRationale([
+    payload?.planning_provenance?.rationale ? `rationale: ${payload.planning_provenance.rationale}` : "아직 planner rationale이 없습니다.",
+    payload?.planning_provenance?.fallback_reason ? `fallback_reason: ${payload.planning_provenance.fallback_reason}` : "",
+  ].filter(Boolean));
+  renderPlannerSignals(payload);
+  renderRail(actionRail, payload?.planned_actions || [], "planned", "아직 action sequence가 없습니다.");
+  renderRail(executionRail, payload?.action_results || [], "executed", "아직 execution detail이 없습니다.");
   if (((payload.result || {}).report_path)) {
     await loadReport(currentTaskId);
   } else {
@@ -326,7 +449,11 @@ await loadHealth();
 fillExample("task");
 setStatus("아직 실행된 작업이 없습니다.");
 setPlanner("아직 planner 정보가 없습니다.");
+setRationale("아직 planner rationale이 없습니다.");
+renderPlannerSignals({});
 setApproval("승인 대기 항목이 없습니다.");
+renderRail(actionRail, [], "planned", "아직 action sequence가 없습니다.");
+renderRail(executionRail, [], "executed", "아직 execution detail이 없습니다.");
 setReport("보고서가 생성되면 여기에 미리보기가 표시됩니다.");
 try {
   await loadRecent();

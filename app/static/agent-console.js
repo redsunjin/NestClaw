@@ -11,7 +11,10 @@ const agentResolvedKindInput = document.querySelector("#agent-resolved-kind");
 const agentStatusInput = document.querySelector("#agent-status");
 const agentSummary = document.querySelector("#agent-summary");
 const plannerSummary = document.querySelector("#planner-summary");
+const plannerSignalStrip = document.querySelector("#planner-signal-strip");
+const plannerRationale = document.querySelector("#planner-rationale");
 const planDetail = document.querySelector("#plan-detail");
+const executionDetail = document.querySelector("#execution-detail");
 const reportPreview = document.querySelector("#report-preview");
 const recentTaskList = document.querySelector("#recent-task-list");
 const recentApprovalList = document.querySelector("#recent-approval-list");
@@ -92,8 +95,24 @@ function setPlannerSummary(lines) {
   plannerSummary.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
 }
 
-function setPlanDetail(lines) {
-  planDetail.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+function setPlannerRationale(lines) {
+  plannerRationale.textContent = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+}
+
+function setPlanDetail(content) {
+  if (typeof content === "string") {
+    planDetail.textContent = content;
+    return;
+  }
+  planDetail.innerHTML = content;
+}
+
+function setExecutionDetail(content) {
+  if (typeof content === "string") {
+    executionDetail.textContent = content;
+    return;
+  }
+  executionDetail.innerHTML = content;
 }
 
 function setReportPreview(lines) {
@@ -109,17 +128,141 @@ function toolFlow(items) {
   return values.length ? values.join(" -> ") : "-";
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function plannerLabel(item) {
   const provider = item.planning_provider_id ? ` via ${item.planning_provider_id}` : "";
   const degraded = item.planning_degraded_mode ? " [degraded]" : "";
   return `${item.planning_source || "-"}${provider}${degraded}`;
 }
 
-function plannerSummaryLines(payload) {
+function planningContext(payload) {
   const provenance = payload?.planning_provenance || {};
   const providerSelection = provenance.provider_selection || {};
-  const plannedTools = (payload?.planned_actions || []).map((item) => item.tool_id).filter(Boolean);
-  const executedTools = (payload?.action_results || []).map((item) => item.tool_id).filter(Boolean);
+  return {
+    provenance,
+    providerSelection,
+    plannedActions: payload?.planned_actions || [],
+    actionResults: payload?.action_results || [],
+    status: payload?.status || "",
+    runMode: payload?.run_mode || "",
+    approvalQueueId: payload?.approval_queue_id || "",
+    reportPath: (payload?.result || {}).report_path || "",
+  };
+}
+
+function signalChip(label, tone = "muted") {
+  return `<span class="signal-chip signal-chip-${tone}">${escapeHtml(label)}</span>`;
+}
+
+function signalChips(payload) {
+  const { provenance, providerSelection, status, runMode, approvalQueueId, reportPath } = planningContext(payload);
+  const chips = [
+    signalChip(`planner ${provenance.source || "-"}`, provenance.source ? "ok" : "muted"),
+    signalChip(
+      `provider ${providerSelection.provider_id || "-"}`,
+      providerSelection.provider_id ? "muted" : "muted"
+    ),
+    signalChip(provenance.degraded_mode ? "degraded mode" : "standard mode", provenance.degraded_mode ? "warn" : "ok"),
+  ];
+  if (provenance.confidence !== undefined && provenance.confidence !== null) {
+    chips.push(signalChip(`confidence ${provenance.confidence}`, "muted"));
+  }
+  if (provenance.fallback_reason) {
+    chips.push(signalChip(`fallback ${provenance.fallback_reason}`, "warn"));
+  }
+  if (runMode) {
+    chips.push(signalChip(`run ${runMode}`, runMode === "dry-run" ? "muted" : "warn"));
+  }
+  if (approvalQueueId || status === "NEEDS_HUMAN_APPROVAL") {
+    chips.push(signalChip("approval required", "warn"));
+  }
+  if (reportPath) {
+    chips.push(signalChip("report ready", "ok"));
+  }
+  return chips;
+}
+
+function payloadSummary(payload) {
+  if (!payload || typeof payload !== "object") {
+    return "-";
+  }
+  const priorityKeys = ["subject", "service", "summary", "title", "meeting_title", "text_preview", "description"];
+  for (const key of priorityKeys) {
+    if (payload[key]) {
+      return String(payload[key]);
+    }
+  }
+  const keys = Object.keys(payload);
+  if (!keys.length) {
+    return "-";
+  }
+  const summary = keys
+    .slice(0, 3)
+    .map((key) => `${key}=${String(payload[key])}`)
+    .join(" / ");
+  return summary.length > 160 ? `${summary.slice(0, 157)}...` : summary;
+}
+
+function actionStepMarkup(item, index) {
+  const executionCall = item.execution_call || {};
+  const adapter = executionCall.adapter || item.adapter || "-";
+  const method = executionCall.method || item.method || "-";
+  const reason = item.reason || "";
+  const requestPayload = executionCall.payload || item.request_payload || {};
+  const payloadNote = payloadSummary(requestPayload);
+  return `
+    <article class="action-step">
+      <div class="step-index">${index + 1}</div>
+      <div class="step-body">
+        <p class="step-title">${escapeHtml(item.tool_id || "-")}</p>
+        <p class="step-meta">${escapeHtml(adapter)} / ${escapeHtml(method)}</p>
+        ${reason ? `<p class="step-note">${escapeHtml(reason)}</p>` : ""}
+        ${payloadNote && payloadNote !== "-" ? `<p class="step-note muted">${escapeHtml(payloadNote)}</p>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function executionStepMarkup(item, index) {
+  const status = item.status || item.mode || "-";
+  const payloadNote = payloadSummary(item.request_payload || {});
+  return `
+    <article class="action-step execution-step">
+      <div class="step-index">${index + 1}</div>
+      <div class="step-body">
+        <p class="step-title">${escapeHtml(item.tool_id || "-")}</p>
+        <p class="step-meta">${escapeHtml(item.adapter || "-")} / ${escapeHtml(item.method || "-")}</p>
+        <p class="step-note">${escapeHtml(status)}${item.mode ? ` · ${escapeHtml(item.mode)}` : ""}</p>
+        ${payloadNote && payloadNote !== "-" ? `<p class="step-note muted">${escapeHtml(payloadNote)}</p>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function renderSignalStrip(payload) {
+  plannerSignalStrip.innerHTML = signalChips(payload).join("");
+}
+
+function renderActionInspector(element, items, builder, emptyText) {
+  if (!(items || []).length) {
+    element.textContent = emptyText;
+    return;
+  }
+  element.innerHTML = `<div class="action-rail">${items.map(builder).join("")}</div>`;
+}
+
+function plannerSummaryLines(payload) {
+  const { provenance, providerSelection, plannedActions, actionResults } = planningContext(payload);
+  const plannedTools = plannedActions.map((item) => item.tool_id).filter(Boolean);
+  const executedTools = actionResults.map((item) => item.tool_id).filter(Boolean);
   return [
     `planner_source: ${provenance.source || "-"}`,
     `provider: ${providerSelection.provider_id || "-"}`,
@@ -147,25 +290,12 @@ function capabilitySummaryLines(payload) {
   ].filter(Boolean);
 }
 
-function planDetailLines(payload) {
-  const plannedActions = payload?.planned_actions || [];
-  const actionResults = payload?.action_results || [];
-  const lines = [
-    plannedActions.length ? "planned_actions:" : "planned_actions: none",
-    ...plannedActions.map(
-      (item, index) =>
-        `  ${index + 1}. ${item.tool_id || "-"} :: ${(item.execution_call || {}).adapter || "-"} / ${(item.execution_call || {}).method || "-"}`
-    ),
-  ];
-  if (actionResults.length) {
-    lines.push("", "action_results:");
-    lines.push(
-      ...actionResults.map(
-        (item, index) => `  ${index + 1}. ${item.tool_id || "-"} :: ${item.mode || "-"}`
-      )
-    );
-  }
-  return lines;
+function rationaleLines(payload) {
+  const { provenance } = planningContext(payload);
+  return [
+    provenance.rationale ? `rationale: ${provenance.rationale}` : "아직 planner rationale이 없습니다.",
+    provenance.fallback_reason ? `fallback_reason: ${provenance.fallback_reason}` : "",
+  ].filter(Boolean);
 }
 
 function parseMetadataInput() {
@@ -289,7 +419,14 @@ function renderRecentTasks(items) {
           <p class="tool-meta">kind/status: ${item.resolved_kind} / ${item.status}</p>
           <p class="tool-meta">requested_by: ${item.requested_by}</p>
           <p class="tool-meta">planner: ${plannerLabel(item)}</p>
+          <div class="signal-strip signal-strip-compact">
+            ${signalChip(item.planning_degraded_mode ? "degraded" : "standard", item.planning_degraded_mode ? "warn" : "ok")}
+            ${item.run_mode ? signalChip(`run ${item.run_mode}`, item.run_mode === "dry-run" ? "muted" : "warn") : ""}
+            ${item.report_path ? signalChip("report ready", "ok") : ""}
+          </div>
+          <p class="tool-meta">${item.planning_rationale || item.planning_fallback_reason || "planner rationale 없음"}</p>
           <p class="tool-meta">planned_tools: ${toolFlow(item.planned_tool_ids || [])}</p>
+          <p class="tool-meta">executed_tools: ${toolFlow(item.executed_tool_ids || [])}</p>
           <p class="tool-meta">updated_at: ${item.updated_at || "-"}</p>
           <div class="approval-actions">
             <button class="button subtle" type="button" data-load-task="${item.task_id}">불러오기</button>
@@ -421,7 +558,15 @@ async function loadAgentStatus(taskId = currentTaskId) {
     result.actions_executed !== undefined ? `actions_executed: ${result.actions_executed}` : "",
   ].filter(Boolean));
   setPlannerSummary(plannerSummaryLines(payload));
-  setPlanDetail(planDetailLines(payload));
+  setPlannerRationale(rationaleLines(payload));
+  renderSignalStrip(payload);
+  renderActionInspector(planDetail, payload?.planned_actions || [], actionStepMarkup, "아직 action sequence가 없습니다.");
+  renderActionInspector(
+    executionDetail,
+    payload?.action_results || [],
+    executionStepMarkup,
+    "아직 execution detail이 없습니다."
+  );
   if (!result.report_path) {
     setReportPreview("아직 생성된 보고서가 없습니다.");
   }
@@ -810,7 +955,10 @@ try {
   await loadTools();
   await loadRecentTasks();
   setPlannerSummary("아직 planner 정보가 없습니다.");
-  setPlanDetail("아직 plan detail이 없습니다.");
+  setPlannerRationale("아직 planner rationale이 없습니다.");
+  renderSignalStrip({});
+  setPlanDetail("아직 action sequence가 없습니다.");
+  setExecutionDetail("아직 execution detail이 없습니다.");
   setReportPreview("아직 생성된 보고서가 없습니다.");
   setApprovalDetail("아직 선택된 승인 항목이 없습니다.");
 } catch (error) {

@@ -28,6 +28,9 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("Identity", body)
         self.assertIn("Runtime", body)
         self.assertIn("Planner Provenance", body)
+        self.assertIn("quick-planner-signals", body)
+        self.assertIn("quick-action-rail", body)
+        self.assertIn("quick-execution-rail", body)
         self.assertIn("/static/agent-quickstart.js", body)
 
         console_response = self.client.get("/console")
@@ -38,7 +41,9 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("승인 상세 / 이력", console_body)
         self.assertIn("Capability / Readiness", console_body)
         self.assertIn("capability-summary", console_body)
-        self.assertIn("아직 planner 정보가 없습니다.", console_body)
+        self.assertIn("planner-signal-strip", console_body)
+        self.assertIn("planner-rationale", console_body)
+        self.assertIn("execution-detail", console_body)
         self.assertIn("/static/agent-console.js", console_body)
 
     def test_static_assets_are_served(self) -> None:
@@ -50,6 +55,8 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("/api/v1/approvals/", quick_js.text)
         self.assertIn("/api/v1/agent/recent", quick_js.text)
         self.assertIn("plannerSummaryFromPayload", quick_js.text)
+        self.assertIn("renderPlannerSignals", quick_js.text)
+        self.assertIn("renderRail", quick_js.text)
         self.assertIn("quick-planner", self.client.get("/").text)
         self.assertIn("quick-submit", self.client.get("/").text)
 
@@ -58,7 +65,9 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("loadTools", js_response.text)
         self.assertIn("submitAgent", js_response.text)
         self.assertIn("plannerSummaryLines", js_response.text)
-        self.assertIn("planDetailLines", js_response.text)
+        self.assertIn("renderSignalStrip", js_response.text)
+        self.assertIn("renderActionInspector", js_response.text)
+        self.assertIn("rationaleLines", js_response.text)
         self.assertIn("/api/v1/agent/submit", js_response.text)
         self.assertIn("/api/v1/agent/recent", js_response.text)
         self.assertIn("/api/v1/agent/report/", js_response.text)
@@ -85,11 +94,15 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn(".report-preview-card", css_response.text)
         self.assertIn(".approval-history-card", css_response.text)
         self.assertIn(".console-layout", css_response.text)
+        self.assertIn(".signal-strip", css_response.text)
+        self.assertIn(".action-rail", css_response.text)
 
         quick_css = self.client.get("/static/agent-quickstart.css")
         self.assertEqual(quick_css.status_code, 200)
         self.assertIn(".results-grid", quick_css.text)
-        self.assertIn(".recent-card", quick_css.text)
+        self.assertIn(".recent-row", quick_css.text)
+        self.assertIn(".flow-grid", quick_css.text)
+        self.assertIn(".signal-chip", quick_css.text)
 
 
 if __name__ == "__main__":

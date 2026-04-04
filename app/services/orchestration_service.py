@@ -381,11 +381,15 @@ class OrchestrationService:
             "actions_executed": result.get("actions_executed"),
             "planning_source": planning.get("source"),
             "planning_provider_id": provider_selection.get("provider_id"),
+            "planning_rationale": planning.get("rationale"),
             "planning_confidence": planning.get("confidence"),
             "planning_degraded_mode": planning.get("degraded_mode"),
             "planning_fallback_reason": planning.get("fallback_reason"),
             "planned_tool_ids": [str(item.get("tool_id") or "") for item in planned_actions if item.get("tool_id")],
             "executed_tool_ids": [str(item.get("tool_id") or "") for item in action_results if item.get("tool_id")],
+            "run_mode": self.deps.incident_runtime_snapshot(dict(task.get("incident_runtime") or {}))["run_mode"]
+            if self.deps.workflow_type(task) == self.deps.incident_workflow
+            else None,
         }
 
     def create_task(self, req: Any, actor: ActorContext) -> dict[str, Any]:

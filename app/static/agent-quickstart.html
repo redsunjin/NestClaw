@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>NestClaw Quickstart</title>
-    <link rel="stylesheet" href="/static/agent-quickstart.css?v=20260404d">
+    <link rel="stylesheet" href="/static/agent-quickstart.css?v=20260405a">
   </head>
   <body>
     <main class="page-shell">
@@ -121,6 +121,10 @@
               <article class="signal-panel">
                 <p class="panel-label">Planner Provenance</p>
                 <div id="quick-planner" class="status-meta">아직 planner 정보가 없습니다.</div>
+                <div id="quick-planner-signals" class="signal-strip signal-strip-compact">
+                  <span class="signal-chip signal-chip-muted">planner: 아직 없음</span>
+                </div>
+                <div id="quick-rationale" class="micro-note">아직 planner rationale이 없습니다.</div>
               </article>
 
               <article class="signal-panel">
@@ -132,6 +136,25 @@
                 </div>
               </article>
             </div>
+
+            <article class="signal-panel flow-surface">
+              <div class="report-head">
+                <div>
+                  <p class="panel-label">Action Rail</p>
+                  <h3>계획과 실행 흐름</h3>
+                </div>
+              </div>
+              <div class="flow-grid">
+                <section>
+                  <p class="panel-label">Planned Actions</p>
+                  <div id="quick-action-rail" class="action-rail">아직 action sequence가 없습니다.</div>
+                </section>
+                <section>
+                  <p class="panel-label">Execution Detail</p>
+                  <div id="quick-execution-rail" class="action-rail">아직 execution detail이 없습니다.</div>
+                </section>
+              </div>
+            </article>
 
             <article class="report-surface">
               <div class="report-head">
@@ -170,6 +193,6 @@
       </section>
     </main>
 
-    <script type="module" src="/static/agent-quickstart.js?v=20260404d"></script>
+    <script type="module" src="/static/agent-quickstart.js?v=20260405a"></script>
   </body>
 </html>

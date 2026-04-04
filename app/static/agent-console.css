@@ -464,6 +464,116 @@ textarea {
     var(--panel-strong);
 }
 
+.signal-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.signal-strip-compact {
+  margin-top: 10px;
+}
+
+.signal-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(21, 24, 22, 0.08);
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  background: rgba(255, 251, 245, 0.96);
+}
+
+.signal-chip-ok {
+  color: var(--green);
+  background: rgba(31, 122, 74, 0.08);
+}
+
+.signal-chip-warn {
+  color: var(--pending);
+  background: rgba(149, 105, 29, 0.12);
+}
+
+.signal-chip-muted {
+  color: var(--muted);
+  background: rgba(21, 24, 22, 0.05);
+}
+
+.action-inspector {
+  white-space: normal;
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(21, 24, 22, 0.02), transparent 30%),
+    var(--panel-strong);
+}
+
+.action-rail {
+  display: grid;
+  gap: 10px;
+}
+
+.action-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-compact);
+  border: 1px solid rgba(21, 24, 22, 0.08);
+  background: rgba(255, 251, 245, 0.92);
+}
+
+.execution-step {
+  background: rgba(247, 241, 232, 0.8);
+}
+
+.step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(192, 79, 51, 0.12);
+  color: var(--accent-deep);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.step-body {
+  min-width: 0;
+}
+
+.step-title,
+.step-meta,
+.step-note {
+  margin: 0;
+}
+
+.step-title {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.step-meta {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.step-note {
+  margin-top: 4px;
+  font-size: 0.84rem;
+  color: var(--ink);
+}
+
+.step-note.muted {
+  color: var(--muted);
+}
+
 .console-rail .section-kicker,
 .console-rail .aside-label,
 .console-rail label span {
