@@ -16,7 +16,7 @@
 | Family | 현재 상태 | 설명 |
 | --- | --- | --- |
 | `task` | `LLM planner baseline` | 자연어 요청을 받아 summary/ticket/slack 범위의 planner 루프를 수행 |
-| `incident` | `common contract / deterministic planner` | incident context 집계, action planning contract, approval/execution/report 흐름을 dry-run 중심으로 수행 |
+| `incident` | `AI planner + deterministic fallback` | incident context를 바탕으로 provider-backed planning을 시도하고, 실패 시 deterministic fallback으로 approval/execution/report 흐름을 유지 |
 
 ## 4. Delivery Surfaces
 | Surface | 현재 상태 | 주 용도 |
@@ -86,7 +86,7 @@
 
 ## 9. Current Known Constraints
 - broader multi-step planning은 제한적이다.
-- incident AI planner는 아직 기본 경로가 아니다.
+- incident AI planner는 현재 ticket/slack 범위의 제한된 tool set에서만 동작한다.
 - RAG/live provider는 readiness env에 의존한다.
 - GUI는 operator-first 방향이지만 아직 일부 governance 기능이 같은 화면에 섞여 있다.
 

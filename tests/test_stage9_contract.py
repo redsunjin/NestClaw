@@ -35,6 +35,9 @@ class TestStage9Contract(unittest.TestCase):
         self.assertEqual(data["items"][1]["unit_id"], "stage9-w1-002")
         self.assertEqual(data["items"][1]["status"], "completed")
         self.assertEqual(data["items"][1]["completed_unit_id"], "stage9-w1-002")
+        self.assertEqual(data["items"][2]["unit_id"], "stage9-w1-003")
+        self.assertEqual(data["items"][2]["status"], "completed")
+        self.assertEqual(data["items"][2]["completed_unit_id"], "stage9-w1-003")
 
     def test_stage9_first_micro_unit_is_initialized(self) -> None:
         work_unit = Path("work/micro_units/stage9-w1-001/WORK_UNIT.md").read_text(encoding="utf-8")
@@ -52,6 +55,15 @@ class TestStage9Contract(unittest.TestCase):
         self.assertIn("provider-selection recording", work_unit)
         self.assertIn("report/result finalization", plan_notes)
         self.assertIn("planner_executor_service", review_notes)
+
+    def test_stage9_third_micro_unit_is_initialized(self) -> None:
+        work_unit = Path("work/micro_units/stage9-w1-003/WORK_UNIT.md").read_text(encoding="utf-8")
+        plan_notes = Path("work/micro_units/stage9-w1-003/PLAN_NOTES.md").read_text(encoding="utf-8")
+        review_notes = Path("work/micro_units/stage9-w1-003/REVIEW_NOTES.md").read_text(encoding="utf-8")
+        self.assertIn("stage9-w1-003", work_unit)
+        self.assertIn("incident AI planner baseline", work_unit)
+        self.assertIn("deterministic fallback", plan_notes)
+        self.assertIn("planner rationale", review_notes)
 
     def test_cycle_scripts_support_stage9(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")

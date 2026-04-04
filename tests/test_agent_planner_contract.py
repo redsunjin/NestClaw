@@ -63,6 +63,25 @@ class TestAgentPlannerContract(unittest.TestCase):
             "participants": ["Kim"],
             "notes": "주간 운영회의 메모",
         }
+        self.incident = {
+            "incident_id": "inc-001",
+            "service": "billing-api",
+            "severity": "low",
+            "summary": "billing latency increased but remains internal only",
+            "time_window": "15m",
+        }
+        self.incident_context = {
+            "knowledge": {
+                "evidence": [
+                    {"title": "runbook", "source": "kb://billing/runbook", "excerpt": "check queue depth"},
+                ]
+            },
+            "system": {
+                "signals": [
+                    {"metric": "latency", "value": "420ms", "status": "warning", "evidence_ref": "grafana://billing"},
+                ]
+            },
+        }
 
     def test_disabled_planner_uses_heuristic_fallback(self) -> None:
         with patch.dict(os.environ, {"NEWCLAW_ENABLE_LLM_PLANNER": "0"}, clear=False):
@@ -204,6 +223,66 @@ class TestAgentPlannerContract(unittest.TestCase):
 
         self.assertEqual(result.source, "heuristic_fallback")
         self.assertEqual(result.fallback_reason, "unsupported_provider")
+
+    def test_incident_planner_disabled_uses_deterministic_fallback(self) -> None:
+        with patch.dict(os.environ, {"NEWCLAW_ENABLE_LLM_INCIDENT_PLANNER": "0"}, clear=False):
+            result = self.planner.plan_incident_actions(
+                request_text="billing-api 장애 대응",
+                incident=self.incident,
+                context=self.incident_context,
+                available_tools=[TICKET_TOOL, SLACK_TOOL],
+                sensitivity="low",
+                external_send=False,
+                risk_level="low",
+                eligibility=[
+                    {"tool_id": "redmine.issue.create", "eligible": True, "reason": "incident_ticket_required"},
+                    {"tool_id": "slack.message.send", "eligible": True, "reason": "notify_channel_available"},
+                ],
+                default_notify_channel="#ops-alerts",
+            )
+
+        self.assertEqual(result.source, "deterministic_fallback")
+        self.assertTrue(result.degraded_mode)
+        self.assertEqual(result.fallback_reason, "live_planner_disabled")
+        self.assertEqual([item.tool_id for item in result.actions], ["redmine.issue.create", "slack.message.send"])
+        self.assertEqual(result.provider_selection["provider_id"], "local_lmstudio")
+
+    def test_incident_live_planner_uses_llm_result_when_response_is_valid(self) -> None:
+        with (
+            patch.dict(os.environ, {"NEWCLAW_ENABLE_LLM_INCIDENT_PLANNER": "1"}, clear=False),
+            patch("app.agent_planner._detect_openai_compatible_model", return_value="lmstudio-loaded-model"),
+            patch(
+                "app.agent_planner._call_planner_openai_compatible_chat",
+                return_value=(
+                    '{"actions":['
+                    '{"tool_id":"redmine.issue.create","reason":"open incident tracking ticket"},'
+                    '{"tool_id":"slack.message.send","reason":"notify on-call","payload_overrides":{"channel":"#ops-alerts"}}'
+                    '],"confidence":0.88,"rationale":"ticket then notify on-call"}'
+                ),
+            ),
+        ):
+            result = self.planner.plan_incident_actions(
+                request_text="billing-api 장애 대응",
+                incident=self.incident,
+                context=self.incident_context,
+                available_tools=[TICKET_TOOL, SLACK_TOOL],
+                sensitivity="low",
+                external_send=False,
+                risk_level="low",
+                eligibility=[
+                    {"tool_id": "redmine.issue.create", "eligible": True, "reason": "incident_ticket_required"},
+                    {"tool_id": "slack.message.send", "eligible": True, "reason": "notify_channel_available"},
+                ],
+                default_notify_channel="#ops-alerts",
+            )
+
+        self.assertEqual(result.source, "llm")
+        self.assertFalse(result.degraded_mode)
+        self.assertEqual([item.tool_id for item in result.actions], ["redmine.issue.create", "slack.message.send"])
+        self.assertAlmostEqual(float(result.confidence or 0), 0.88, places=2)
+        self.assertEqual(result.provider_selection["provider_id"], "local_lmstudio")
+        self.assertEqual(result.provider_selection["task_type"], "incident_plan_actions")
+        self.assertEqual(result.provider_selection["model"], "lmstudio-loaded-model")
 
 
 if __name__ == "__main__":

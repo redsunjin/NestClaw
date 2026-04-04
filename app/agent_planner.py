@@ -20,6 +20,7 @@ from app.tool_registry import ToolCapability
 
 DEFAULT_PLANNER_TIMEOUT_SECONDS = 8.0
 DEFAULT_PLANNER_TASK_TYPE = "plan_actions"
+DEFAULT_INCIDENT_PLANNER_TASK_TYPE = "incident_plan_actions"
 SUMMARY_TOOL_ID = "internal.summary.generate"
 TICKET_TOOL_ID = "redmine.issue.create"
 SLACK_TOOL_ID = "slack.message.send"
@@ -163,6 +164,75 @@ def _build_planner_prompt(
     )
 
 
+def _incident_context_summary(context: Mapping[str, Any]) -> dict[str, Any]:
+    evidence = []
+    for item in list((context.get("knowledge") or {}).get("evidence", []))[:5]:
+        if not isinstance(item, Mapping):
+            continue
+        evidence.append(
+            {
+                "title": str(item.get("title") or "").strip(),
+                "source": str(item.get("source") or "").strip(),
+                "excerpt": str(item.get("excerpt") or "").strip()[:180],
+            }
+        )
+    signals = []
+    for item in list((context.get("system") or {}).get("signals", []))[:5]:
+        if not isinstance(item, Mapping):
+            continue
+        signals.append(
+            {
+                "metric": str(item.get("metric") or "").strip(),
+                "value": str(item.get("value") or "").strip(),
+                "status": str(item.get("status") or "").strip(),
+                "evidence_ref": str(item.get("evidence_ref") or "").strip(),
+            }
+        )
+    return {"evidence": evidence, "signals": signals}
+
+
+def _build_incident_planner_prompt(
+    *,
+    request_text: str,
+    incident: Mapping[str, Any],
+    context: Mapping[str, Any],
+    available_tools: Sequence[ToolCapability],
+    risk_level: str,
+    default_notify_channel: str | None,
+) -> str:
+    tools_payload = [
+        {
+            "tool_id": item.tool_id,
+            "title": item.title,
+            "description": item.description,
+            "required_payload_fields": list(item.required_payload_fields),
+            "adapter": item.adapter,
+            "method": item.method,
+        }
+        for item in available_tools
+    ]
+    request_payload = {
+        "request_text": request_text,
+        "incident": dict(incident),
+        "risk_level": risk_level,
+        "default_notify_channel": default_notify_channel,
+        "context_summary": _incident_context_summary(context),
+    }
+    return (
+        "Plan an incident orchestration workflow using the allowed tools only.\n"
+        "Respond with JSON only.\n"
+        'Schema: {"actions":[{"tool_id":"...","reason":"...","payload_overrides":{...}}],"confidence":0.0,"rationale":"..."}\n'
+        "Rules:\n"
+        f"- The first action must be {TICKET_TOOL_ID}.\n"
+        f"- Use {SLACK_TOOL_ID} only when a notify channel is available.\n"
+        "- Prefer an actionable multi-step plan when ticketing and notification are both supported.\n"
+        "- Do not invent tools outside the allowed tool list.\n"
+        "- Keep the plan short and executable.\n"
+        f"Allowed tools: {json.dumps(tools_payload, ensure_ascii=False)}\n"
+        f"Request context: {json.dumps(request_payload, ensure_ascii=False)}\n"
+    )
+
+
 @dataclass(frozen=True)
 class PlannerAction:
     tool_id: str
@@ -250,12 +320,49 @@ class AgentPlanner:
             degraded_mode=True,
         )
 
+    def _fallback_incident_plan(
+        self,
+        *,
+        available_tools: Sequence[ToolCapability],
+        default_notify_channel: str | None,
+        provider_selection: Mapping[str, Any],
+        eligibility: Sequence[Mapping[str, Any]] | None,
+        source: str,
+        rationale: str,
+        fallback_reason: str | None = None,
+    ) -> TaskPlanningDecision:
+        tools_by_id = {item.tool_id: item for item in available_tools}
+        actions: list[PlannerAction] = []
+        if TICKET_TOOL_ID in tools_by_id:
+            actions.append(PlannerAction(tool_id=TICKET_TOOL_ID, reason="incident deterministic baseline"))
+        if default_notify_channel and SLACK_TOOL_ID in tools_by_id:
+            actions.append(
+                PlannerAction(
+                    tool_id=SLACK_TOOL_ID,
+                    reason="notify channel available",
+                    payload_overrides={"channel": default_notify_channel},
+                )
+            )
+        if not actions and available_tools:
+            actions.append(PlannerAction(tool_id=available_tools[0].tool_id, reason="only eligible incident tool"))
+        return TaskPlanningDecision(
+            actions=tuple(actions),
+            source=source,
+            rationale=rationale,
+            confidence=0.6,
+            provider_selection=dict(provider_selection),
+            eligible_tools=tuple(dict(item) for item in (eligibility or ())),
+            fallback_reason=fallback_reason,
+            degraded_mode=True,
+        )
+
     def _normalize_actions(
         self,
         *,
         raw_actions: Any,
         allowed_tools: Mapping[str, ToolCapability],
         default_notify_channel: str | None,
+        required_first_tool_id: str,
     ) -> tuple[PlannerAction, ...]:
         if not isinstance(raw_actions, list) or not raw_actions:
             raise ValueError("planner response must include a non-empty actions list")
@@ -287,9 +394,15 @@ class AgentPlanner:
 
         if not actions:
             raise ValueError("planner response produced no actionable tools")
-        if actions[0].tool_id != SUMMARY_TOOL_ID:
-            raise ValueError(f"first action must be {SUMMARY_TOOL_ID}")
+        if actions[0].tool_id != required_first_tool_id:
+            raise ValueError(f"first action must be {required_first_tool_id}")
         return tuple(actions)
+
+    def _incident_planner_enabled(self) -> bool:
+        raw = os.getenv("NEWCLAW_ENABLE_LLM_INCIDENT_PLANNER")
+        if raw is None:
+            raw = os.getenv("NEWCLAW_ENABLE_LLM_PLANNER")
+        return _is_truthy(raw, default=False)
 
     def plan_task_actions(
         self,
@@ -385,6 +498,7 @@ class AgentPlanner:
                 raw_actions=payload.get("actions"),
                 allowed_tools={item.tool_id: item for item in available_tools},
                 default_notify_channel=default_notify_channel,
+                required_first_tool_id=SUMMARY_TOOL_ID,
             )
             confidence_raw = payload.get("confidence")
             confidence = float(confidence_raw) if confidence_raw is not None else None
@@ -410,5 +524,125 @@ class AgentPlanner:
                 eligibility=eligibility,
                 source="llm_error_fallback",
                 rationale="planner call failed; deterministic plan applied",
+                fallback_reason=str(exc),
+            )
+
+    def plan_incident_actions(
+        self,
+        *,
+        request_text: str,
+        incident: Mapping[str, Any],
+        context: Mapping[str, Any],
+        available_tools: Sequence[ToolCapability],
+        sensitivity: str,
+        external_send: bool,
+        risk_level: str,
+        eligibility: Sequence[Mapping[str, Any]] | None = None,
+        default_notify_channel: str | None = None,
+    ) -> TaskPlanningDecision:
+        provider_selection = select_provider(
+            self.registry,
+            sensitivity=sensitivity,
+            task_type=DEFAULT_INCIDENT_PLANNER_TASK_TYPE,
+            external_send=external_send,
+        ).as_dict()
+
+        if not self._incident_planner_enabled():
+            return self._fallback_incident_plan(
+                available_tools=available_tools,
+                default_notify_channel=default_notify_channel,
+                provider_selection=provider_selection,
+                eligibility=eligibility,
+                source="deterministic_fallback",
+                rationale="incident planner disabled; deterministic baseline applied",
+                fallback_reason="live_planner_disabled",
+            )
+
+        provider_type = str(provider_selection.get("provider_type") or "").strip().lower()
+        engine = str(provider_selection.get("engine") or "").strip().lower()
+        if provider_type not in {"local", "api"} or engine not in {"lmstudio", "ollama", "openai"}:
+            return self._fallback_incident_plan(
+                available_tools=available_tools,
+                default_notify_channel=default_notify_channel,
+                provider_selection=provider_selection,
+                eligibility=eligibility,
+                source="deterministic_fallback",
+                rationale="selected incident planner provider is unsupported",
+                fallback_reason="unsupported_provider",
+            )
+
+        timeout_seconds = float(os.getenv("NEWCLAW_LLM_PLANNER_TIMEOUT", str(DEFAULT_PLANNER_TIMEOUT_SECONDS)))
+        prompt = _build_incident_planner_prompt(
+            request_text=request_text,
+            incident=incident,
+            context=context,
+            available_tools=available_tools,
+            risk_level=risk_level,
+            default_notify_channel=default_notify_channel,
+        )
+        try:
+            model = str(provider_selection.get("model") or "").strip()
+            if engine == "lmstudio" and model.lower() in {"", "auto"}:
+                model = _detect_openai_compatible_model(
+                    base_url=os.getenv("NEWCLAW_LMSTUDIO_BASE_URL", DEFAULT_LMSTUDIO_BASE_URL),
+                    timeout_seconds=timeout_seconds,
+                    api_key=os.getenv("NEWCLAW_LMSTUDIO_API_KEY"),
+                )
+            if not model:
+                raise RuntimeError("missing_model")
+
+            if engine == "ollama":
+                response_text = _call_ollama_generate(
+                    base_url=os.getenv("NEWCLAW_OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL),
+                    model=model,
+                    prompt=prompt,
+                    timeout_seconds=timeout_seconds,
+                )
+            elif engine == "lmstudio":
+                response_text = _call_planner_openai_compatible_chat(
+                    base_url=os.getenv("NEWCLAW_LMSTUDIO_BASE_URL", DEFAULT_LMSTUDIO_BASE_URL),
+                    model=model,
+                    prompt=prompt,
+                    timeout_seconds=timeout_seconds,
+                    api_key=os.getenv("NEWCLAW_LMSTUDIO_API_KEY"),
+                )
+            else:
+                response_text = _call_planner_openai_compatible_chat(
+                    base_url=os.getenv("NEWCLAW_OPENAI_BASE_URL", DEFAULT_OPENAI_BASE_URL),
+                    model=model,
+                    prompt=prompt,
+                    timeout_seconds=timeout_seconds,
+                    api_key=os.getenv("NEWCLAW_OPENAI_API_KEY"),
+                )
+
+            payload = _extract_json_object(response_text)
+            actions = self._normalize_actions(
+                raw_actions=payload.get("actions"),
+                allowed_tools={item.tool_id: item for item in available_tools},
+                default_notify_channel=default_notify_channel,
+                required_first_tool_id=TICKET_TOOL_ID,
+            )
+            confidence_raw = payload.get("confidence")
+            confidence = float(confidence_raw) if confidence_raw is not None else None
+            rationale = str(payload.get("rationale") or "llm planner selected incident actions").strip() or "llm planner selected incident actions"
+            provider_selection = dict(provider_selection)
+            provider_selection["model"] = model
+            return TaskPlanningDecision(
+                actions=actions,
+                source="llm",
+                rationale=rationale,
+                confidence=confidence,
+                provider_selection=provider_selection,
+                eligible_tools=tuple(dict(item) for item in (eligibility or ())),
+                degraded_mode=False,
+            )
+        except Exception as exc:
+            return self._fallback_incident_plan(
+                available_tools=available_tools,
+                default_notify_channel=default_notify_channel,
+                provider_selection=provider_selection,
+                eligibility=eligibility,
+                source="llm_error_fallback",
+                rationale="incident planner call failed; deterministic plan applied",
                 fallback_reason=str(exc),
             )

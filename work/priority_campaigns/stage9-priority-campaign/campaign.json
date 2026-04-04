@@ -27,7 +27,8 @@
       "title": "Expand incident workflow to an AI-first planning baseline",
       "unit_id": "stage9-w1-003",
       "goal": "Add incident AI planning baseline with deterministic fallback and provider-backed reasoning",
-      "status": "pending"
+      "status": "completed",
+      "completed_unit_id": "stage9-w1-003"
     },
     {
       "item_id": "g3-operator-action-transparency",

@@ -88,8 +88,10 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
 
         self.assertIsNotNone(final_payload)
         self.assertEqual(final_payload["status"], "DONE")
-        self.assertEqual(final_payload["planning_provenance"]["source"], "deterministic_incident_planner")
-        self.assertFalse(final_payload["planning_provenance"]["degraded_mode"])
+        self.assertEqual(final_payload["planning_provenance"]["source"], "deterministic_fallback")
+        self.assertTrue(final_payload["planning_provenance"]["degraded_mode"])
+        self.assertEqual(final_payload["planning_provenance"]["fallback_reason"], "live_planner_disabled")
+        self.assertEqual(final_payload["planning_provenance"]["provider_selection"]["task_type"], "incident_plan_actions")
         self.assertIn(
             "redmine.issue.create",
             [item["tool_id"] for item in final_payload["planning_provenance"]["eligible_tools"] if item["eligible"]],
@@ -121,6 +123,7 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
         event_types = {item["event_type"] for item in events_payload["items"]}
         self.assertIn("INCIDENT_CREATED", event_types)
         self.assertIn("INCIDENT_CONTEXT_BUILT", event_types)
+        self.assertIn("INCIDENT_PLAN_FALLBACK", event_types)
         self.assertIn("INCIDENT_PLAN_GENERATED", event_types)
         self.assertIn("INCIDENT_ACTION_EXECUTED", event_types)
         self.assertIn("PLANNED_ACTION_EXECUTED", event_types)
@@ -134,7 +137,7 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
         approval_payload = self._wait_incident_status(task_id, {"NEEDS_HUMAN_APPROVAL"})
 
         self.assertIsNotNone(approval_payload)
-        self.assertEqual(approval_payload["planning_provenance"]["source"], "deterministic_incident_planner")
+        self.assertEqual(approval_payload["planning_provenance"]["source"], "deterministic_fallback")
         self.assertEqual(approval_payload["approval_reason"], "high_risk_action")
         queue_id = approval_payload["approval_queue_id"]
 
@@ -235,6 +238,44 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
         ]
         self.assertEqual(len(executed_events), 1)
         self.assertEqual(executed_events[0]["mode"], "live")
+
+    def test_incident_runtime_uses_llm_planner_when_enabled(self) -> None:
+        task_id = self._create_incident(notify_channel="#ops-alerts")
+        planner_json = (
+            '{"actions":['
+            '{"tool_id":"redmine.issue.create","reason":"open tracking ticket"},'
+            '{"tool_id":"slack.message.send","reason":"notify on-call","payload_overrides":{"channel":"#ops-alerts"}}'
+            '],"confidence":0.89,"rationale":"ticket then notify responders"}'
+        )
+
+        with (
+            patch.dict("os.environ", {"NEWCLAW_ENABLE_LLM_INCIDENT_PLANNER": "1"}, clear=False),
+            patch("app.agent_planner._detect_openai_compatible_model", return_value="lmstudio-loaded-model"),
+            patch("app.agent_planner._call_planner_openai_compatible_chat", return_value=planner_json),
+        ):
+            self._run_incident(task_id)
+            final_payload = self._wait_incident_status(task_id, {"DONE"})
+
+        self.assertIsNotNone(final_payload)
+        self.assertEqual(final_payload["planning_provenance"]["source"], "llm")
+        self.assertFalse(final_payload["planning_provenance"]["degraded_mode"])
+        self.assertEqual(final_payload["planning_provenance"]["provider_selection"]["provider_id"], "local_lmstudio")
+        self.assertEqual(final_payload["planning_provenance"]["provider_selection"]["task_type"], "incident_plan_actions")
+        self.assertEqual(
+            [item["tool_id"] for item in final_payload["planned_actions"]],
+            ["redmine.issue.create", "slack.message.send"],
+        )
+        self.assertIn("ticket then notify responders", final_payload["planned_actions"][0]["execution_call"]["payload"]["description"])
+        self.assertIn("ticket then notify responders", final_payload["planned_actions"][1]["execution_call"]["payload"]["text"])
+
+        report_text = Path(final_payload["result"]["report_path"]).read_text(encoding="utf-8")
+        self.assertIn("- source: llm", report_text)
+        self.assertIn("- rationale: ticket then notify responders", report_text)
+
+        events_response = self.client.get(f"/api/v1/incident/events/{task_id}", headers=self.reviewer_headers)
+        self.assertEqual(events_response.status_code, 200)
+        fallback_events = [item for item in events_response.json()["items"] if item["event_type"] == "INCIDENT_PLAN_FALLBACK"]
+        self.assertEqual(fallback_events, [])
 
     def test_task_and_incident_routes_are_isolated(self) -> None:
         incident_task_id = self._create_incident()

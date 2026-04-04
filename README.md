@@ -183,7 +183,7 @@
 - 하나의 agent 요청을 받아 현재 구현된 workflow family(`task`, `incident`) 중 하나로 분기
 - `task_kind=auto` 요청을 LLM intent classifier + heuristic fallback으로 안전하게 분류
 - 회의요약 입력을 받아 액션 아이템 보고서 생성
-- incident 입력을 받아 context 집계, action card, 승인/실행, 보고서 흐름을 dry-run으로 재현
+- incident 입력을 받아 context 집계, provider-backed planning(또는 deterministic fallback), 승인/실행, 보고서 흐름을 dry-run으로 재현
 - 승인 큐/이벤트 로그/audit/상태 조회를 일관된 경로로 처리
 - MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`, `catalog.*`를 호출 가능
 - Redmine MCP live bridge 및 rehearsal script를 통해 sandbox 연동 경로 준비
@@ -207,9 +207,9 @@
 ### 10.1.1 현재 제품 위치
 - 현재 NestClaw는 `조직용 closed orchestration runtime`으로 가는 전환기 상태다.
 - `task` workflow는 이제 LLM planner baseline이 기본 경로고, 실패나 비활성 시에만 degraded mode fallback으로 내려간다.
-- task planner 범위는 `summary + ticket + slack`까지 넓어졌지만, 여전히 tool set이 좁고 `incident` workflow는 deterministic/dry-run 중심이다.
-- incident workflow도 이제 `planned_actions + planning_provenance` 관측 계약을 공유하지만, planner 자체는 아직 deterministic/dry-run 중심이다.
-- 따라서 현재 런타임은 `task LLM planner baseline + incident common contract` 단계이며, product 전체로 보면 아직 제한된 범위의 orchestration control plane이다.
+- task planner 범위는 `summary + ticket + slack`까지 넓어졌고, `incident` workflow도 이제 provider-backed AI planner baseline과 deterministic fallback을 함께 가진다.
+- incident workflow는 여전히 ticket/slack 중심의 좁은 tool set과 dry-run 중심 실행에 묶여 있다.
+- 따라서 현재 런타임은 `task/incident AI planner baseline + constrained tool scope` 단계이며, product 전체로 보면 아직 제한된 범위의 orchestration control plane이다.
 
 ### 10.2 아직 못 하는 것
 - broader registry 기반 multi-step planning 확장 (`task` beyond summary/ticket/slack, incident AI planner, richer cross-action binding)

@@ -846,6 +846,20 @@ def _incident_notify_channel(task: dict[str, Any]) -> str | None:
     return channel or None
 
 
+def _incident_request_text(task: dict[str, Any]) -> str:
+    agent_request = dict(task.get("agent_request") or {})
+    request_text = str(agent_request.get("request_text") or "").strip()
+    if request_text:
+        return request_text
+    return _incident_summary(task)
+
+
+def _incident_planner_selection_context(task: dict[str, Any]) -> dict[str, Any]:
+    context = _incident_selection_context(task)
+    context["task_type"] = "incident_plan_actions"
+    return context
+
+
 def _incident_tool_eligibility(task: dict[str, Any]) -> list[dict[str, Any]]:
     eligibility = [
         {
@@ -865,115 +879,188 @@ def _incident_tool_eligibility(task: dict[str, Any]) -> list[dict[str, Any]]:
     return eligibility
 
 
-def _build_incident_planning_provenance(
+def _incident_candidate_capabilities(task: dict[str, Any]) -> list[Any]:
+    capabilities: list[Any] = []
+    for item in _incident_tool_eligibility(task):
+        if not item["eligible"]:
+            continue
+        try:
+            capabilities.append(get_tool_capability(TOOL_REGISTRY, str(item["tool_id"])))
+        except ToolRegistryError as exc:
+            raise RuntimeError(str(exc)) from exc
+    return capabilities
+
+
+def _incident_ticket_description(
     task: dict[str, Any],
-    planned_actions: list[dict[str, Any]],
-    eligibility: list[dict[str, Any]],
+    *,
+    evidence_links: list[str],
+    planner_rationale: str | None,
+    action_reason: str | None,
+) -> str:
+    incident = dict(task.get("incident") or {})
+    lines = [
+        "# Incident Follow-up Request",
+        "",
+        f"- incident_id: {incident.get('incident_id', 'N/A')}",
+        f"- service: {incident.get('service', 'N/A')}",
+        f"- severity: {incident.get('severity', 'N/A')}",
+        f"- requested_by: {task.get('requested_by', 'unknown')}",
+        "",
+        "## Summary",
+        _incident_summary(task),
+    ]
+    if planner_rationale:
+        lines.extend(["", "## Planner Rationale", planner_rationale])
+    if action_reason:
+        lines.extend(["", "## Action Reason", action_reason])
+    if evidence_links:
+        lines.extend(["", "## Evidence Links"])
+        lines.extend(f"- {item}" for item in evidence_links[:5])
+    return "\n".join(lines).strip() + "\n"
+
+
+def _incident_slack_message(
+    task: dict[str, Any],
+    *,
+    planner_rationale: str | None,
+    action_reason: str | None,
+) -> str:
+    incident = dict(task.get("incident") or {})
+    lines = [
+        (
+            f"[Incident] {incident.get('service', 'unknown-service')} "
+            f"severity={incident.get('severity', 'unknown')} "
+            f"incident_id={incident.get('incident_id', 'N/A')}"
+        ),
+        f"summary={_incident_summary(task)}",
+    ]
+    if planner_rationale:
+        lines.append(f"rationale={planner_rationale}")
+    if action_reason:
+        lines.append(f"action_reason={action_reason}")
+    return "\n".join(lines)
+
+
+def _incident_payload_for_tool(
+    task: dict[str, Any],
+    capability: Any,
+    *,
+    risk_level: str,
+    evidence_links: list[str],
+    planner_rationale: str | None,
+    action_reason: str | None,
+    payload_overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
-        "actions": [
-            {
-                "tool_id": str(item.get("tool_id") or ""),
-                "reason": "incident_deterministic_baseline",
-                "payload_overrides": {},
-            }
-            for item in planned_actions
-        ],
-        "source": "deterministic_incident_planner",
-        "rationale": "incident workflow uses deterministic planner baseline before incident llm planner rollout",
-        "confidence": 1.0,
-        "provider_selection": dict(task.get("provider_selection") or {}),
-        "eligible_tools": [dict(item) for item in eligibility],
-        "fallback_reason": None,
-        "degraded_mode": False,
-    }
+    payload_overrides = dict(payload_overrides or {})
+    incident = dict(task.get("incident") or {})
+    if capability.tool_id == _incident_ticket_tool_id():
+        payload = {
+            "project_id": _incident_project_id(),
+            "subject": f"[INCIDENT] {incident.get('service', 'unknown-service')} {incident.get('severity', 'unknown')}",
+            "description": _incident_ticket_description(
+                task,
+                evidence_links=evidence_links,
+                planner_rationale=planner_rationale,
+                action_reason=action_reason,
+            ),
+            "priority": "High" if risk_level in {IncidentSeverity.HIGH.value, IncidentSeverity.CRITICAL.value} else "Normal",
+        }
+        if str(incident.get("source") or "").strip().lower() == "simulate_mcp_timeout":
+            payload["simulate_timeout"] = True
+    elif capability.tool_id == _incident_slack_tool_id():
+        payload = {
+            "channel": _incident_notify_channel(task) or "",
+            "text": _incident_slack_message(
+                task,
+                planner_rationale=planner_rationale,
+                action_reason=action_reason,
+            ),
+        }
+    else:
+        raise RuntimeError(f"unsupported incident tool: {capability.tool_id}")
+    payload.update(payload_overrides)
+    for field_name in capability.required_payload_fields:
+        value = payload.get(field_name)
+        if value in (None, ""):
+            raise RuntimeError(f"missing required field for {capability.tool_id}: {field_name}")
+    return payload
 
 
-def _build_incident_planned_actions(task: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    incident = task.get("incident") or {}
-    context = task.get("incident_context") or {}
-    risk_level = _incident_risk_level(task)
-    evidence_links = _collect_incident_evidence(context)
-    summary = _incident_summary(task)
-    eligibility = _incident_tool_eligibility(task)
-    actions: list[dict[str, Any]] = []
-    try:
-        capability = get_tool_capability(TOOL_REGISTRY, _incident_ticket_tool_id())
-    except ToolRegistryError as exc:
-        raise RuntimeError(str(exc)) from exc
-
-    payload: dict[str, Any] = {
-        "project_id": _incident_project_id(),
-        "subject": f"[INCIDENT] {incident.get('service', 'unknown-service')} {incident.get('severity', 'unknown')}",
-        "description": summary,
-        "priority": "High" if risk_level in {IncidentSeverity.HIGH.value, IncidentSeverity.CRITICAL.value} else "Normal",
-    }
-    if str(incident.get("source") or "").strip().lower() == "simulate_mcp_timeout":
-        payload["simulate_timeout"] = True
+def _incident_planned_action(
+    task: dict[str, Any],
+    capability: Any,
+    *,
+    risk_level: str,
+    evidence_links: list[str],
+    planner_rationale: str | None,
+    action_reason: str | None,
+    payload_overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    incident = dict(task.get("incident") or {})
     execution_call = {
         "adapter": capability.adapter,
         "method": capability.method,
         "supports_dry_run": capability.supports_dry_run,
-        "payload": payload,
+        "payload": _incident_payload_for_tool(
+            task,
+            capability,
+            risk_level=risk_level,
+            evidence_links=evidence_links,
+            planner_rationale=planner_rationale,
+            action_reason=action_reason,
+            payload_overrides=payload_overrides,
+        ),
     }
-    actions.append(
-        {
-            "action_id": f"act_{uuid4().hex[:12]}",
-            "incident_id": incident.get("incident_id"),
-            "title": capability.title,
-            "action_type": capability.action_type,
-            "tool_id": capability.tool_id,
-            "tool_family": capability.capability_family,
-            "external_system": capability.external_system,
-            "risk_level": risk_level,
-            "approval_required": capability.default_approval_required or _incident_requires_approval(risk_level),
-            "evidence_links": evidence_links,
-            "tool_capability": capability.as_dict(),
-            "execution_call": execution_call,
-            "mcp_call": dict(execution_call),
-        }
+    return {
+        "action_id": f"act_{uuid4().hex[:12]}",
+        "incident_id": incident.get("incident_id"),
+        "title": capability.title,
+        "action_type": capability.action_type,
+        "tool_id": capability.tool_id,
+        "tool_family": capability.capability_family,
+        "external_system": capability.external_system,
+        "risk_level": risk_level,
+        "approval_required": capability.default_approval_required or _incident_requires_approval(risk_level),
+        "evidence_links": evidence_links,
+        "tool_capability": capability.as_dict(),
+        "execution_call": execution_call,
+        "mcp_call": dict(execution_call),
+    }
+
+
+def _build_incident_planned_actions(task: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    context = dict(task.get("incident_context") or {})
+    risk_level = _incident_risk_level(task)
+    evidence_links = _collect_incident_evidence(context)
+    selection_context = _incident_planner_selection_context(task)
+    eligibility = _incident_tool_eligibility(task)
+    capabilities = _incident_candidate_capabilities(task)
+    decision = TASK_PLANNER.plan_incident_actions(
+        request_text=_incident_request_text(task),
+        incident=dict(task.get("incident") or {}),
+        context=context,
+        available_tools=capabilities,
+        sensitivity=str(selection_context.get("sensitivity") or "low"),
+        external_send=bool(selection_context.get("external_send", False)),
+        risk_level=risk_level,
+        eligibility=eligibility,
+        default_notify_channel=_incident_notify_channel(task),
     )
-
-    notify_channel = _incident_notify_channel(task)
-    if notify_channel:
-        try:
-            slack_capability = get_tool_capability(TOOL_REGISTRY, _incident_slack_tool_id())
-        except ToolRegistryError as exc:
-            raise RuntimeError(str(exc)) from exc
-        slack_payload = {
-            "channel": notify_channel,
-            "text": (
-                f"[Incident] {incident.get('service', 'unknown-service')} "
-                f"severity={incident.get('severity', 'unknown')} "
-                f"incident_id={incident.get('incident_id', 'N/A')} "
-                f"summary={summary}"
-            ),
-        }
-        slack_call = {
-            "adapter": slack_capability.adapter,
-            "method": slack_capability.method,
-            "supports_dry_run": slack_capability.supports_dry_run,
-            "payload": slack_payload,
-        }
-        actions.append(
-            {
-                "action_id": f"act_{uuid4().hex[:12]}",
-                "incident_id": incident.get("incident_id"),
-                "title": slack_capability.title,
-                "action_type": slack_capability.action_type,
-                "tool_id": slack_capability.tool_id,
-                "tool_family": slack_capability.capability_family,
-                "external_system": slack_capability.external_system,
-                "risk_level": risk_level,
-                "approval_required": slack_capability.default_approval_required or _incident_requires_approval(risk_level),
-                "evidence_links": evidence_links,
-                "tool_capability": slack_capability.as_dict(),
-                "execution_call": slack_call,
-                "mcp_call": dict(slack_call),
-            }
+    capability_map = {item.tool_id: item for item in capabilities}
+    planned_actions = [
+        _incident_planned_action(
+            task,
+            capability_map[action.tool_id],
+            risk_level=risk_level,
+            evidence_links=evidence_links,
+            planner_rationale=decision.rationale,
+            action_reason=action.reason,
+            payload_overrides=dict(action.payload_overrides or {}),
         )
-
-    return actions, _build_incident_planning_provenance(task, actions, eligibility)
+        for action in decision.actions
+    ]
+    return planned_actions, decision.as_dict()
 
 
 def _build_incident_action_cards(task: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1080,6 +1167,8 @@ def _create_approval_item(
 def _render_incident_report(task: dict[str, Any], action_results: list[dict[str, Any]]) -> str:
     incident = task.get("incident") or {}
     runtime_state = _incident_runtime_snapshot(dict(task.get("incident_runtime") or {}))
+    planning = dict(task.get("planning_provenance") or {})
+    planner_selection = dict(planning.get("provider_selection") or {})
     lines = [
         "# Incident Orchestration Report",
         "",
@@ -1091,6 +1180,14 @@ def _render_incident_report(task: dict[str, Any], action_results: list[dict[str,
         f"- context_dry_run: {runtime_state['context_dry_run']}",
         f"- mcp_dry_run: {runtime_state['mcp_dry_run']}",
         f"- dry_run: {runtime_state['dry_run']}",
+        "",
+        "## Planning Summary",
+        f"- source: {planning.get('source', 'N/A')}",
+        f"- degraded_mode: {planning.get('degraded_mode', 'N/A')}",
+        f"- planner_provider: {planner_selection.get('provider_id', 'N/A')}",
+        f"- planner_model: {planner_selection.get('model', 'N/A')}",
+        f"- fallback_reason: {planning.get('fallback_reason', 'N/A') or 'N/A'}",
+        f"- rationale: {planning.get('rationale', 'N/A') or 'N/A'}",
         "",
         "## Action Results",
     ]
@@ -1422,6 +1519,7 @@ def _execute_incident_once(task_id: str) -> bool:
             log_event=_log_event,
             plan_generated_event="INCIDENT_PLAN_GENERATED",
             actions_planned_event="INCIDENT_ACTIONS_PLANNED",
+            fallback_event="INCIDENT_PLAN_FALLBACK",
         )
         _set_stage(task, "executor")
 

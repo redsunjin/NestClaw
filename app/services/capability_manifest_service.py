@@ -51,8 +51,8 @@ class CapabilityManifestService:
                 },
                 {
                     "kind": "incident",
-                    "status": "common_contract_deterministic_planner",
-                    "notes": "shared planner/executor contract with dry-run centered planning",
+                    "status": "ai_planner_with_deterministic_fallback",
+                    "notes": "provider-backed incident planning baseline with deterministic fallback and dry-run execution",
                 },
             ],
             "delivery_surfaces": [
@@ -99,7 +99,7 @@ class CapabilityManifestService:
             "readiness": self._readiness(),
             "known_limits": [
                 "broader multi-step planning is still limited",
-                "incident ai planner is not the default runtime path yet",
+                "incident ai planner remains constrained to the current ticket/slack tool set",
                 "live external readiness can be blocked by missing env",
             ],
         }
