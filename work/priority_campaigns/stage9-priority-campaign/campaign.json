@@ -1,6 +1,6 @@
 {
   "campaign_id": "stage9-priority-campaign",
-  "goal": "Drive the next broader execution agent priorities without gaps between MWUs",
+  "goal": "Drive the next organizational orchestration runtime priorities without gaps between MWUs",
   "target_stage": 9,
   "items": [
     {
@@ -9,13 +9,23 @@
       "title": "Converge task and incident on a shared planner-executor loop",
       "unit_id": "stage9-w1-001",
       "goal": "Extract a shared registry-based planner-executor loop for task and incident workflows",
-      "status": "in_progress"
+      "status": "completed",
+      "completed_unit_id": "stage9-w1-001"
+    },
+    {
+      "item_id": "g1-provider-report-finalization",
+      "group": "G1",
+      "title": "Converge provider selection and report finalization on shared runtime helpers",
+      "unit_id": "stage9-w1-002",
+      "goal": "Extract shared provider-selection recording and report/result finalization helpers for task and incident workflows",
+      "status": "completed",
+      "completed_unit_id": "stage9-w1-002"
     },
     {
       "item_id": "g2-incident-ai-reasoning",
       "group": "G2",
       "title": "Expand incident workflow to an AI-first planning baseline",
-      "unit_id": "stage9-w1-002",
+      "unit_id": "stage9-w1-003",
       "goal": "Add incident AI planning baseline with deterministic fallback and provider-backed reasoning",
       "status": "pending"
     },
@@ -23,7 +33,7 @@
       "item_id": "g3-operator-action-transparency",
       "group": "G3",
       "title": "Expose action sequencing and execution detail in operator surfaces",
-      "unit_id": "stage9-w1-003",
+      "unit_id": "stage9-w1-004",
       "goal": "Deliver surface parity first, then operator dashboard capability/readiness visibility, with full regression on each sub-step",
       "status": "pending"
     },
@@ -31,7 +41,7 @@
       "item_id": "g4-pilot-readiness-pack",
       "group": "G4",
       "title": "Package pilot go-no-go and live-readiness resume workflow",
-      "unit_id": "stage9-w1-004",
+      "unit_id": "stage9-w1-005",
       "goal": "Document the pilot evidence matrix, go-no-go packet, and blocked-to-resumed live-readiness procedure",
       "status": "pending"
     }

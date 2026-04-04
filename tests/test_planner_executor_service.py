@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 MODULE_PATH = Path("app/services/planner_executor_service.py")
@@ -13,8 +14,11 @@ MODULE_SPEC.loader.exec_module(MODULE)
 build_action_result = MODULE.build_action_result
 emit_planning_events = MODULE.emit_planning_events
 execute_planned_actions = MODULE.execute_planned_actions
+finalize_execution = MODULE.finalize_execution
 record_action_results = MODULE.record_action_results
 record_planning_snapshot = MODULE.record_planning_snapshot
+record_provider_selection = MODULE.record_provider_selection
+write_report = MODULE.write_report
 
 
 class TestPlannerExecutorService(unittest.TestCase):
@@ -131,6 +135,61 @@ class TestPlannerExecutorService(unittest.TestCase):
 
         self.assertEqual([item[0] for item in events], ["TASK_PLAN_FALLBACK", "TASK_PLAN_GENERATED", "TASK_ACTIONS_PLANNED", "PLANNED_ACTIONS_BUILT"])
         self.assertEqual(events[1][1]["action_count"], 2)
+
+    def test_record_provider_selection_persists_and_logs_common_fields(self) -> None:
+        persisted: list[dict[str, object]] = []
+        events: list[tuple[str, dict[str, object]]] = []
+        task: dict[str, object] = {"task_id": "task-1"}
+
+        selection = record_provider_selection(
+            task,
+            selection={
+                "provider_id": "local_lmstudio",
+                "provider_type": "openai-compatible",
+                "engine": "lmstudio",
+                "model": "gpt-oss",
+                "selection_source": "policy_matrix",
+                "sensitivity": "low",
+                "task_type": "meeting_summary",
+                "external_send": False,
+                "requires_human_approval": False,
+            },
+            now_iso=lambda: "2026-04-04T00:00:00+00:00",
+            persist_task=lambda item: persisted.append(dict(item)),
+            log_event=lambda task_id, event_type, **payload: events.append((event_type, {"task_id": task_id, **payload})),
+        )
+
+        self.assertEqual(selection["provider_id"], "local_lmstudio")
+        self.assertEqual(task["provider_selection"], selection)
+        self.assertEqual(len(persisted), 1)
+        self.assertEqual(events[0][0], "MODEL_PROVIDER_SELECTED")
+        self.assertEqual(events[0][1]["provider_type"], "openai-compatible")
+
+    def test_write_report_and_finalize_execution_share_common_runtime_contract(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            report_path = write_report(Path(tmpdir), "task-1", "# report\n", filename="incident_report.md")
+            self.assertTrue(report_path.endswith("incident_report.md"))
+            self.assertEqual(Path(report_path).read_text(encoding="utf-8"), "# report\n")
+
+            task: dict[str, object] = {"task_id": "task-1", "status": "RUNNING"}
+            captured: list[dict[str, object]] = []
+
+            def fake_set_done_status(item: dict[str, object]) -> None:
+                captured.append(dict(item))
+                item["status"] = "DONE"
+
+            finalize_execution(
+                task,
+                result={"report_path": report_path, "actions_executed": 1},
+                now_iso=lambda: "2026-04-04T00:00:02+00:00",
+                set_done_status=fake_set_done_status,
+            )
+
+            self.assertEqual(task["result"]["actions_executed"], 1)
+            self.assertEqual(task["completed_at"], "2026-04-04T00:00:02+00:00")
+            self.assertEqual(task["status"], "DONE")
+            self.assertEqual(captured[0]["result"]["report_path"], report_path)
+            self.assertEqual(captured[0]["completed_at"], "2026-04-04T00:00:02+00:00")
 
 
 if __name__ == "__main__":

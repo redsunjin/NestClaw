@@ -24,12 +24,17 @@ class TestStage9Contract(unittest.TestCase):
             [item["item_id"] for item in data["items"]],
             [
                 "g1-common-planner-executor-loop",
+                "g1-provider-report-finalization",
                 "g2-incident-ai-reasoning",
                 "g3-operator-action-transparency",
                 "g4-pilot-readiness-pack",
             ],
         )
         self.assertEqual(data["items"][0]["unit_id"], "stage9-w1-001")
+        self.assertEqual(data["items"][0]["status"], "completed")
+        self.assertEqual(data["items"][1]["unit_id"], "stage9-w1-002")
+        self.assertEqual(data["items"][1]["status"], "completed")
+        self.assertEqual(data["items"][1]["completed_unit_id"], "stage9-w1-002")
 
     def test_stage9_first_micro_unit_is_initialized(self) -> None:
         work_unit = Path("work/micro_units/stage9-w1-001/WORK_UNIT.md").read_text(encoding="utf-8")
@@ -39,12 +44,23 @@ class TestStage9Contract(unittest.TestCase):
         self.assertIn("## AI-First Planner Design", plan_notes)
         self.assertIn("공통 helper", plan_notes)
 
+    def test_stage9_second_micro_unit_is_initialized(self) -> None:
+        work_unit = Path("work/micro_units/stage9-w1-002/WORK_UNIT.md").read_text(encoding="utf-8")
+        plan_notes = Path("work/micro_units/stage9-w1-002/PLAN_NOTES.md").read_text(encoding="utf-8")
+        review_notes = Path("work/micro_units/stage9-w1-002/REVIEW_NOTES.md").read_text(encoding="utf-8")
+        self.assertIn("stage9-w1-002", work_unit)
+        self.assertIn("provider-selection recording", work_unit)
+        self.assertIn("report/result finalization", plan_notes)
+        self.assertIn("planner_executor_service", review_notes)
+
     def test_cycle_scripts_support_stage9(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         self.assertIn("target-stage: 1..9", cycle_source)
         self.assertIn("check_stage_9", cycle_source)
         self.assertIn("tests.test_stage9_contract", cycle_source)
         self.assertIn("tests.test_planner_executor_service", cycle_source)
+        self.assertIn("tests.test_agent_planner_runtime", cycle_source)
+        self.assertIn("tests.test_incident_runtime_smoke", cycle_source)
 
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
         self.assertIn("target-stage:1..9", auto_source)
@@ -56,12 +72,18 @@ class TestStage9Contract(unittest.TestCase):
         self.assertIn("def emit_planning_events", helper_source)
         self.assertIn("def execute_planned_actions", helper_source)
         self.assertIn("def record_action_results", helper_source)
+        self.assertIn("def record_provider_selection", helper_source)
+        self.assertIn("def write_report", helper_source)
+        self.assertIn("def finalize_execution", helper_source)
 
         main_source = Path("app/main.py").read_text(encoding="utf-8")
         self.assertIn("record_planning_snapshot(", main_source)
         self.assertIn("emit_planning_events(", main_source)
         self.assertIn("execute_planned_actions(", main_source)
         self.assertIn("record_action_results(", main_source)
+        self.assertIn("record_provider_selection(", main_source)
+        self.assertIn("write_report(", main_source)
+        self.assertIn("finalize_execution(", main_source)
 
 
 if __name__ == "__main__":

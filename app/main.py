@@ -42,12 +42,15 @@ from app.services import (
     build_action_result,
     emit_planning_events,
     execute_planned_actions,
+    finalize_execution,
     record_action_results,
     record_planning_snapshot,
+    record_provider_selection,
     ToolCatalogService,
     ToolCatalogServiceDeps,
     ToolDraftService,
     ToolDraftServiceDeps,
+    write_report,
 )
 from app.tool_registry import (
     DEFAULT_TOOL_REGISTRY_OVERLAY_PATH,
@@ -549,30 +552,13 @@ def _incident_selection_context(task: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _record_provider_selection(task: dict[str, Any], *, selection_context: dict[str, Any]) -> dict[str, Any]:
-    selection = select_provider(
+def _select_provider_for_task(selection_context: dict[str, Any]) -> dict[str, Any]:
+    return select_provider(
         MODEL_REGISTRY,
         sensitivity=str(selection_context.get("sensitivity") or "low"),
         task_type=str(selection_context.get("task_type") or "general"),
         external_send=bool(selection_context.get("external_send", False)),
     ).as_dict()
-    task["provider_selection"] = selection
-    task["updated_at"] = _now_iso()
-    _persist_task(task)
-    _log_event(
-        task["task_id"],
-        "MODEL_PROVIDER_SELECTED",
-        provider_id=selection.get("provider_id"),
-        provider_type=selection.get("provider_type"),
-        engine=selection.get("engine"),
-        model=selection.get("model"),
-        selection_source=selection.get("selection_source"),
-        sensitivity=selection.get("sensitivity"),
-        task_type=selection.get("task_type"),
-        external_send=selection.get("external_send"),
-        requires_human_approval=selection.get("requires_human_approval"),
-    )
-    return selection
 
 
 def _classify_agent_intent(request_text: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -1124,14 +1110,6 @@ def _render_incident_report(task: dict[str, Any], action_results: list[dict[str,
     return "\n".join(lines).strip() + "\n"
 
 
-def _write_report(task_id: str, report_text: str, *, filename: str = "report.md") -> str:
-    target = REPORTS_ROOT / task_id
-    target.mkdir(parents=True, exist_ok=True)
-    report_path = target / filename
-    report_path.write_text(report_text, encoding="utf-8")
-    return str(report_path)
-
-
 def _execution_call_for_action(planned_action: dict[str, Any]) -> dict[str, Any]:
     call = dict(planned_action.get("execution_call") or {})
     if call:
@@ -1286,7 +1264,13 @@ def _execute_once(task_id: str) -> bool:
 
     with STORE_LOCK:
         task = TASKS[task_id]
-        _record_provider_selection(task, selection_context=_task_selection_context(task))
+        record_provider_selection(
+            task,
+            selection=_select_provider_for_task(_task_selection_context(task)),
+            now_iso=_now_iso,
+            persist_task=_persist_task,
+            log_event=_log_event,
+        )
         planned_actions, planning_provenance = _build_task_planned_actions(task)
         record_planning_snapshot(
             task,
@@ -1334,7 +1318,7 @@ def _execute_once(task_id: str) -> bool:
     summary_result = action_results[0]
     report_text = str(summary_result["output_text"])
 
-    report_path = _write_report(task_id, report_text)
+    report_path = write_report(REPORTS_ROOT, task_id, report_text)
 
     with STORE_LOCK:
         task = TASKS[task_id]
@@ -1352,13 +1336,16 @@ def _execute_once(task_id: str) -> bool:
             raise ValueError("review failed: report header missing")
 
         _set_stage(task, "reporter")
-        task["result"] = {
-            "report_path": report_path,
-            "provider_invocation": invocation,
-            "actions_executed": len(action_results),
-        }
-        task["completed_at"] = _now_iso()
-        _set_status(task, TaskStatus.DONE, next_action="none")
+        finalize_execution(
+            task,
+            result={
+                "report_path": report_path,
+                "provider_invocation": invocation,
+                "actions_executed": len(action_results),
+            },
+            now_iso=_now_iso,
+            set_done_status=lambda item: _set_status(item, TaskStatus.DONE, next_action="none"),
+        )
     return True
 
 
@@ -1402,7 +1389,13 @@ def _execute_incident_once(task_id: str) -> bool:
 
     with STORE_LOCK:
         task = TASKS[task_id]
-        _record_provider_selection(task, selection_context=_incident_selection_context(task))
+        record_provider_selection(
+            task,
+            selection=_select_provider_for_task(_incident_selection_context(task)),
+            now_iso=_now_iso,
+            persist_task=_persist_task,
+            log_event=_log_event,
+        )
         task["incident_context"] = context
         task["updated_at"] = _now_iso()
         _persist_task(task)
@@ -1510,18 +1503,21 @@ def _execute_incident_once(task_id: str) -> bool:
             raise ValueError("incident review failed: report header missing")
         _set_stage(task, "reporter")
 
-    report_path = _write_report(task_id, report_text, filename="incident_report.md")
+    report_path = write_report(REPORTS_ROOT, task_id, report_text, filename="incident_report.md")
 
     with STORE_LOCK:
         task = TASKS[task_id]
-        task["result"] = {
-            "report_path": report_path,
-            "actions_executed": len(action_results),
-            "remaining_risk": "human_review_recommended",
-            "next_action": "monitor_service",
-        }
-        task["completed_at"] = _now_iso()
-        _set_status(task, TaskStatus.DONE, next_action="none")
+        finalize_execution(
+            task,
+            result={
+                "report_path": report_path,
+                "actions_executed": len(action_results),
+                "remaining_risk": "human_review_recommended",
+                "next_action": "monitor_service",
+            },
+            now_iso=_now_iso,
+            set_done_status=lambda item: _set_status(item, TaskStatus.DONE, next_action="none"),
+        )
     return True
 
 

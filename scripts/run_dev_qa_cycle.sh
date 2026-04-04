@@ -207,6 +207,8 @@ check_stage_8() {
 check_stage_9() {
   run_check "stage9 static contract tests" python3 -m unittest tests.test_stage9_contract
   run_check "stage9 planner executor helper tests" python3 -m unittest tests.test_planner_executor_service
+  run_optional_check "stage9 task planner runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_agent_planner_runtime
+  run_optional_check "stage9 incident runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_incident_runtime_smoke
 }
 
 write_header

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Callable, Mapping, MutableMapping
 
 
@@ -8,6 +9,7 @@ DispatchAction = Callable[..., ActionResult]
 PersistTask = Callable[[dict[str, Any]], None]
 NowIso = Callable[[], str]
 LogEvent = Callable[..., None]
+SetDoneStatus = Callable[[MutableMapping[str, Any]], None]
 
 
 def build_action_result(
@@ -124,3 +126,57 @@ def record_action_results(
             task[key] = value
     task["updated_at"] = now_iso()
     persist_task(dict(task))
+
+
+def record_provider_selection(
+    task: MutableMapping[str, Any],
+    *,
+    selection: Mapping[str, Any],
+    now_iso: NowIso,
+    persist_task: PersistTask,
+    log_event: LogEvent,
+) -> dict[str, Any]:
+    normalized_selection = dict(selection)
+    task["provider_selection"] = normalized_selection
+    task["updated_at"] = now_iso()
+    persist_task(dict(task))
+    log_event(
+        str(task.get("task_id") or ""),
+        "MODEL_PROVIDER_SELECTED",
+        provider_id=normalized_selection.get("provider_id"),
+        provider_type=normalized_selection.get("provider_type"),
+        engine=normalized_selection.get("engine"),
+        model=normalized_selection.get("model"),
+        selection_source=normalized_selection.get("selection_source"),
+        sensitivity=normalized_selection.get("sensitivity"),
+        task_type=normalized_selection.get("task_type"),
+        external_send=normalized_selection.get("external_send"),
+        requires_human_approval=normalized_selection.get("requires_human_approval"),
+    )
+    return normalized_selection
+
+
+def write_report(
+    reports_root: Path,
+    task_id: str,
+    report_text: str,
+    *,
+    filename: str = "report.md",
+) -> str:
+    target = reports_root / task_id
+    target.mkdir(parents=True, exist_ok=True)
+    report_path = target / filename
+    report_path.write_text(report_text, encoding="utf-8")
+    return str(report_path)
+
+
+def finalize_execution(
+    task: MutableMapping[str, Any],
+    *,
+    result: Mapping[str, Any],
+    now_iso: NowIso,
+    set_done_status: SetDoneStatus,
+) -> None:
+    task["result"] = dict(result)
+    task["completed_at"] = now_iso()
+    set_done_status(task)

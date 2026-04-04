@@ -98,13 +98,13 @@ class TestStage8Contract(unittest.TestCase):
     def test_next_work_groups_doc_exists(self) -> None:
         self.assertTrue(Path("NEXT_WORK_GROUPS_2026-03-13.md").is_file())
 
-    def test_product_definition_aligns_with_tool_using_execution_agent(self) -> None:
+    def test_product_definition_aligns_with_control_plane_posture(self) -> None:
         readme_source = Path("README.md").read_text(encoding="utf-8")
         onepager_source = Path("IDEATION_ONEPAGER.md").read_text(encoding="utf-8")
         direction_source = Path("AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md").read_text(encoding="utf-8")
-        self.assertIn("orchestration AI agent", readme_source)
-        self.assertIn("orchestration AI agent", onepager_source)
-        self.assertIn("orchestration AI agent", direction_source)
+        self.assertIn("orchestration runtime/control plane", readme_source)
+        self.assertIn("orchestration runtime/control plane", onepager_source)
+        self.assertIn("orchestration control plane", direction_source)
         self.assertIn("degraded mode", readme_source)
         self.assertIn("degraded mode", onepager_source)
         self.assertIn("degraded mode", direction_source)
@@ -123,7 +123,8 @@ class TestStage8Contract(unittest.TestCase):
     def test_api_contract_documents_current_workflow_family_scope(self) -> None:
         source = Path("API_CONTRACT.md").read_text(encoding="utf-8")
         self.assertIn("현재 v0.1 구현 범위의 workflow family는 `task`와 `incident`", source)
-        self.assertIn("AI-first orchestration agent", source)
+        self.assertIn("조직용 orchestration runtime/control plane", source)
+        self.assertIn("AI-first planning baseline", source)
         self.assertIn("degraded mode", source)
 
     def test_dev_qa_cycle_supports_stage8(self) -> None:
@@ -260,10 +261,12 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn('method == "tools/call"', source)
 
     def test_model_registry_is_connected_to_runtime_selection(self) -> None:
-        source = Path("app/main.py").read_text(encoding="utf-8")
-        self.assertIn("MODEL_REGISTRY = load_model_registry()", source)
-        self.assertIn("MODEL_PROVIDER_SELECTED", source)
-        self.assertIn("provider_selection", source)
+        main_source = Path("app/main.py").read_text(encoding="utf-8")
+        helper_source = Path("app/services/planner_executor_service.py").read_text(encoding="utf-8")
+        self.assertIn("MODEL_REGISTRY = load_model_registry()", main_source)
+        self.assertIn("record_provider_selection(", main_source)
+        self.assertIn("provider_selection", main_source)
+        self.assertIn("MODEL_PROVIDER_SELECTED", helper_source)
 
     def test_provider_invoker_is_connected_to_summary_runtime(self) -> None:
         main_source = Path("app/main.py").read_text(encoding="utf-8")
