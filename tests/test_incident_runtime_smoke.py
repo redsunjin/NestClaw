@@ -111,6 +111,9 @@ class TestIncidentRuntimeSmoke(unittest.TestCase):
         self.assertEqual(planned_actions[0]["execution_call"]["adapter"], "redmine_mcp")
         self.assertEqual(action_cards[0]["mcp_call"]["adapter"], "redmine_mcp")
         self.assertEqual(action_results[0]["tool_id"], "redmine.issue.create")
+        self.assertTrue(
+            {"action_id", "tool_id", "adapter", "method", "mode", "request_payload"}.issubset(action_results[0].keys())
+        )
 
         events_response = self.client.get(f"/api/v1/incident/events/{task_id}", headers=self.reviewer_headers)
         self.assertEqual(events_response.status_code, 200)

@@ -206,6 +206,7 @@ check_stage_8() {
 
 check_stage_9() {
   run_check "stage9 static contract tests" python3 -m unittest tests.test_stage9_contract
+  run_check "stage9 planner executor helper tests" python3 -m unittest tests.test_planner_executor_service
 }
 
 write_header

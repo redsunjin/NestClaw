@@ -39,6 +39,11 @@ from app.services import (
     CapabilityManifestServiceDeps,
     OrchestrationService,
     OrchestrationServiceDeps,
+    build_action_result,
+    emit_planning_events,
+    execute_planned_actions,
+    record_action_results,
+    record_planning_snapshot,
     ToolCatalogService,
     ToolCatalogServiceDeps,
     ToolDraftService,
@@ -1208,17 +1213,18 @@ def _dispatch_planned_action(
             method=method,
             mode=invocation.get("result_source"),
         )
-        return {
-            "action_id": planned_action.get("action_id"),
-            "status": "generated",
-            "tool_id": planned_action.get("tool_id"),
-            "adapter": adapter_name,
-            "method": method,
-            "mode": invocation.get("result_source"),
-            "provider_invocation": invocation,
-            "request_payload": dict(payload),
-            "output_text": summary_result.output_text,
-        }
+        return build_action_result(
+            planned_action,
+            status="generated",
+            adapter=adapter_name,
+            method=method,
+            mode=invocation.get("result_source"),
+            request_payload=payload,
+            extra={
+                "provider_invocation": invocation,
+                "output_text": summary_result.output_text,
+            },
+        )
 
     adapter = INCIDENT_ADAPTERS.get(adapter_name)
     if adapter is None:
@@ -1231,16 +1237,15 @@ def _dispatch_planned_action(
         dry_run=mcp_dry_run,
         timeout_seconds=3.0,
     )
-    result = {
-        "action_id": planned_action.get("action_id"),
-        "status": "dry-run" if mcp_dry_run else "executed",
-        "tool_id": planned_action.get("tool_id"),
-        "adapter": adapter_name,
-        "method": method,
-        "mode": mcp_result.get("mode"),
-        "external_ref": mcp_result.get("response", {}).get("external_ref"),
-        "request_payload": dict(mcp_result.get("request_payload") or payload),
-    }
+    result = build_action_result(
+        planned_action,
+        status="dry-run" if mcp_dry_run else "executed",
+        adapter=adapter_name,
+        method=method,
+        mode=mcp_result.get("mode"),
+        request_payload=dict(mcp_result.get("request_payload") or payload),
+        extra={"external_ref": mcp_result.get("response", {}).get("external_ref")},
+    )
     _log_event(
         task_id,
         "INCIDENT_ACTION_EXECUTED",
@@ -1263,6 +1268,10 @@ def _dispatch_planned_action(
     return result
 
 
+def _task_action_result_record(item: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in item.items() if key != "output_text"}
+
+
 def _execute_once(task_id: str) -> bool:
     # Returns True when execution completed (DONE). False when it moved to approval.
     with STORE_LOCK:
@@ -1279,33 +1288,22 @@ def _execute_once(task_id: str) -> bool:
         task = TASKS[task_id]
         _record_provider_selection(task, selection_context=_task_selection_context(task))
         planned_actions, planning_provenance = _build_task_planned_actions(task)
-        task["planned_actions"] = planned_actions
-        task["planning_provenance"] = planning_provenance
-        task["updated_at"] = _now_iso()
-        _persist_task(task)
-        planner_selection = dict(planning_provenance.get("provider_selection") or {})
-        if planning_provenance.get("fallback_reason"):
-            _log_event(
-                task_id,
-                "TASK_PLAN_FALLBACK",
-                source=planning_provenance.get("source"),
-                fallback_reason=planning_provenance.get("fallback_reason"),
-            )
-        _log_event(
-            task_id,
-            "TASK_PLAN_GENERATED",
-            source=planning_provenance.get("source"),
-            confidence=planning_provenance.get("confidence"),
-            degraded_mode=planning_provenance.get("degraded_mode"),
-            provider_id=planner_selection.get("provider_id"),
-            provider_type=planner_selection.get("provider_type"),
-            engine=planner_selection.get("engine"),
-            model=planner_selection.get("model"),
-            action_count=len(planned_actions),
-            selected_tools=",".join(str(item.get("tool_id") or "") for item in planned_actions),
+        record_planning_snapshot(
+            task,
+            planned_actions=planned_actions,
+            planning_provenance=planning_provenance,
+            now_iso=_now_iso,
+            persist_task=_persist_task,
         )
-        _log_event(task_id, "TASK_ACTIONS_PLANNED", count=len(planned_actions))
-        _log_event(task_id, "PLANNED_ACTIONS_BUILT", count=len(planned_actions))
+        emit_planning_events(
+            task_id,
+            planning_provenance=planning_provenance,
+            planned_actions=planned_actions,
+            log_event=_log_event,
+            plan_generated_event="TASK_PLAN_GENERATED",
+            actions_planned_event="TASK_ACTIONS_PLANNED",
+            fallback_event="TASK_PLAN_FALLBACK",
+        )
         _set_stage(task, "executor")
         approved_reasons = set(task.get("approved_reasons", []))
         reason_code = _detect_policy_block(task["input"], approved_reasons)
@@ -1328,9 +1326,11 @@ def _execute_once(task_id: str) -> bool:
             raise ValueError(f"unsupported template_type at runtime: {template_type}")
         planned_actions = list(task.get("planned_actions") or [])
 
-    action_results: list[dict[str, Any]] = []
-    for planned_action in planned_actions:
-        action_results.append(_dispatch_planned_action(task, planned_action, prior_results=action_results))
+    action_results = execute_planned_actions(
+        task,
+        planned_actions,
+        dispatch_action=_dispatch_planned_action,
+    )
     summary_result = action_results[0]
     report_text = str(summary_result["output_text"])
 
@@ -1339,10 +1339,14 @@ def _execute_once(task_id: str) -> bool:
     with STORE_LOCK:
         task = TASKS[task_id]
         invocation = dict(summary_result.get("provider_invocation") or {})
-        task["provider_invocation"] = invocation
-        task["action_results"] = [{key: value for key, value in item.items() if key != "output_text"} for item in action_results]
-        task["updated_at"] = _now_iso()
-        _persist_task(task)
+        record_action_results(
+            task,
+            action_results=action_results,
+            now_iso=_now_iso,
+            persist_task=_persist_task,
+            serializer=_task_action_result_record,
+            extra_fields={"provider_invocation": invocation},
+        )
         _set_stage(task, "reviewer")
         if "# 회의 결과 요약" not in report_text:
             raise ValueError("review failed: report header missing")
@@ -1409,28 +1413,23 @@ def _execute_incident_once(task_id: str) -> bool:
             signal_count=len(system.get("signals", [])),
         )
         planned_actions, planning_provenance = _build_incident_planned_actions(task)
-        action_cards = planned_actions
-        task["action_cards"] = action_cards
-        task["planned_actions"] = planned_actions
-        task["planning_provenance"] = planning_provenance
-        task["updated_at"] = _now_iso()
-        _persist_task(task)
-        planner_selection = dict(planning_provenance.get("provider_selection") or {})
-        _log_event(
-            task_id,
-            "INCIDENT_PLAN_GENERATED",
-            source=planning_provenance.get("source"),
-            confidence=planning_provenance.get("confidence"),
-            degraded_mode=planning_provenance.get("degraded_mode"),
-            provider_id=planner_selection.get("provider_id"),
-            provider_type=planner_selection.get("provider_type"),
-            engine=planner_selection.get("engine"),
-            model=planner_selection.get("model"),
-            action_count=len(planned_actions),
-            selected_tools=",".join(str(item.get("tool_id") or "") for item in planned_actions),
+        action_cards = [dict(item) for item in planned_actions]
+        record_planning_snapshot(
+            task,
+            planned_actions=planned_actions,
+            planning_provenance=planning_provenance,
+            now_iso=_now_iso,
+            persist_task=_persist_task,
+            extra_fields={"action_cards": action_cards},
         )
-        _log_event(task_id, "INCIDENT_ACTIONS_PLANNED", count=len(action_cards))
-        _log_event(task_id, "PLANNED_ACTIONS_BUILT", count=len(action_cards))
+        emit_planning_events(
+            task_id,
+            planning_provenance=planning_provenance,
+            planned_actions=planned_actions,
+            log_event=_log_event,
+            plan_generated_event="INCIDENT_PLAN_GENERATED",
+            actions_planned_event="INCIDENT_ACTIONS_PLANNED",
+        )
         _set_stage(task, "executor")
 
         for action_card in action_cards:
@@ -1487,23 +1486,24 @@ def _execute_incident_once(task_id: str) -> bool:
             "actor_role": "requester",
         }
 
-    action_results: list[dict[str, Any]] = []
-    for action_card in action_cards:
-        action_results.append(
-            _dispatch_planned_action(
-                task,
-                action_card,
-                actor_context=actor_context,
-                mcp_dry_run=mcp_dry_run,
-                prior_results=action_results,
-            )
-        )
+    action_results = execute_planned_actions(
+        task,
+        action_cards,
+        dispatch_action=_dispatch_planned_action,
+        dispatch_kwargs={
+            "actor_context": actor_context,
+            "mcp_dry_run": mcp_dry_run,
+        },
+    )
 
     with STORE_LOCK:
         task = TASKS[task_id]
-        task["action_results"] = action_results
-        task["updated_at"] = _now_iso()
-        _persist_task(task)
+        record_action_results(
+            task,
+            action_results=action_results,
+            now_iso=_now_iso,
+            persist_task=_persist_task,
+        )
         report_text = _render_incident_report(task, action_results)
         _set_stage(task, "reviewer")
         if "# Incident Orchestration Report" not in report_text:

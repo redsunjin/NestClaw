@@ -69,6 +69,10 @@ class TestAgentPlannerRuntime(unittest.TestCase):
             "redmine.issue.create",
             [item["tool_id"] for item in payload["planning_provenance"]["eligible_tools"] if item["eligible"]],
         )
+        for item in payload["action_results"]:
+            self.assertTrue(
+                {"action_id", "tool_id", "adapter", "method", "mode", "request_payload"}.issubset(item.keys())
+            )
         self.assertEqual(payload["action_results"][1]["tool_id"], "redmine.issue.create")
         self.assertEqual(payload["action_results"][1]["mode"], "dry-run")
         self.assertIn("# 회의 결과 요약", payload["action_results"][1]["request_payload"]["description"])
@@ -115,6 +119,10 @@ class TestAgentPlannerRuntime(unittest.TestCase):
             "redmine.issue.create",
             [item["tool_id"] for item in payload["planning_provenance"]["eligible_tools"] if item["eligible"]],
         )
+        for item in payload["action_results"]:
+            self.assertTrue(
+                {"action_id", "tool_id", "adapter", "method", "mode", "request_payload"}.issubset(item.keys())
+            )
         self.assertIn("# 회의 결과 요약", payload["action_results"][1]["request_payload"]["description"])
         self.assertIn("# 회의 결과 요약", payload["action_results"][2]["request_payload"]["text_preview"])
 
