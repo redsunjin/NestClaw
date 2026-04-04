@@ -45,7 +45,8 @@
       "title": "Package pilot go-no-go and live-readiness resume workflow",
       "unit_id": "stage9-w1-005",
       "goal": "Document the pilot evidence matrix, go-no-go packet, and blocked-to-resumed live-readiness procedure",
-      "status": "pending"
+      "status": "completed",
+      "completed_unit_id": "stage9-w1-005"
     }
   ]
 }

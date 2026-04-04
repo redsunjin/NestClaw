@@ -5,6 +5,7 @@ Stage 8 내부 구현 backlog가 모두 닫힌 뒤, 외부 sandbox/live env 부�
 
 ## 현재 판단
 - `stage8-priority-campaign`은 완료 상태다.
+- `stage9-priority-campaign`은 G1~G4를 모두 완료했다.
 - 최신 readiness bundle은 외부 env 5개 미설정 때문에 `BLOCKED`이며, 동일 환경에서 재실행해도 상태는 바뀌지 않는다.
 - 따라서 다음 작업은 `live rehearsal 재시도`가 아니라, 조직용 orchestration runtime을 더 단단하게 만드는 다음 구현 묶음을 campaign으로 선언하는 것이다.
 - 외부 env가 준비되면 Stage 8 readiness bundle은 운영 트랙에서 별도로 재개한다.
@@ -81,11 +82,11 @@ Stage 8 내부 구현 backlog가 모두 닫힌 뒤, 외부 sandbox/live env 부�
 4. G4
 
 ## 현재 추천 포커스
-- 현재 추천 포커스: `G1`
+- 현재 추천 포커스: `Stage 8 live-readiness resume 또는 다음 campaign 정의`
 - 이유:
-  - Stage 8에서 task/incident 계약 수렴은 끝났지만, planner/executor core는 아직 `app/main.py`에 workflow별 중복이 남아 있다.
-  - incident AI planner를 넣기 전에 공통 실행 루프를 먼저 정리해야 fallback, binding, audit 계약이 흔들리지 않는다.
-  - UI 고도화도 공통 action loop가 먼저 정리돼야 surface만 늘리고 계약이 갈라지는 문제를 피할 수 있다.
+  - Stage 9 campaign의 G1/G2/G3/G4는 모두 닫는 방향으로 정리됐다.
+  - 현재 남은 실제 blocker는 외부 sandbox/live env 부재다.
+  - env가 준비되면 운영 트랙에서 readiness bundle을 재실행하고, 그렇지 않다면 다음 campaign을 새로 정의하는 편이 자연스럽다.
 
 ## 병행 UI/Surface 트랙 메모
 - G1이 planner/executor core를 정리하는 주축인 것은 유지한다.
@@ -95,6 +96,7 @@ Stage 8 내부 구현 backlog가 모두 닫힌 뒤, 외부 sandbox/live env 부�
   - `G3-S1` 완료: HTTP/CLI/MCP surface parity 반영
   - `G3-S2` 완료: dashboard capability/readiness summary와 role gating 반영
   - `G3-S3` 완료(검토): assistive chat panel 경계와 도입 기준 문서화
+  - `G4` 완료 방향: pilot evidence matrix, go/no-go packet, blocked-to-resume runbook 정리
 
 ## 운영 트랙 메모
 - Stage 8 live readiness는 계속 `BLOCKED`다.

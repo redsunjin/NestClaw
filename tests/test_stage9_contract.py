@@ -42,7 +42,8 @@ class TestStage9Contract(unittest.TestCase):
         self.assertEqual(data["items"][3]["status"], "completed")
         self.assertEqual(data["items"][3]["completed_unit_id"], "stage9-w1-004")
         self.assertEqual(data["items"][4]["unit_id"], "stage9-w1-005")
-        self.assertEqual(data["items"][4]["status"], "pending")
+        self.assertEqual(data["items"][4]["status"], "completed")
+        self.assertEqual(data["items"][4]["completed_unit_id"], "stage9-w1-005")
 
     def test_stage9_first_micro_unit_is_initialized(self) -> None:
         work_unit = Path("work/micro_units/stage9-w1-001/WORK_UNIT.md").read_text(encoding="utf-8")
@@ -79,6 +80,16 @@ class TestStage9Contract(unittest.TestCase):
         self.assertIn("planner rationale, fallback state, and action sequencing", work_unit)
         self.assertIn("operator dashboard", plan_notes)
         self.assertIn("action rail", review_notes)
+
+    def test_stage9_fifth_micro_unit_is_initialized(self) -> None:
+        work_unit = Path("work/micro_units/stage9-w1-005/WORK_UNIT.md").read_text(encoding="utf-8")
+        plan_notes = Path("work/micro_units/stage9-w1-005/PLAN_NOTES.md").read_text(encoding="utf-8")
+        review_notes = Path("work/micro_units/stage9-w1-005/REVIEW_NOTES.md").read_text(encoding="utf-8")
+        self.assertIn("stage9-w1-005", work_unit)
+        self.assertIn("status: `DONE`", work_unit)
+        self.assertIn("pilot evidence matrix, go-no-go packet", work_unit)
+        self.assertIn("blocked-to-resume runbook", plan_notes)
+        self.assertIn("readiness source", review_notes)
 
     def test_cycle_scripts_support_stage9(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
@@ -124,6 +135,20 @@ class TestStage9Contract(unittest.TestCase):
         self.assertIn("quick-execution-rail", quickstart_html)
         self.assertIn('"planning_rationale"', orchestration_source)
         self.assertIn('"run_mode"', orchestration_source)
+
+    def test_pilot_packet_docs_exist_and_are_linked(self) -> None:
+        readme_source = Path("README.md").read_text(encoding="utf-8")
+        matrix_source = Path("NESTCLAW_PILOT_EVIDENCE_MATRIX_2026-04-05.md").read_text(encoding="utf-8")
+        packet_source = Path("NESTCLAW_PILOT_GO_NO_GO_PACKET_2026-04-05.md").read_text(encoding="utf-8")
+        runbook_source = Path("STAGE8_BLOCKED_TO_RESUMED_RUNBOOK_2026-04-05.md").read_text(encoding="utf-8")
+        self.assertIn("Pilot evidence matrix", readme_source)
+        self.assertIn("Pilot go/no-go packet", readme_source)
+        self.assertIn("blocked-to-resumed runbook", readme_source)
+        self.assertIn("NO-GO", matrix_source)
+        self.assertIn("BLOCKED", matrix_source)
+        self.assertIn("NO-GO for external live pilot", packet_source)
+        self.assertIn("Required Env Contract", runbook_source)
+        self.assertIn("run_stage8_readiness_bundle.sh", runbook_source)
 
 
 if __name__ == "__main__":

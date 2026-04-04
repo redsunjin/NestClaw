@@ -429,6 +429,10 @@ bash scripts/manage_local_postgres.sh dsn
 - 실행 스크립트: `scripts/run_dev_qa_cycle.sh`
 - Stage 8 자체평가 스크립트: `scripts/run_stage8_self_eval.sh`
 - Stage 8 readiness bundle: `scripts/run_stage8_readiness_bundle.sh`
+- Stage 8 readiness guide: `STAGE8_RUNTIME_READINESS_GUIDE_2026-03-15.md`
+- Stage 8 blocked-to-resumed runbook: `STAGE8_BLOCKED_TO_RESUMED_RUNBOOK_2026-04-05.md`
+- Pilot evidence matrix: `NESTCLAW_PILOT_EVIDENCE_MATRIX_2026-04-05.md`
+- Pilot go/no-go packet: `NESTCLAW_PILOT_GO_NO_GO_PACKET_2026-04-05.md`
 - 마이크로 사이클 스크립트: `scripts/run_micro_cycle.sh`
 - 전문가 에이전트 wrapper: `scripts/run_expert_agent_workflow.sh`
 - priority campaign wrapper: `scripts/run_priority_campaign.sh`
