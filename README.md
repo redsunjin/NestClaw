@@ -9,9 +9,9 @@
 
 ## 1) 프로젝트 목적
 ### 1.1 핵심 목적
-- 로컬 환경에서 안전하게 동작하는 **정책·승인·감사를 갖춘 orchestration AI agent**를 구현한다.
-- 이 에이전트는 하나의 요청을 받아 다양한 도구를 계획적으로 사용하고, 필요한 승인과 감사로그를 남기면서 실제 업무 처리까지 이어지는 것을 목표로 한다.
-- 사용자는 목표를 주고, 시스템은 AI를 기본 실행 경로로 사용해 계획/도구선택/실행/검토/보고를 수행한다.
+- 로컬 환경에서 안전하게 동작하는 **정책·승인·감사를 갖춘 조직용 orchestration runtime/control plane**을 구현한다.
+- NestClaw는 하나의 요청을 받아 다양한 도구를 계획적으로 사용하고, 필요한 승인과 감사로그를 남기면서 실제 업무 처리까지 이어지는 것을 목표로 한다.
+- 사용자는 목표를 주고, NestClaw는 계획/도구선택/실행/검토/보고를 수행하며, 상위 대화형 에이전트나 스크립트는 같은 runtime을 호출한다.
 - heuristic/template 경로는 주 경로가 아니라 운영 연속성을 위한 `degraded mode`로만 유지한다.
 
 ### 1.2 운영 원칙
@@ -137,6 +137,9 @@
 - Agent 통합 명세: `NESTCLAW_AGENT_INTEGRATION_SPEC.md`
 - Capability manifest: `NESTCLAW_CAPABILITY_MANIFEST.md`
 - Operator dashboard 원칙: `NESTCLAW_OPERATOR_DASHBOARD_PRINCIPLES.md`
+- 제품 포지셔닝: `NESTCLAW_PRODUCT_POSITIONING.md`
+- 거버넌스 가드레일: `NESTCLAW_GOVERNANCE_GUARDRAILS.md`
+- 표면 의사결정 체크리스트: `NESTCLAW_SURFACE_DECISION_CHECKLIST.md`
 - Assistive chat panel 검토: `NESTCLAW_ASSISTIVE_CHAT_PANEL_REVIEW_2026-04-04.md`
 - 상위 에이전트/MCP/CLI/HTTP 예제: `NESTCLAW_INTEGRATION_EXAMPLES.md`
 - Stage 8 마이크로 작업 프로토콜: `MICRO_AGENT_WORKFLOW.md`
@@ -202,11 +205,11 @@
 - priority campaign 레이어를 통해 여러 우선순위 MWU를 `pending -> in_progress -> completed`로 끊김 없이 이어갈 수 있음
 
 ### 10.1.1 현재 제품 위치
-- 현재 NestClaw는 `AI-first orchestration agent`로 가는 전환기 상태다.
-- `task` workflow는 이제 LLM planner가 기본 경로고, 실패나 비활성 시에만 degraded mode fallback으로 내려간다.
+- 현재 NestClaw는 `조직용 closed orchestration runtime`으로 가는 전환기 상태다.
+- `task` workflow는 이제 LLM planner baseline이 기본 경로고, 실패나 비활성 시에만 degraded mode fallback으로 내려간다.
 - task planner 범위는 `summary + ticket + slack`까지 넓어졌지만, 여전히 tool set이 좁고 `incident` workflow는 deterministic/dry-run 중심이다.
 - incident workflow도 이제 `planned_actions + planning_provenance` 관측 계약을 공유하지만, planner 자체는 아직 deterministic/dry-run 중심이다.
-- 따라서 현재 런타임은 `task AI-first baseline + incident common contract` 단계이며, product 전체로 보면 아직 완성형 multi-tool orchestration agent는 아니다.
+- 따라서 현재 런타임은 `task LLM planner baseline + incident common contract` 단계이며, product 전체로 보면 아직 제한된 범위의 orchestration control plane이다.
 
 ### 10.2 아직 못 하는 것
 - broader registry 기반 multi-step planning 확장 (`task` beyond summary/ticket/slack, incident AI planner, richer cross-action binding)
@@ -225,7 +228,7 @@
 - `planned_actions -> execution_call -> adapter dispatch` 공통 루프를 task/incident에 적용했다
 - 다음 1순위는 cross-action data binding과 richer sequencing을 넣어 multi-step plan의 실행 품질을 높이는 것이다
 - tool registry apply는 source yaml이 아니라 `work/tool_registry_runtime.yaml` overlay에 반영한다
-- incident workflow는 broader execution agent의 첫 번째 high-risk vertical이며, 이후 일반 업무/운영 작업/티켓 처리 흐름으로 확장한다
+- incident workflow는 high-risk orchestration vertical의 첫 번째 사례이며, 이후 일반 업무/운영 작업/티켓 처리 흐름으로 확장한다
 - 그 다음 단계는 action-card/tool planning 공통 루프와 최소 operator UI다
 - 상세 방향 문서: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
 

@@ -6,7 +6,7 @@ Stage 8 내부 구현 backlog가 모두 닫힌 뒤, 외부 sandbox/live env 부�
 ## 현재 판단
 - `stage8-priority-campaign`은 완료 상태다.
 - 최신 readiness bundle은 외부 env 5개 미설정 때문에 `BLOCKED`이며, 동일 환경에서 재실행해도 상태는 바뀌지 않는다.
-- 따라서 다음 작업은 `live rehearsal 재시도`가 아니라, broader execution agent로 가는 다음 구현 묶음을 campaign으로 선언하는 것이다.
+- 따라서 다음 작업은 `live rehearsal 재시도`가 아니라, 조직용 orchestration runtime을 더 단단하게 만드는 다음 구현 묶음을 campaign으로 선언하는 것이다.
 - 외부 env가 준비되면 Stage 8 readiness bundle은 운영 트랙에서 별도로 재개한다.
 
 ## 그룹 정의
@@ -111,4 +111,4 @@ Stage 8 내부 구현 backlog가 모두 닫힌 뒤, 외부 sandbox/live env 부�
 
 ## 연속 추진 Campaign
 - `stage9-priority-campaign`
-- 목표: G1 -> G2 -> G3 -> G4 순서로 Stage 9 broader execution agent 기반을 끊김 없이 준비한다.
+- 목표: G1 -> G2 -> G3 -> G4 순서로 Stage 9 organizational orchestration runtime 기반을 끊김 없이 준비한다.

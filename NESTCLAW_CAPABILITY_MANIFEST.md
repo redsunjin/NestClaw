@@ -15,7 +15,7 @@
 ## 3. Workflow Families
 | Family | 현재 상태 | 설명 |
 | --- | --- | --- |
-| `task` | `AI-first baseline` | 자연어 요청을 받아 summary/ticket/slack 범위의 planner 루프를 수행 |
+| `task` | `LLM planner baseline` | 자연어 요청을 받아 summary/ticket/slack 범위의 planner 루프를 수행 |
 | `incident` | `common contract / deterministic planner` | incident context 집계, action planning contract, approval/execution/report 흐름을 dry-run 중심으로 수행 |
 
 ## 4. Delivery Surfaces

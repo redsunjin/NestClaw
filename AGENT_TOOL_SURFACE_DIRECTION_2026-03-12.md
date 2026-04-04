@@ -1,7 +1,7 @@
 # Agent Tool Surface Direction (2026-03-12)
 
 ## 목적
-현재 프로젝트를 "HTTP 중심 백엔드 PoC"에서 "AI가 기본 실행 경로를 담당하고, 사람/상위 에이전트/스크립트가 공통으로 호출하는 orchestration AI agent"로 고도화하기 위한 방향을 고정한다.
+현재 프로젝트를 "HTTP 중심 백엔드 PoC"에서 "사람/상위 에이전트/스크립트가 공통으로 호출하는 조직용 orchestration control plane"으로 고도화하기 위한 방향을 고정한다.
 
 ## 현재 냉정한 상태
 - 현재 강점:
@@ -15,7 +15,7 @@
   - task workflow에는 LLM planner baseline이 들어갔고, task status/event에 `planning_provenance`, `eligible_tools`를 남긴다.
   - Redmine MCP live bridge 경로와 rehearsal script가 준비되어 있다.
 - 현재 한계:
-  - 현재 기본 runtime은 `task path AI-first baseline + broader fallback/transitional state`에 가깝다.
+  - 현재 기본 runtime은 `task path LLM planner baseline + broader orchestration transition state`에 가깝다.
   - classifier는 `task` / `incident` 분기를 담당하고, task planner는 `summary/ticket/slack` 좁은 tool set까지만 다룬다.
   - tool registry / capability schema와 catalog 조회 표면은 생겼고 task planner가 일부 사용하지만, incident planner 공통화와 richer cross-action planning은 아직 없다.
   - summary workflow를 제외하면 model registry selection이 아직 provider invocation으로 넓게 이어지지 않는다.
@@ -115,9 +115,9 @@ MCP 원칙:
 - 목적: planner provenance/approval reasoning 중심의 최소 operator UI 설계/구현
 
 ## 판단 기준
-이 프로젝트가 OpenClaw류 agent에 가까워졌다고 볼 수 있는 기준은 아래다.
-- 사람은 CLI나 UI로 같은 agent를 쓸 수 있다.
+이 프로젝트가 조직용 orchestration control plane으로 성숙하고 있다고 볼 수 있는 기준은 아래다.
+- 사람은 operator dashboard로 같은 runtime의 상태와 승인을 다룬다.
 - 상위 UX나 상위 에이전트(rfs-cli 포함)는 NestClaw에 목표를 넘기고, 계획/도구 선택의 주체는 NestClaw다.
-- 외부 AI는 MCP tool로 같은 agent를 호출할 수 있다.
+- 외부 AI는 MCP tool로 같은 runtime을 호출할 수 있다.
 - core service는 HTTP/CLI/MCP 중 어느 표면에도 종속되지 않는다.
 - `auto` routing이 실제 모델 기반 intent + policy + tool planning으로 동작하고, heuristic/template은 degraded mode로만 남는다.
