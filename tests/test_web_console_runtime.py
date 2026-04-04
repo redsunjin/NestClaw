@@ -24,7 +24,7 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("text/html", response.headers.get("content-type", ""))
         body = response.text
         self.assertIn("NestClaw Quickstart", body)
-        self.assertIn("한 줄 오케스트레이션", body)
+        self.assertIn("한 줄 요청을 안전하게 실행", body)
         self.assertIn("Identity", body)
         self.assertIn("Runtime", body)
         self.assertIn("Planner Provenance", body)
@@ -34,7 +34,7 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertEqual(console_response.status_code, 200)
         console_body = console_response.text
         self.assertIn("NestClaw Web Console", console_body)
-        self.assertIn("도구 카탈로그", console_body)
+        self.assertIn("Capability 카탈로그", console_body)
         self.assertIn("승인 상세 / 이력", console_body)
         self.assertIn("Capability / Readiness", console_body)
         self.assertIn("capability-summary", console_body)

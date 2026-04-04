@@ -4,23 +4,23 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>NestClaw Web Console</title>
-    <link rel="stylesheet" href="/static/agent-console.css?v=20260404e">
+    <link rel="stylesheet" href="/static/agent-console.css?v=20260404f">
   </head>
   <body>
     <main class="page-shell">
       <section class="hero">
         <div class="hero-grid">
           <div class="hero-copy-block">
-            <p class="eyebrow">NestClaw / Operator Console</p>
+            <p class="eyebrow">NestClaw / Operator Dashboard</p>
             <h1>계획, 승인, 실행을 한눈에 보는 대시보드</h1>
             <p class="hero-copy">
-              이 콘솔은 단순히 API를 노출하는 화면이 아니라, 요청이 어떻게 분류되고 어떤 도구가 선택됐으며
-              어디서 사람이 개입해야 하는지를 빠르게 확인하는 운영 대시보드입니다.
+              이 화면은 메인 업무앱이 아니라, 상위 에이전트와 사람이 같은 실행 상태를 읽고
+              승인과 운영 판단을 닫는 operator dashboard입니다.
             </p>
             <div class="hero-links">
               <a href="/docs" target="_blank" rel="noreferrer">Swagger 열기</a>
-              <a href="/api/v1/tools" target="_blank" rel="noreferrer">도구 JSON 보기</a>
-              <a href="/api/v1/agent/submit" target="_blank" rel="noreferrer">Agent API 보기</a>
+              <a href="/api/v1/capabilities" target="_blank" rel="noreferrer">Capability 보기</a>
+              <a href="/api/v1/agent/submit" target="_blank" rel="noreferrer">실행 API 보기</a>
             </div>
           </div>
 
@@ -38,13 +38,13 @@
               <p class="aside-label">Primary Surfaces</p>
               <ul class="compact-list">
                 <li>agent submit / status / events</li>
-                <li>approval queue + history</li>
-                <li>tool catalog + draft governance</li>
+                <li>approval queue + audit trail</li>
+                <li>capability manifest + curated registry</li>
               </ul>
             </div>
             <div class="aside-block">
               <p class="aside-label">Current Use</p>
-              <p class="signal-note">소규모 조직에서는 requester로 생성하고, approver/admin으로 governance 작업을 닫는 흐름이 기본입니다.</p>
+              <p class="signal-note">requester가 요청을 만들고, approver/admin이 승인과 registry governance를 닫는 흐름이 기본입니다.</p>
             </div>
           </aside>
         </div>
@@ -141,7 +141,7 @@
             <div class="section-head">
               <div>
                 <p class="section-kicker">Agent Run</p>
-                <h2>요청 생성 및 실행</h2>
+                <h2>요청 제출</h2>
               </div>
               <div class="button-row">
                 <button id="load-task-example" class="button subtle" type="button">회의요약 예시</button>
@@ -252,7 +252,7 @@
             <summary class="fold-summary">
               <div>
                 <p class="section-kicker">Secondary Controls</p>
-                <h2>거버넌스 / 진단 / 확장 도구</h2>
+                <h2>거버넌스 / 진단 / registry 도구</h2>
               </div>
               <p class="fold-copy">평소에는 숨기고 필요할 때만 펼치는 보조 운영면</p>
             </summary>
@@ -261,7 +261,7 @@
                 <div class="section-head">
                   <div>
                     <p class="section-kicker">Catalog</p>
-                    <h2>도구 카탈로그</h2>
+                    <h2>Capability 카탈로그</h2>
                   </div>
                   <button id="refresh-tools" class="button subtle" type="button">새로고침</button>
                 </div>
@@ -282,7 +282,7 @@
                 <div class="section-head">
                   <div>
                     <p class="section-kicker">Draft Authoring</p>
-                    <h2>도구 Draft 만들기</h2>
+                    <h2>Capability Draft 만들기</h2>
                   </div>
                   <button id="create-draft" class="button" type="button">Draft 생성</button>
                 </div>
@@ -335,7 +335,7 @@
         </div>
       </div>
 
-      <script type="module" src="/static/agent-console.js?v=20260404e"></script>
+      <script type="module" src="/static/agent-console.js?v=20260404f"></script>
     </main>
   </body>
 </html>
