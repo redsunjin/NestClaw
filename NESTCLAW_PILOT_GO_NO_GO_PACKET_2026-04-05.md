@@ -9,12 +9,13 @@
 ## Why It Is No-Go Today
 1. Stage 8 readiness bundle 최신 결과가 `BLOCKED`다.
 2. 외부 env 5개가 비어 있어 sandbox/live rehearsal을 실제로 닫을 수 없다.
-3. 따라서 현재 blocker는 코드 문제가 아니라 운영 입력 부재다.
+3. QA rerun에서 local DB 손상과 stale worktree 문제는 정리됐고, 현재 blocker는 다시 `운영 입력 부재`로 수렴했다.
 
 근거 문서:
-- `reports/qa/cycle-20260404T152245Z.md`
-- `reports/qa/stage8-readiness-bundle-20260404T152809Z.md`
-- `reports/qa/stage8-self-eval-20260404T152809Z.md`
+- `reports/qa/cycle-20260404T153334Z.md`
+- `STAGE8_QA_RERUN_STATUS_2026-04-05.md`
+- `/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/stage8-readiness-bundle-20260405T034720Z.md`
+- `/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/stage8-self-eval-20260405T034720Z.md`
 
 ## What Is Already Ready
 - Stage 9 기준 회귀는 PASS다.

@@ -4,9 +4,13 @@
 - 현재 `BLOCKED`인 Stage 8 live readiness를 외부 env handoff 이후 재탐색 없이 재개하는 절차를 고정한다.
 
 ## Current Blocked State
-- 최신 readiness bundle: `reports/qa/stage8-readiness-bundle-20260404T152809Z.md`
+- 최신 canonical summary: `STAGE8_QA_RERUN_STATUS_2026-04-05.md`
+- 최신 readiness bundle: `/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/stage8-readiness-bundle-20260405T034720Z.md`
 - 현재 상태: `BLOCKED`
 - 핵심 blocker: required env 미설정
+- grouped self evaluation: `PASS`
+- readiness score: `7/8 (87%)`
+- 메모: QA local DB 재생성과 QA worktree fast-forward 이후 다시 확인한 상태다.
 
 ## Required Env Contract
 - `NEWCLAW_STAGE8_SANDBOX_ENABLED`
@@ -58,6 +62,7 @@ bash scripts/run_stage8_readiness_bundle.sh
 ### If FAIL
 - sandbox/live 개별 report reason을 우선 확인
 - runtime dependency, endpoint, credential, policy gate 중 어느 축인지 분리
+- 필요한 경우 QA worktree가 feature 최신 HEAD와 일치하는지, local state DB가 정상인지 먼저 확인한다
 - 필요한 경우 `bash scripts/run_stage8_sandbox_e2e.sh`와 `bash scripts/run_stage8_live_rehearsal.sh`를 개별 재실행한다
 
 ## Guardrails
