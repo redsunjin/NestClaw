@@ -10,6 +10,7 @@
 1. Stage 8 readiness bundle 최신 결과가 `BLOCKED`다.
 2. 외부 env 5개가 비어 있어 sandbox/live rehearsal을 실제로 닫을 수 없다.
 3. QA rerun에서 local DB 손상과 stale worktree 문제는 정리됐고, 현재 blocker는 다시 `운영 입력 부재`로 수렴했다.
+4. env handoff 기준선은 `STAGE8_EXTERNAL_ENV_HANDOFF_PROFILE_2026-04-05.md`로 canonicalized 되었고, validator 통과 후 readiness bundle 재실행이 다음 단계다.
 
 근거 문서:
 - `reports/qa/cycle-20260404T153334Z.md`
@@ -24,6 +25,8 @@
 - operator dashboard는 planner rationale, action rail, execution detail을 읽을 수 있다.
 
 ## Required Inputs Before Reconsidering
+- use template: `configs/stage8_external_env.handoff.env.example`
+- preflight validator: `bash scripts/validate_stage8_env_handoff.sh /path/to/filled.env`
 - `NEWCLAW_STAGE8_SANDBOX_ENABLED=1`
 - `NEWCLAW_STAGE8_SANDBOX_BASE_URL=<sandbox base url>`
 - `NEWCLAW_STAGE8_SANDBOX_PROJECT=<sandbox project>`
@@ -32,8 +35,10 @@
 
 필요 시 함께 준비:
 - `NEWCLAW_REDMINE_MCP_TOKEN`
+- `NEWCLAW_REDMINE_MCP_VERIFY_TLS`
 - `NEWCLAW_STAGE8_SANDBOX_ASSIGNEE`
 - `NEWCLAW_STAGE8_SANDBOX_TRANSITION`
+- `NEWCLAW_STAGE8_LIVE_REQUESTED_BY`
 
 ## Re-Decision Rules
 ### Go
@@ -61,8 +66,14 @@
 
 ## Re-Run Command
 ```bash
+cp configs/stage8_external_env.handoff.env.example /tmp/stage8_external_env.env
+bash scripts/validate_stage8_env_handoff.sh /tmp/stage8_external_env.env
+
 cd /Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa
 source .venv/bin/activate
+set -a
+source /tmp/stage8_external_env.env
+set +a
 bash scripts/run_stage8_readiness_bundle.sh
 ```
 

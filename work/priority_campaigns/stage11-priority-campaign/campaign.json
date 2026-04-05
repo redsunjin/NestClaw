@@ -9,7 +9,9 @@
       "title": "Create canonical external env handoff profile",
       "unit_id": "stage11-w1-001",
       "goal": "Package Stage 8 sandbox/live env requirements into one canonical handoff profile with reproducible validation",
-      "status": "in_progress"
+      "status": "completed",
+      "completed_unit_id": "stage11-w1-001",
+      "completed_at": "2026-04-05T12:32:08+00:00"
     },
     {
       "item_id": "g2-operator-handoff-packet-export",
@@ -17,7 +19,7 @@
       "title": "Export operator handoff packets from execution evidence",
       "unit_id": "stage11-w1-002",
       "goal": "Define and expose a compact operator handoff packet for blocked, approval-pending, and completed runs",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "item_id": "g3-deployment-profile-bootstrap",

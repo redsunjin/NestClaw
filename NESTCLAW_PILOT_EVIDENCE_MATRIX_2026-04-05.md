@@ -22,6 +22,10 @@
 | Operator transparency surface | `work/micro_units/stage9-w1-004/reports/evaluate-gate-20260404T152119Z.md` | PASS | operator가 planner/action/execution trace를 읽을 수 있음 | pilot 운영면으로 유지 |
 
 ## Missing External Inputs
+canonical handoff reference:
+- `STAGE8_EXTERNAL_ENV_HANDOFF_PROFILE_2026-04-05.md`
+- `bash scripts/validate_stage8_env_handoff.sh /path/to/filled.env`
+
 반드시 채워져야 하는 env:
 - `NEWCLAW_STAGE8_SANDBOX_ENABLED`
 - `NEWCLAW_STAGE8_SANDBOX_BASE_URL`
@@ -31,9 +35,10 @@
 
 권장 추가 env:
 - `NEWCLAW_REDMINE_MCP_TOKEN`
+- `NEWCLAW_REDMINE_MCP_VERIFY_TLS`
 - `NEWCLAW_STAGE8_SANDBOX_ASSIGNEE`
 - `NEWCLAW_STAGE8_SANDBOX_TRANSITION`
-- `NEWCLAW_DB_PATH`
+- `NEWCLAW_STAGE8_LIVE_REQUESTED_BY`
 
 ## Pilot Entry Criteria
 다음 네 조건이 모두 만족되면 live pilot `GO`로 전환할 수 있다.

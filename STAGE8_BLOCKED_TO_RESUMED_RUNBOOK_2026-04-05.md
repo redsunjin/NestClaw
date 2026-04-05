@@ -2,6 +2,7 @@
 
 ## 목적
 - 현재 `BLOCKED`인 Stage 8 live readiness를 외부 env handoff 이후 재탐색 없이 재개하는 절차를 고정한다.
+- canonical external env profile은 `STAGE8_EXTERNAL_ENV_HANDOFF_PROFILE_2026-04-05.md`를 기준으로 사용한다.
 
 ## Current Blocked State
 - 최신 canonical summary: `STAGE8_QA_RERUN_STATUS_2026-04-05.md`
@@ -21,24 +22,33 @@
 
 권장 추가 env:
 - `NEWCLAW_REDMINE_MCP_TOKEN`
+- `NEWCLAW_REDMINE_MCP_VERIFY_TLS`
 - `NEWCLAW_STAGE8_SANDBOX_ASSIGNEE`
 - `NEWCLAW_STAGE8_SANDBOX_TRANSITION`
-- `NEWCLAW_DB_PATH`
+- `NEWCLAW_STAGE8_LIVE_REQUESTED_BY`
 
 ## Resume Procedure
 1. 외부 운영 담당자에게 env 5개와 owner 정보를 받는다.
-2. secret/token 값은 repo에 기록하지 않고 shell/session secret store에만 넣는다.
-3. QA worktree로 이동한다.
-4. QA virtualenv를 활성화한다.
-5. readiness bundle을 재실행한다.
-6. bundle report에서 `PASS/FAIL/BLOCKED`를 판정한다.
-7. `PASS`면 pilot evidence matrix와 go/no-go packet을 갱신한다.
-8. `FAIL`이면 sandbox/live 개별 report를 drill-down 한다.
+2. canonical template `configs/stage8_external_env.handoff.env.example`를 secure local copy로 채운다.
+3. `bash scripts/validate_stage8_env_handoff.sh /path/to/filled.env`로 required env completeness를 먼저 확인한다.
+4. secret/token 값은 repo에 기록하지 않고 shell/session secret store에만 넣는다.
+5. QA worktree로 이동한다.
+6. QA virtualenv를 활성화한다.
+7. readiness bundle을 재실행한다.
+8. bundle report에서 `PASS/FAIL/BLOCKED`를 판정한다.
+9. `PASS`면 pilot evidence matrix와 go/no-go packet을 갱신한다.
+10. `FAIL`이면 sandbox/live 개별 report를 drill-down 한다.
 
 ## Resume Command
 ```bash
+cp configs/stage8_external_env.handoff.env.example /tmp/stage8_external_env.env
+bash scripts/validate_stage8_env_handoff.sh /tmp/stage8_external_env.env
+
 cd /Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa
 source .venv/bin/activate
+set -a
+source /tmp/stage8_external_env.env
+set +a
 bash scripts/run_stage8_readiness_bundle.sh
 ```
 

@@ -1,10 +1,10 @@
 # Micro Work Unit Card
 
-- unit_id: `stage11-w1-001`
-- goal: `Package Stage 8 sandbox/live env requirements into one canonical handoff profile with reproducible validation`
+- unit_id: `stage11-w1-002`
+- goal: `Define and expose a compact operator handoff packet for blocked, approval-pending, and completed runs`
 - target_stage: `11`
-- created_at_utc: `20260405T121850Z`
-- status: `DONE`
+- created_at_utc: `20260405T123208Z`
+- status: `REVIEW_PENDING`
 
 ## Roles
 - Plan Lead: A01 (Product Owner)
@@ -16,10 +16,10 @@
 
 ## Phase Checklist
 - [x] Plan gate passed
-- [x] Review gate passed
-- [x] Implement gate passed
-- [x] Evaluate gate passed
-- [x] Sync evidence recorded
+- [ ] Review gate passed
+- [ ] Implement gate passed
+- [ ] Evaluate gate passed
+- [ ] Sync evidence recorded
 
 ## Files
 - `PLAN_NOTES.md`
