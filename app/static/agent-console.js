@@ -35,6 +35,9 @@ const approvalDetail = document.querySelector("#approval-detail");
 const healthBadge = document.querySelector("#health-badge");
 const readinessBadge = document.querySelector("#readiness-badge");
 const capabilitySummary = document.querySelector("#capability-summary");
+const roleModeSummary = document.querySelector("#role-mode-summary");
+const actorModeNote = document.querySelector("#actor-mode-note");
+const runModeNote = document.querySelector("#run-mode-note");
 const roleScopedElements = [...document.querySelectorAll("[data-role-scope]")];
 let currentTaskId = "";
 let currentApprovalQueueId = "";
@@ -76,6 +79,49 @@ function isElevatedRole(role = actorRoleSelect.value) {
   return ["approver", "admin"].includes(role);
 }
 
+function roleProfile(role = actorRoleSelect.value) {
+  if (role === "admin") {
+    return {
+      summary: "admin은 승인, registry governance, live 성격 제어까지 포함한 운영 제어면을 봅니다.",
+      actorNote: "admin은 승인 처리와 draft 적용을 직접 수행할 수 있습니다.",
+      runModeNote: "admin은 dry-run 외 run mode도 검토할 수 있지만, live는 운영 기준 아래에서만 써야 합니다.",
+    };
+  }
+  if (role === "approver") {
+    return {
+      summary: "approver는 승인 큐와 승인 이력, draft 적용 같은 운영 제어면을 봅니다.",
+      actorNote: "approver는 승인 처리와 draft 적용을 수행할 수 있습니다.",
+      runModeNote: "approver는 필요한 경우 live 성격 run mode를 검토할 수 있습니다.",
+    };
+  }
+  if (role === "reviewer") {
+    return {
+      summary: "reviewer는 planner와 실행 결과를 읽고 검토하지만, 승인과 적용 제어는 보지 않습니다.",
+      actorNote: "reviewer는 상태와 planner rationale을 읽는 역할입니다. 승인과 적용 제어는 숨겨집니다.",
+      runModeNote: "reviewer는 dry-run 중심으로 상태를 검토합니다. live 성격 run mode는 잠깁니다.",
+    };
+  }
+  return {
+    summary: "requester는 요청 제출과 결과 확인에 집중하고, 승인과 governance는 approver/admin이 맡습니다.",
+    actorNote: "requester는 읽기 중심입니다. 승인과 registry governance는 approver/admin에서 닫습니다.",
+    runModeNote: "requester는 dry-run 중심으로만 실행을 확인합니다. live 성격 run mode는 잠깁니다.",
+  };
+}
+
+function applyRunModeVisibility() {
+  const elevated = isElevatedRole();
+  [...agentRunModeSelect.options].forEach((option) => {
+    if (option.value === "dry-run") {
+      option.disabled = false;
+      return;
+    }
+    option.disabled = !elevated;
+  });
+  if (!elevated && agentRunModeSelect.value !== "dry-run") {
+    agentRunModeSelect.value = "dry-run";
+  }
+}
+
 function applyRoleVisibility() {
   const role = actorRoleSelect.value;
   roleScopedElements.forEach((element) => {
@@ -85,6 +131,16 @@ function applyRoleVisibility() {
     const isVisible = !allowed.length || allowed.includes(role);
     element.classList.toggle("is-role-hidden", !isVisible);
   });
+  const profile = roleProfile(role);
+  roleModeSummary.textContent = profile.summary;
+  actorModeNote.textContent = profile.actorNote;
+  runModeNote.textContent = profile.runModeNote;
+  applyRunModeVisibility();
+  if (!isElevatedRole(role)) {
+    approvalList.innerHTML = "";
+    recentApprovalList.innerHTML = "";
+    setApprovalDetail("approver/admin 역할에서만 승인 상세와 이력을 확인할 수 있습니다.");
+  }
 }
 
 function setAgentSummary(lines) {
@@ -158,12 +214,17 @@ function planningContext(payload) {
   };
 }
 
+function stateSummaryContext(payload) {
+  return payload?.state_summary || {};
+}
+
 function signalChip(label, tone = "muted") {
   return `<span class="signal-chip signal-chip-${tone}">${escapeHtml(label)}</span>`;
 }
 
 function signalChips(payload) {
   const { provenance, providerSelection, status, runMode, approvalQueueId, reportPath } = planningContext(payload);
+  const stateSummary = stateSummaryContext(payload);
   const chips = [
     signalChip(`planner ${provenance.source || "-"}`, provenance.source ? "ok" : "muted"),
     signalChip(
@@ -183,6 +244,9 @@ function signalChips(payload) {
   }
   if (approvalQueueId || status === "NEEDS_HUMAN_APPROVAL") {
     chips.push(signalChip("approval required", "warn"));
+  }
+  if (stateSummary.canonical_reason_code && !["ready", "running", "completed"].includes(stateSummary.canonical_reason_code)) {
+    chips.push(signalChip(`reason ${stateSummary.canonical_reason_code}`, stateSummary.canonical_reason_code === "planner_degraded" ? "warn" : "muted"));
   }
   if (reportPath) {
     chips.push(signalChip("report ready", "ok"));
@@ -261,9 +325,13 @@ function renderActionInspector(element, items, builder, emptyText) {
 
 function plannerSummaryLines(payload) {
   const { provenance, providerSelection, plannedActions, actionResults } = planningContext(payload);
+  const stateSummary = stateSummaryContext(payload);
   const plannedTools = plannedActions.map((item) => item.tool_id).filter(Boolean);
   const executedTools = actionResults.map((item) => item.tool_id).filter(Boolean);
   return [
+    `canonical_state: ${stateSummary.canonical_state || "-"}`,
+    `canonical_reason: ${stateSummary.canonical_reason_code || "-"}`,
+    stateSummary.detail_reason_code ? `detail_reason: ${stateSummary.detail_reason_code}` : "",
     `planner_source: ${provenance.source || "-"}`,
     `provider: ${providerSelection.provider_id || "-"}`,
     `degraded_mode: ${provenance.degraded_mode ? "yes" : "no"}`,
@@ -286,6 +354,8 @@ function capabilitySummaryLines(payload) {
     families ? `families: ${families}` : "",
     `tool_count: ${toolCount}`,
     `live_readiness: ${readiness.status || "-"}`,
+    `readiness_reason: ${readiness.canonical_reason_code || "-"}`,
+    readiness.detail_reason_code ? `readiness_detail: ${readiness.detail_reason_code}` : "",
     missing.length ? `missing_env: ${missing.join(", ")}` : "",
   ].filter(Boolean);
 }
@@ -417,6 +487,7 @@ function renderRecentTasks(items) {
           <h3>${item.task_id}</h3>
           <p class="tool-meta">${item.title || "-"}</p>
           <p class="tool-meta">kind/status: ${item.resolved_kind} / ${item.status}</p>
+          <p class="tool-meta">canonical: ${(item.state_summary || {}).canonical_state || "-"} / ${(item.state_summary || {}).canonical_reason_code || "-"}</p>
           <p class="tool-meta">requested_by: ${item.requested_by}</p>
           <p class="tool-meta">planner: ${plannerLabel(item)}</p>
           <div class="signal-strip signal-strip-compact">
@@ -478,7 +549,7 @@ async function loadCapabilities() {
   capabilitySummary.textContent = capabilitySummaryLines(payload).join("\n");
   const readiness = payload?.readiness?.stage8_live_readiness || {};
   const isReady = readiness.status === "ready";
-  readinessBadge.textContent = isReady ? "ready" : "blocked";
+  readinessBadge.textContent = isReady ? "ready" : `${readiness.canonical_reason_code || "blocked"}`;
   readinessBadge.className = `badge ${isReady ? "ok" : "pending"}`;
   return payload;
 }
@@ -549,10 +620,14 @@ async function loadAgentStatus(taskId = currentTaskId) {
   agentResolvedKindInput.value = payload.resolved_kind || "";
   agentStatusInput.value = payload.status || "";
   const result = payload.result || {};
+  const stateSummary = payload.state_summary || {};
   setAgentSummary([
     `task_id: ${payload.task_id || "-"}`,
     `resolved_kind: ${payload.resolved_kind || "-"}`,
     `status: ${payload.status || "-"}`,
+    `canonical_state: ${stateSummary.canonical_state || "-"}`,
+    `canonical_reason: ${stateSummary.canonical_reason_code || "-"}`,
+    stateSummary.detail_reason_code ? `detail_reason: ${stateSummary.detail_reason_code}` : "",
     `next_action: ${payload.next_action || "-"}`,
     result.report_path ? `report_path: ${result.report_path}` : "",
     result.actions_executed !== undefined ? `actions_executed: ${result.actions_executed}` : "",
@@ -624,6 +699,11 @@ async function submitAgent() {
 }
 
 async function loadApprovals() {
+  if (!isElevatedRole()) {
+    approvalList.innerHTML = "";
+    printOutput("승인 목록", { note: "approver/admin role에서만 승인 큐를 조회합니다." });
+    return;
+  }
   const params = new URLSearchParams();
   if (approvalStatusFilterSelect.value) {
     params.set("status", approvalStatusFilterSelect.value);
@@ -638,6 +718,11 @@ async function loadApprovals() {
 }
 
 async function loadRecentApprovals() {
+  if (!isElevatedRole()) {
+    recentApprovalList.innerHTML = "";
+    printOutput("최근 승인", { note: "approver/admin role에서만 최근 승인 이력을 봅니다." });
+    return;
+  }
   const payload = await requestJson("/api/v1/approvals");
   const items = [...(payload.items || [])]
     .sort((left, right) => String(right.resolved_at || right.created_at || "").localeCompare(String(left.resolved_at || left.created_at || "")))
@@ -647,6 +732,11 @@ async function loadRecentApprovals() {
 }
 
 async function loadApprovalDetail(queueId = currentApprovalQueueId) {
+  if (!isElevatedRole()) {
+    setApprovalDetail("approver/admin 역할에서만 승인 상세와 이력을 확인할 수 있습니다.");
+    printOutput("승인 상세", { note: "approval detail requires approver/admin role" });
+    return null;
+  }
   if (!queueId) {
     printOutput("승인 상세 오류", { error: "queue_id를 먼저 선택하세요." });
     return null;
@@ -679,6 +769,10 @@ async function loadApprovalDetail(queueId = currentApprovalQueueId) {
 }
 
 async function actApproval(queueId, action) {
+  if (!isElevatedRole()) {
+    printOutput("승인 처리 오류", { error: "approver/admin role에서만 승인 처리를 할 수 있습니다." });
+    return;
+  }
   const payload = await requestJson(`/api/v1/approvals/${queueId}/${action}`, {
     method: "POST",
     body: JSON.stringify({
@@ -722,6 +816,10 @@ async function loadDraft() {
 }
 
 async function applyDraft() {
+  if (!isElevatedRole()) {
+    printOutput("Draft 적용 오류", { error: "approver/admin role에서만 draft 적용을 할 수 있습니다." });
+    return;
+  }
   const draftId = draftIdInput.value.trim();
   if (!draftId) {
     printOutput("Draft 적용 오류", { error: "draft_id를 먼저 입력하세요." });
@@ -942,6 +1040,7 @@ actorRoleSelect.addEventListener("change", async () => {
   applyRoleVisibility();
   try {
     await loadCapabilities();
+    await loadRecentTasks();
   } catch (error) {
     printOutput("Capability 로딩 오류", { error: String(error.message || error) });
   }

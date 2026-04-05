@@ -1727,6 +1727,8 @@ def build_orchestration_service(*, sync_execution: bool = False) -> Orchestratio
             store_lock=STORE_LOCK,
             tasks=TASKS,
             task_events=TASK_EVENTS,
+            approval_queue=APPROVAL_QUEUE,
+            approval_actions=APPROVAL_ACTIONS,
             run_idempotency=RUN_IDEMPOTENCY,
             state_store=STATE_STORE,
             reports_root=REPORTS_ROOT,
@@ -1754,6 +1756,7 @@ def build_orchestration_service(*, sync_execution: bool = False) -> Orchestratio
             start_incident_pipeline=_run_incident_pipeline if sync_execution else _start_incident_pipeline,
             persist_task=_persist_task,
             log_event=_log_event,
+            get_capability_manifest=build_capability_manifest_service().get_manifest,
         )
     )
 
@@ -1876,6 +1879,15 @@ def agent_report(
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
     return ORCHESTRATION_SERVICE.agent_report(task_id, actor, max_chars=max_chars)
+
+
+@APP.get("/api/v1/agent/bundle/{task_id}")
+def agent_bundle(
+    task_id: str,
+    max_chars: int = Query(default=4000, ge=200, le=20000),
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return ORCHESTRATION_SERVICE.agent_bundle(task_id, actor, max_chars=max_chars)
 
 
 @APP.get("/api/v1/agent/report/{task_id}/raw")

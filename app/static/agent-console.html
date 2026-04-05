@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>NestClaw Web Console</title>
-    <link rel="stylesheet" href="/static/agent-console.css?v=20260405a">
+    <link rel="stylesheet" href="/static/agent-console.css?v=20260405c">
   </head>
   <body>
     <main class="page-shell">
@@ -73,12 +73,13 @@
                   <option value="admin">admin</option>
                 </select>
               </label>
-              <label>
+              <label data-role-scope="approver admin">
                 <span>Approver ID</span>
                 <input id="acted-by" type="text" value="qa_approver" autocomplete="off">
               </label>
             </div>
-            <p class="helper">
+            <div id="role-mode-summary" class="summary-card summary-card-role">현재 role에 맞는 운영 제어면을 정리하는 중입니다.</div>
+            <p id="actor-mode-note" class="helper">
               draft 적용과 승인 처리는 `approver` 또는 `admin` 역할이어야 합니다.
             </p>
           </section>
@@ -190,6 +191,9 @@
 }</textarea>
               </label>
             </div>
+            <p id="run-mode-note" class="helper">
+              requester/reviewer는 dry-run 중심으로 확인하고, live 성격 제어는 approver/admin에서 검토합니다.
+            </p>
           </section>
 
           <section class="panel">
@@ -200,7 +204,7 @@
               </div>
               <div class="button-row">
                 <button id="refresh-recent" class="button subtle" type="button">최근 작업 조회</button>
-                <button id="refresh-approval-history" class="button subtle" type="button">최근 승인 조회</button>
+                <button id="refresh-approval-history" class="button subtle" type="button" data-role-scope="approver admin">최근 승인 조회</button>
               </div>
             </div>
             <div class="history-grid">
@@ -208,7 +212,7 @@
                 <h3 class="subheading">최근 작업</h3>
                 <div id="recent-task-list" class="history-list"></div>
               </div>
-              <div>
+              <div data-role-scope="approver admin">
                 <h3 class="subheading">최근 승인</h3>
                 <div id="recent-approval-list" class="history-list"></div>
               </div>
@@ -307,7 +311,7 @@
                 </div>
               </section>
 
-              <section class="subpanel">
+              <section class="subpanel" data-role-scope="approver admin">
                 <div class="section-head">
                   <div>
                     <p class="section-kicker">Draft Governance</p>
@@ -340,7 +344,7 @@
         </div>
       </div>
 
-      <script type="module" src="/static/agent-console.js?v=20260405a"></script>
+      <script type="module" src="/static/agent-console.js?v=20260405c"></script>
     </main>
   </body>
 </html>

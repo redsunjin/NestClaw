@@ -62,6 +62,8 @@ class TestAgentEntrypointSmoke(unittest.TestCase):
         final_payload = self._wait_status(task_id, {"DONE"})
         self.assertIsNotNone(final_payload)
         self.assertEqual(final_payload["resolved_kind"], "task")
+        self.assertEqual(final_payload["state_summary"]["canonical_state"], "done")
+        self.assertIn(final_payload["state_summary"]["canonical_reason_code"], {"completed", "planner_degraded"})
         report_path = Path(str(final_payload["result"]["report_path"]))
         self.assertTrue(report_path.is_file())
 
@@ -95,6 +97,7 @@ class TestAgentEntrypointSmoke(unittest.TestCase):
         self.assertIsNotNone(final_payload)
         self.assertEqual(final_payload["resolved_kind"], "incident")
         self.assertEqual(final_payload["run_mode"], "dry-run")
+        self.assertEqual(final_payload["state_summary"]["canonical_state"], "done")
         self.assertEqual(final_payload["result"]["actions_executed"], 1)
 
     def test_agent_status_and_events_cover_direct_task_flow(self) -> None:
@@ -178,6 +181,7 @@ class TestAgentEntrypointSmoke(unittest.TestCase):
         self.assertEqual(requested_bys, {"qa_user"})
         self.assertTrue(any(item.get("planning_source") for item in payload["items"]))
         self.assertTrue(any(item.get("planned_tool_ids") for item in payload["items"]))
+        self.assertTrue(any((item.get("state_summary") or {}).get("canonical_reason_code") for item in payload["items"]))
 
     def test_agent_report_preview_and_raw_are_authorized(self) -> None:
         other_headers = {"Authorization": f"Bearer {issue_dev_jwt('other_user', 'requester')}"}
@@ -216,6 +220,49 @@ class TestAgentEntrypointSmoke(unittest.TestCase):
 
         forbidden_response = self.client.get(f"/api/v1/agent/report/{task_id}", headers=other_headers)
         self.assertEqual(forbidden_response.status_code, 403)
+
+    def test_agent_bundle_returns_summary_for_requester_and_detail_for_approver(self) -> None:
+        approver_headers = {"Authorization": f"Bearer {issue_dev_jwt('qa_approver', 'approver')}"}
+        response = self.client.post(
+            "/api/v1/agent/submit",
+            json={
+                "task_kind": "task",
+                "title": "approval bundle task",
+                "request_text": "요약 결과를 외부 전송 해주세요",
+                "requested_by": "qa_user",
+                "metadata": {
+                    "meeting_title": "approval sync",
+                    "meeting_date": "2026-03-13",
+                    "participants": ["Kim"],
+                    "notes": "요약 결과를 외부 전송 해주세요",
+                },
+            },
+            headers=self.requester_headers,
+        )
+        self.assertEqual(response.status_code, 202)
+        task_id = response.json()["task_id"]
+
+        requester_bundle_response = self.client.get(
+            f"/api/v1/agent/bundle/{task_id}?max_chars=500",
+            headers=self.requester_headers,
+        )
+        self.assertEqual(requester_bundle_response.status_code, 200)
+        requester_bundle = requester_bundle_response.json()
+        self.assertEqual(requester_bundle["approval"]["access_level"], "summary")
+        self.assertEqual(requester_bundle["approval"]["actions"], [])
+        self.assertFalse(requester_bundle["report"]["available"])
+        self.assertEqual(requester_bundle["status"]["state_summary"]["canonical_state"], "approval_pending")
+        self.assertEqual(requester_bundle["status"]["state_summary"]["canonical_reason_code"], "policy_blocked")
+
+        approver_bundle_response = self.client.get(
+            f"/api/v1/agent/bundle/{task_id}?max_chars=500",
+            headers=approver_headers,
+        )
+        self.assertEqual(approver_bundle_response.status_code, 200)
+        approver_bundle = approver_bundle_response.json()
+        self.assertEqual(approver_bundle["approval"]["access_level"], "detail")
+        self.assertGreaterEqual(approver_bundle["approval"]["action_count"], 0)
+        self.assertEqual(approver_bundle["status"]["state_summary"]["canonical_reason_code"], "policy_blocked")
 
 
 if __name__ == "__main__":

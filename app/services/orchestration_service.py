@@ -6,6 +6,7 @@ from typing import Any, Callable, Mapping
 from uuid import uuid4
 
 from app.auth import ActorContext
+from app.runtime_taxonomy import runtime_state_summary
 
 
 AGENT_TASK_KIND_AUTO = "auto"
@@ -36,6 +37,8 @@ class OrchestrationServiceDeps:
     store_lock: Any
     tasks: dict[str, dict[str, Any]]
     task_events: list[dict[str, Any]]
+    approval_queue: dict[str, dict[str, Any]]
+    approval_actions: list[dict[str, Any]]
     run_idempotency: dict[tuple[str, str], str]
     state_store: Any
     reports_root: Any
@@ -63,6 +66,7 @@ class OrchestrationServiceDeps:
     start_incident_pipeline: Callable[[str], None]
     persist_task: Callable[[dict[str, Any]], None]
     log_event: Callable[..., None]
+    get_capability_manifest: Callable[[ActorContext], dict[str, Any]]
 
 
 class OrchestrationService:
@@ -261,6 +265,14 @@ class OrchestrationService:
             "current_stage": task["current_stage"],
             "last_event_at": task["updated_at"],
             "next_action": task.get("next_action"),
+            "state_summary": runtime_state_summary(
+                task,
+                ready_status=self._status_value(self.deps.task_status_ready),
+                running_status=self._status_value(self.deps.task_status_running),
+                failed_retryable_status=self._status_value(self.deps.task_status_failed_retryable),
+                needs_human_approval_status=self._status_value(self.deps.task_status_needs_human_approval),
+                done_status=self._status_value(self.deps.task_status_done),
+            ),
         }
         if task.get("provider_selection"):
             response["provider_selection"] = task["provider_selection"]
@@ -339,6 +351,24 @@ class OrchestrationService:
             root = (Path.cwd() / root).resolve()
         return root.resolve()
 
+    def _task_summary(self, task: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "task_id": task.get("task_id"),
+            "title": task.get("title"),
+            "status": task.get("status"),
+            "requested_by": task.get("requested_by"),
+            "updated_at": task.get("updated_at"),
+            "approval_reason": task.get("approval_reason"),
+            "state_summary": runtime_state_summary(
+                task,
+                ready_status=self._status_value(self.deps.task_status_ready),
+                running_status=self._status_value(self.deps.task_status_running),
+                failed_retryable_status=self._status_value(self.deps.task_status_failed_retryable),
+                needs_human_approval_status=self._status_value(self.deps.task_status_needs_human_approval),
+                done_status=self._status_value(self.deps.task_status_done),
+            ),
+        }
+
     def _resolve_report_path(self, task: dict[str, Any]) -> Path:
         report_path_value = str((task.get("result") or {}).get("report_path") or "").strip()
         if not report_path_value:
@@ -365,6 +395,14 @@ class OrchestrationService:
         provider_selection = planning.get("provider_selection") or {}
         planned_actions = list(task.get("planned_actions") or [])
         action_results = list(task.get("action_results") or [])
+        state_summary = runtime_state_summary(
+            task,
+            ready_status=self._status_value(self.deps.task_status_ready),
+            running_status=self._status_value(self.deps.task_status_running),
+            failed_retryable_status=self._status_value(self.deps.task_status_failed_retryable),
+            needs_human_approval_status=self._status_value(self.deps.task_status_needs_human_approval),
+            done_status=self._status_value(self.deps.task_status_done),
+        )
         return {
             "task_id": task["task_id"],
             "title": task.get("title"),
@@ -390,7 +428,73 @@ class OrchestrationService:
             "run_mode": self.deps.incident_runtime_snapshot(dict(task.get("incident_runtime") or {}))["run_mode"]
             if self.deps.workflow_type(task) == self.deps.incident_workflow
             else None,
+            "state_summary": state_summary,
         }
+
+    def _report_preview_from_path(self, task: dict[str, Any], report_path: Path | None, *, max_chars: int) -> dict[str, Any]:
+        if report_path is None:
+            return {
+                "available": False,
+                "task_id": task["task_id"],
+                "resolved_kind": str(task.get("agent_route") or self._resolved_kind_for_task(task)),
+                "status": task.get("status"),
+                "report_path": None,
+                "report_name": None,
+                "preview_text": "",
+                "preview_chars": max_chars,
+                "truncated": False,
+                "raw_url": None,
+                "reason": "report_not_ready",
+            }
+
+        report_text = report_path.read_text(encoding="utf-8")
+        preview_text = report_text[:max_chars]
+        return {
+            "available": True,
+            "task_id": task["task_id"],
+            "resolved_kind": str(task.get("agent_route") or self._resolved_kind_for_task(task)),
+            "status": task.get("status"),
+            "report_path": str(report_path.relative_to(Path.cwd())),
+            "report_name": report_path.name,
+            "preview_text": preview_text,
+            "preview_chars": max_chars,
+            "truncated": len(report_text) > max_chars,
+            "raw_url": f"/api/v1/agent/report/{task['task_id']}/raw",
+        }
+
+    def _approval_bundle_payload(self, task: dict[str, Any], actor: ActorContext) -> dict[str, Any]:
+        queue_id = str(task.get("approval_queue_id") or "").strip()
+        if not queue_id:
+            return {
+                "available": False,
+                "queue_id": None,
+                "access_level": "none",
+                "approval_reason": task.get("approval_reason"),
+                "item": None,
+                "task_summary": self._task_summary(task),
+                "actions": [],
+                "action_count": 0,
+            }
+
+        queue_item = self.deps.approval_queue.get(queue_id)
+        actions = [item for item in self.deps.approval_actions if item.get("queue_id") == queue_id]
+        actions.sort(key=lambda item: str(item.get("created_at") or ""))
+        summary_item = dict(queue_item) if queue_item else {"queue_id": queue_id, "task_id": task.get("task_id")}
+
+        payload = {
+            "available": True,
+            "queue_id": queue_id,
+            "access_level": "summary",
+            "approval_reason": task.get("approval_reason"),
+            "item": summary_item,
+            "task_summary": self._task_summary(task),
+            "actions": [],
+            "action_count": len(actions),
+        }
+        if actor.actor_role in {"approver", "admin"}:
+            payload["access_level"] = "detail"
+            payload["actions"] = actions
+        return payload
 
     def create_task(self, req: Any, actor: ActorContext) -> dict[str, Any]:
         role = self.deps.authorize(actor.actor_role, {"requester", "admin"}, "create_task")
@@ -734,24 +838,40 @@ class OrchestrationService:
         with self.deps.store_lock:
             task = self._get_agent_task(task_id, actor, action="agent_report")
             report_path = self._resolve_report_path(task)
-            report_text = report_path.read_text(encoding="utf-8")
-            preview_text = report_text[:normalized_max_chars]
-            return {
-                "task_id": task["task_id"],
-                "resolved_kind": str(task.get("agent_route") or self._resolved_kind_for_task(task)),
-                "status": task.get("status"),
-                "report_path": str(report_path.relative_to(Path.cwd())),
-                "report_name": report_path.name,
-                "preview_text": preview_text,
-                "preview_chars": normalized_max_chars,
-                "truncated": len(report_text) > normalized_max_chars,
-                "raw_url": f"/api/v1/agent/report/{task['task_id']}/raw",
-            }
+        return self._report_preview_from_path(task, report_path, max_chars=normalized_max_chars)
 
     def agent_report_path(self, task_id: str, actor: ActorContext) -> Path:
         with self.deps.store_lock:
             task = self._get_agent_task(task_id, actor, action="agent_report_raw")
             return self._resolve_report_path(task)
+
+    def agent_bundle(self, task_id: str, actor: ActorContext, *, max_chars: int = 4000) -> dict[str, Any]:
+        normalized_max_chars = max(200, min(int(max_chars or 4000), 20000))
+        with self.deps.store_lock:
+            task = self._get_agent_task(task_id, actor, action="agent_bundle")
+            status_payload = self.build_agent_status_payload(task)
+            events_payload = self.build_agent_events_payload(task)
+            approval_payload = self._approval_bundle_payload(task, actor)
+            report_path: Path | None = None
+            if str((task.get("result") or {}).get("report_path") or "").strip():
+                report_path = self._resolve_report_path(task)
+
+        report_payload = self._report_preview_from_path(task, report_path, max_chars=normalized_max_chars)
+        capability_snapshot = self.deps.get_capability_manifest(actor)
+        return {
+            "bundle_version": "v1",
+            "task_id": task["task_id"],
+            "resolved_kind": status_payload.get("resolved_kind"),
+            "generated_at": self.deps.now_iso(),
+            "status": status_payload,
+            "events": events_payload,
+            "report": report_payload,
+            "approval": approval_payload,
+            "capabilities": {
+                "source": "capabilities",
+                "snapshot": capability_snapshot,
+            },
+        }
 
     def agent_recent(self, actor: ActorContext, *, limit: int = 10) -> dict[str, Any]:
         normalized_limit = max(1, min(int(limit or 10), 50))

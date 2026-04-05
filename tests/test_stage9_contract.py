@@ -93,16 +93,18 @@ class TestStage9Contract(unittest.TestCase):
 
     def test_cycle_scripts_support_stage9(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
-        self.assertIn("target-stage: 1..9", cycle_source)
+        self.assertIn("target-stage: 1..10", cycle_source)
         self.assertIn("check_stage_9", cycle_source)
+        self.assertIn("check_stage_10", cycle_source)
         self.assertIn("tests.test_stage9_contract", cycle_source)
+        self.assertIn("tests.test_stage10_contract", cycle_source)
         self.assertIn("tests.test_planner_executor_service", cycle_source)
         self.assertIn("tests.test_agent_planner_runtime", cycle_source)
         self.assertIn("tests.test_incident_runtime_smoke", cycle_source)
 
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
-        self.assertIn("target-stage:1..9", auto_source)
-        self.assertIn("target-stage must be 1..9", auto_source)
+        self.assertIn("target-stage:1..10", auto_source)
+        self.assertIn("target-stage must be 1..10", auto_source)
 
     def test_shared_planner_executor_helper_exists_and_is_used(self) -> None:
         helper_source = Path("app/services/planner_executor_service.py").read_text(encoding="utf-8")

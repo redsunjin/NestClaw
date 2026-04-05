@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from app.auth import ActorContext, VALID_ROLES
+from app.runtime_taxonomy import readiness_state_summary
 from app.tool_registry import ToolRegistry, list_tool_capabilities
 
 
@@ -30,10 +31,7 @@ class CapabilityManifestService:
     def _readiness(self) -> dict[str, Any]:
         missing = [name for name in STAGE8_REQUIRED_ENVS if not os.getenv(name, "").strip()]
         return {
-            "stage8_live_readiness": {
-                "status": "ready" if not missing else "blocked",
-                "missing_env": missing,
-            }
+            "stage8_live_readiness": readiness_state_summary(missing)
         }
 
     def get_manifest(self, actor: ActorContext) -> dict[str, Any]:

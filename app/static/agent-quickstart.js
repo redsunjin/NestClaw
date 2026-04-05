@@ -13,6 +13,8 @@ const executionRail = document.querySelector("#quick-execution-rail");
 const reportBox = document.querySelector("#quick-report");
 const recentBox = document.querySelector("#quick-recent");
 const output = document.querySelector("#quick-output");
+const roleNote = document.querySelector("#quick-role-note");
+const roleScopedElements = [...document.querySelectorAll("[data-role-scope]")];
 
 let currentTaskId = "";
 let currentApprovalQueueId = "";
@@ -48,6 +50,34 @@ async function requestJson(url, options = {}) {
 
 function printOutput(title, payload) {
   output.textContent = `${title}\n\n${JSON.stringify(payload, null, 2)}`;
+}
+
+function isElevatedRole(role = actorRoleSelect.value) {
+  return ["approver", "admin"].includes(role);
+}
+
+function applyRoleVisibility() {
+  const role = actorRoleSelect.value;
+  roleScopedElements.forEach((element) => {
+    const allowed = String(element.dataset.roleScope || "")
+      .split(/\s+/)
+      .filter(Boolean);
+    const isVisible = !allowed.length || allowed.includes(role);
+    element.classList.toggle("is-role-hidden", !isVisible);
+  });
+  if (role === "admin") {
+    roleNote.textContent = "admin은 quickstart에서도 승인 버튼을 볼 수 있지만, 깊은 운영 제어는 대시보드가 더 적합합니다.";
+    return;
+  }
+  if (role === "approver") {
+    roleNote.textContent = "approver는 quickstart에서 승인 처리까지 할 수 있지만, 상세 이력과 거버넌스는 대시보드가 더 적합합니다.";
+    return;
+  }
+  if (role === "reviewer") {
+    roleNote.textContent = "reviewer는 planner와 결과를 읽는 역할입니다. 승인 처리는 approver/admin에서 닫습니다.";
+    return;
+  }
+  roleNote.textContent = "requester는 요청 제출과 상태 확인에 집중하고, approver/admin이 승인 처리를 맡습니다.";
 }
 
 function setStatus(lines) {
@@ -111,12 +141,17 @@ function planningContext(payload) {
   };
 }
 
+function stateSummaryContext(payload) {
+  return payload?.state_summary || {};
+}
+
 function signalChip(label, tone = "muted") {
   return `<span class="signal-chip signal-chip-${tone}">${escapeHtml(label)}</span>`;
 }
 
 function renderPlannerSignals(payload) {
   const { provenance, providerSelection, runMode, approvalQueueId, reportPath, status } = planningContext(payload);
+  const stateSummary = stateSummaryContext(payload);
   const chips = [
     signalChip(`planner ${provenance.source || "-"}`, provenance.source ? "ok" : "muted"),
     signalChip(`provider ${providerSelection.provider_id || "-"}`, "muted"),
@@ -130,6 +165,9 @@ function renderPlannerSignals(payload) {
   }
   if (approvalQueueId || status === "NEEDS_HUMAN_APPROVAL") {
     chips.push(signalChip("approval required", "warn"));
+  }
+  if (stateSummary.canonical_reason_code && !["ready", "running", "completed"].includes(stateSummary.canonical_reason_code)) {
+    chips.push(signalChip(`reason ${stateSummary.canonical_reason_code}`, stateSummary.canonical_reason_code === "planner_degraded" ? "warn" : "muted"));
   }
   if (reportPath) {
     chips.push(signalChip("report ready", "ok"));
@@ -187,9 +225,13 @@ function renderRail(element, items, type, emptyText) {
 
 function plannerSummaryFromPayload(payload) {
   const { provenance, providerSelection, plannedActions, actionResults } = planningContext(payload);
+  const stateSummary = stateSummaryContext(payload);
   const plannedTools = plannedActions.map((item) => item.tool_id).filter(Boolean);
   const executedTools = actionResults.map((item) => item.tool_id).filter(Boolean);
   const lines = [
+    `canonical_state: ${stateSummary.canonical_state || "-"}`,
+    `canonical_reason: ${stateSummary.canonical_reason_code || "-"}`,
+    stateSummary.detail_reason_code ? `detail_reason: ${stateSummary.detail_reason_code}` : "",
     `source: ${provenance.source || "-"}`,
     `provider: ${providerSelection.provider_id || "-"}`,
     `degraded: ${provenance.degraded_mode ? "yes" : "no"}`,
@@ -203,6 +245,7 @@ function plannerSummaryFromPayload(payload) {
 
 function plannerSummaryFromRecent(item) {
   return [
+    `canonical: ${(item.state_summary || {}).canonical_state || "-"} / ${(item.state_summary || {}).canonical_reason_code || "-"}`,
     `planner: ${item.planning_source || "-"}`,
     item.planning_provider_id ? `provider: ${item.planning_provider_id}` : "",
     item.planning_degraded_mode ? "degraded: yes" : "degraded: no",
@@ -237,6 +280,7 @@ async function loadRecent() {
           <div class="recent-copy">
             <p class="recent-title">${item.title || item.task_id}</p>
             <p class="recent-meta-inline">${item.resolved_kind} / ${item.status} / ${toolFlow(item.planned_tool_ids || [])}</p>
+            <p class="recent-meta-inline">canonical ${(item.state_summary || {}).canonical_state || "-"} / ${(item.state_summary || {}).canonical_reason_code || "-"}</p>
             <div class="signal-strip signal-strip-compact">
               ${signalChip(item.planning_degraded_mode ? "degraded" : "standard", item.planning_degraded_mode ? "warn" : "ok")}
               ${item.run_mode ? signalChip(`run ${item.run_mode}`, item.run_mode === "dry-run" ? "muted" : "warn") : ""}
@@ -313,10 +357,14 @@ async function loadTask(taskId = currentTaskId) {
   const payload = await requestJson(`/api/v1/agent/status/${taskId}`);
   currentTaskId = payload.task_id || taskId;
   currentApprovalQueueId = payload.approval_queue_id || "";
+  const stateSummary = payload.state_summary || {};
   setStatus([
     `task_id: ${payload.task_id || "-"}`,
     `kind: ${payload.resolved_kind || "-"}`,
     `status: ${payload.status || "-"}`,
+    `canonical_state: ${stateSummary.canonical_state || "-"}`,
+    `canonical_reason: ${stateSummary.canonical_reason_code || "-"}`,
+    stateSummary.detail_reason_code ? `detail_reason: ${stateSummary.detail_reason_code}` : "",
     `next_action: ${payload.next_action || "-"}`,
   ]);
   setPlanner(plannerSummaryFromPayload(payload));
@@ -374,6 +422,10 @@ async function submitQuickRequest() {
 }
 
 async function actApproval(action) {
+  if (!isElevatedRole()) {
+    printOutput("승인 처리 오류", { error: "approver/admin role에서만 quickstart 승인 처리를 할 수 있습니다." });
+    return;
+  }
   if (!currentApprovalQueueId) {
     printOutput("승인 처리 오류", { error: "approval queue가 없습니다." });
     return;
@@ -392,6 +444,14 @@ async function actApproval(action) {
 document.querySelector("#quick-example-task").addEventListener("click", () => fillExample("task"));
 document.querySelector("#quick-example-incident").addEventListener("click", () => fillExample("incident"));
 document.querySelector("#quick-example-approval").addEventListener("click", () => fillExample("approval"));
+actorRoleSelect.addEventListener("change", async () => {
+  applyRoleVisibility();
+  try {
+    await refreshCurrent();
+  } catch (error) {
+    printOutput("role 변경 오류", { error: String(error.message || error) });
+  }
+});
 document.querySelector("#quick-submit").addEventListener("click", async () => {
   try {
     await submitQuickRequest();
@@ -446,6 +506,7 @@ recentBox.addEventListener("click", async (event) => {
 });
 
 await loadHealth();
+applyRoleVisibility();
 fillExample("task");
 setStatus("아직 실행된 작업이 없습니다.");
 setPlanner("아직 planner 정보가 없습니다.");

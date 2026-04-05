@@ -1,0 +1,45 @@
+{
+  "campaign_id": "stage10-priority-campaign",
+  "goal": "Drive operator evidence and upper-agent integration hardening without gaps between MWUs",
+  "target_stage": 10,
+  "items": [
+    {
+      "item_id": "g1-canonical-execution-bundle-export",
+      "group": "G1",
+      "title": "Export a canonical execution bundle across HTTP, CLI, and MCP",
+      "unit_id": "stage10-w1-001",
+      "goal": "Add a task-scoped execution bundle that aggregates status, events, report, approval snapshot, and capability snapshot",
+      "status": "completed",
+      "completed_unit_id": "stage10-w1-001",
+      "completed_at": "2026-04-05T06:47:56+00:00"
+    },
+    {
+      "item_id": "g2-role-gated-operator-surface-hardening",
+      "group": "G2",
+      "title": "Tighten requester vs approver/admin dashboard separation",
+      "unit_id": "stage10-w1-002",
+      "goal": "Strengthen role-based visual and interaction gating in operator surfaces without creating a new human chat app",
+      "status": "completed",
+      "completed_unit_id": "stage10-w1-002",
+      "completed_at": "2026-04-05T10:06:24+00:00"
+    },
+    {
+      "item_id": "g3-readiness-error-taxonomy-normalization",
+      "group": "G3",
+      "title": "Normalize readiness and runtime error taxonomy",
+      "unit_id": "stage10-w1-003",
+      "goal": "Align blocked, degraded, approval-pending, and retryable failure reasons across runtime, readiness, and operator surfaces",
+      "status": "completed",
+      "completed_unit_id": "stage10-w1-003",
+      "completed_at": "2026-04-05T10:18:39+00:00"
+    },
+    {
+      "item_id": "g4-mcp-transport-deployment-hardening",
+      "group": "G4",
+      "title": "Package MCP transport and deployment guidance for upper-agent integration",
+      "unit_id": "stage10-w1-004",
+      "goal": "Document and harden MCP startup, transport, and auth expectations for repeated upper-agent use",
+      "status": "in_progress"
+    }
+  ]
+}

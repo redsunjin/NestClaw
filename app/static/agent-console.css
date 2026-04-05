@@ -696,6 +696,13 @@ textarea {
   display: none !important;
 }
 
+.summary-card-role {
+  border-style: dashed;
+  background:
+    linear-gradient(180deg, rgba(192, 79, 51, 0.08), rgba(255, 251, 245, 0.94)),
+    var(--panel-strong);
+}
+
 .auxiliary-panel {
   background:
     linear-gradient(180deg, rgba(245, 240, 233, 0.76), rgba(251, 247, 240, 0.72)),

@@ -39,6 +39,11 @@ class TestCapabilityManifestRuntime(unittest.TestCase):
         self.assertIn("requester", payload["roles"])
         self.assertIn("approver", payload["roles"])
         self.assertGreaterEqual(int(payload["tool_catalog"]["count"]), 6)
+        readiness = payload["readiness"]["stage8_live_readiness"]
+        self.assertIn(readiness["status"], {"ready", "blocked"})
+        self.assertIn(readiness["canonical_reason_code"], {"ready", "env_blocked"})
+        if readiness["status"] == "blocked":
+            self.assertEqual(readiness["detail_reason_code"], "stage8_live_env_missing")
         tool_ids = {item["tool_id"] for item in payload["tool_catalog"]["items"]}
         self.assertIn("internal.summary.generate", tool_ids)
         self.assertIn("redmine.issue.create", tool_ids)
@@ -53,6 +58,10 @@ class TestCapabilityManifestRuntime(unittest.TestCase):
         payload = json.loads(stdout.getvalue().strip() or "{}")
         self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
         self.assertIn("mcp", {item["surface"] for item in payload["delivery_surfaces"]})
+        self.assertIn(
+            payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
+            {"ready", "env_blocked"},
+        )
 
 
 if __name__ == "__main__":

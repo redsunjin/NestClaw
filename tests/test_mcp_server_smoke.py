@@ -123,6 +123,7 @@ class TestMcpServerSmoke(unittest.TestCase):
                 "agent.events",
                 "agent.recent",
                 "agent.report",
+                "agent.bundle",
                 "approval.list",
                 "approval.get",
                 "approval.approve",
@@ -155,6 +156,10 @@ class TestMcpServerSmoke(unittest.TestCase):
         self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
         self.assertIn("requester", payload["roles"])
         self.assertGreaterEqual(int(payload["tool_catalog"]["count"]), 6)
+        self.assertIn(
+            payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
+            {"ready", "env_blocked"},
+        )
 
     def test_agent_recent_and_report_tools_cover_observe_loop(self) -> None:
         submit_response = self._request(
@@ -195,6 +200,7 @@ class TestMcpServerSmoke(unittest.TestCase):
         )
         recent_payload = recent_response["result"]["structuredContent"]
         self.assertIn(task_id, {item["task_id"] for item in recent_payload["items"]})
+        self.assertTrue(any((item.get("state_summary") or {}).get("canonical_state") for item in recent_payload["items"]))
 
         report_response = self._request(
             {
@@ -210,6 +216,23 @@ class TestMcpServerSmoke(unittest.TestCase):
         report_payload = report_response["result"]["structuredContent"]
         self.assertEqual(report_payload["task_id"], task_id)
         self.assertEqual(report_payload["status"], "DONE")
+
+        bundle_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 20_4,
+                "method": "tools/call",
+                "params": {
+                    "name": "agent.bundle",
+                    "arguments": {"task_id": task_id, "actor_id": "qa_user", "max_chars": 500},
+                },
+            }
+        )
+        bundle_payload = bundle_response["result"]["structuredContent"]
+        self.assertEqual(bundle_payload["task_id"], task_id)
+        self.assertEqual(bundle_payload["status"]["status"], "DONE")
+        self.assertEqual(bundle_payload["status"]["state_summary"]["canonical_state"], "done")
+        self.assertTrue(bundle_payload["report"]["available"])
 
     def test_catalog_tools_return_registered_capabilities(self) -> None:
         list_response = self._request(

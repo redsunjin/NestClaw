@@ -62,6 +62,7 @@ class TestToolCliSmoke(unittest.TestCase):
         exit_code, status_payload = self._run_cli_json("status", "--task-id", task_id, "--actor-id", "qa_user")
         self.assertEqual(exit_code, 0)
         self.assertEqual(status_payload["status"], "DONE")
+        self.assertEqual(status_payload["state_summary"]["canonical_state"], "done")
 
         exit_code, report_payload = self._run_cli_json("report", "--task-id", task_id, "--actor-id", "qa_user")
         self.assertEqual(exit_code, 0)
@@ -90,6 +91,10 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["product_posture"], "orchestration_backend_with_human_dashboard")
         self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
+        self.assertIn(
+            payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
+            {"ready", "env_blocked"},
+        )
         self.assertIn("catalog.manifest", payload["controls"]["safe_for_upper_agents"])
 
     def test_recent_approvals_and_approval_get_cover_observe_loop(self) -> None:
@@ -119,6 +124,7 @@ class TestToolCliSmoke(unittest.TestCase):
         exit_code, recent_payload = self._run_cli_json("recent", "--actor-id", "qa_user")
         self.assertEqual(exit_code, 0)
         self.assertIn(task_id, {item["task_id"] for item in recent_payload["items"]})
+        self.assertTrue(any((item.get("state_summary") or {}).get("canonical_state") for item in recent_payload["items"]))
 
         exit_code, approvals_payload = self._run_cli_json("approvals", "--actor-role", "approver", "--actor-id", "qa_approver")
         self.assertEqual(exit_code, 0)
@@ -136,6 +142,86 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(approval_detail_payload["queue_id"], queue_id)
         self.assertEqual(approval_detail_payload["task_summary"]["task_id"], task_id)
+
+    def test_bundle_command_returns_canonical_snapshot(self) -> None:
+        exit_code, submit_payload = self._run_cli_json(
+            "submit",
+            "--requested-by",
+            "qa_user",
+            "--task-kind",
+            "task",
+            "--request-text",
+            "주간 운영회의 메모를 요약하고 액션 아이템을 정리해줘",
+            "--metadata-json",
+            json.dumps(
+                {
+                    "meeting_title": "ops sync",
+                    "meeting_date": "2026-03-12",
+                    "participants": ["Kim"],
+                    "notes": "internal only",
+                },
+                ensure_ascii=False,
+            ),
+        )
+        self.assertEqual(exit_code, 0)
+        task_id = str(submit_payload["task_id"])
+
+        exit_code, bundle_payload = self._run_cli_json("bundle", "--task-id", task_id, "--actor-id", "qa_user")
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(bundle_payload["bundle_version"], "v1")
+        self.assertEqual(bundle_payload["task_id"], task_id)
+        self.assertEqual(bundle_payload["status"]["status"], "DONE")
+        self.assertEqual(bundle_payload["status"]["state_summary"]["canonical_state"], "done")
+        self.assertTrue(bundle_payload["report"]["available"])
+        self.assertGreaterEqual(int(bundle_payload["events"]["count"]), 3)
+        self.assertEqual(bundle_payload["approval"]["access_level"], "none")
+        self.assertEqual(
+            bundle_payload["capabilities"]["snapshot"]["product_posture"],
+            "orchestration_backend_with_human_dashboard",
+        )
+
+    def test_bundle_command_hides_approval_detail_from_requester(self) -> None:
+        exit_code, submit_payload = self._run_cli_json(
+            "submit",
+            "--requested-by",
+            "qa_user",
+            "--task-kind",
+            "task",
+            "--request-text",
+            "요약 결과를 외부 전송 해주세요",
+            "--metadata-json",
+            json.dumps(
+                {
+                    "meeting_title": "approval-needed",
+                    "meeting_date": "2026-03-12",
+                    "participants": ["Ops"],
+                    "notes": "요약 결과를 외부 전송 해주세요",
+                },
+                ensure_ascii=False,
+            ),
+        )
+        self.assertEqual(exit_code, 0)
+        task_id = str(submit_payload["task_id"])
+
+        exit_code, requester_bundle = self._run_cli_json("bundle", "--task-id", task_id, "--actor-id", "qa_user")
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(requester_bundle["approval"]["access_level"], "summary")
+        self.assertEqual(requester_bundle["approval"]["actions"], [])
+        self.assertEqual(requester_bundle["status"]["state_summary"]["canonical_reason_code"], "policy_blocked")
+
+        exit_code, approver_bundle = self._run_cli_json(
+            "bundle",
+            "--task-id",
+            task_id,
+            "--actor-id",
+            "qa_approver",
+            "--actor-role",
+            "approver",
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(approver_bundle["approval"]["access_level"], "detail")
+        self.assertIn("item", approver_bundle["approval"])
+        self.assertEqual(approver_bundle["status"]["state_summary"]["canonical_reason_code"], "policy_blocked")
 
     def test_tool_draft_command_creates_reviewable_slack_draft(self) -> None:
         exit_code, payload = self._run_cli_json(

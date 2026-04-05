@@ -136,6 +136,17 @@ def _report_payload(
     return _invoke(CLI_ORCHESTRATION_SERVICE.agent_report, task_id, actor, max_chars=max_chars)
 
 
+def _bundle_payload(
+    task_id: str,
+    *,
+    max_chars: int,
+    actor_id: str,
+    actor_role: str,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    return _invoke(CLI_ORCHESTRATION_SERVICE.agent_bundle, task_id, actor, max_chars=max_chars)
+
+
 def _approve_payload(
     queue_id: str,
     *,
@@ -369,9 +380,10 @@ def _print_recent(payload: dict[str, Any]) -> None:
         return
     print("\n[최근 작업]")
     for item in payload.get("items", []):
+        state_summary = item.get("state_summary") or {}
         print(
             f"- {item.get('task_id', '-')}: {item.get('resolved_kind', '-')} / {item.get('status', '-')} / "
-            f"{item.get('title', '-')}"
+            f"{item.get('title', '-')} / {state_summary.get('canonical_reason_code', '-')}"
         )
     print()
 
@@ -388,6 +400,30 @@ def _print_report(payload: dict[str, Any]) -> None:
     print(f"- Raw URL: {payload.get('raw_url', '-')}")
     print()
     print(payload.get("preview_text", ""))
+    print()
+
+
+def _print_bundle(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    print("\n[실행 번들]")
+    print(f"- Task ID: {payload.get('task_id', '-')}")
+    print(f"- 종류: {payload.get('resolved_kind', '-')}")
+    status_payload = payload.get("status") or {}
+    state_summary = status_payload.get("state_summary") or {}
+    print(f"- 상태: {status_payload.get('status', '-')}")
+    print(f"- Canonical state/reason: {state_summary.get('canonical_state', '-')} / {state_summary.get('canonical_reason_code', '-')}")
+    approval = payload.get("approval") or {}
+    print(f"- Approval access: {approval.get('access_level', '-')}")
+    print(f"- Event count: {((payload.get('events') or {}).get('count')) or 0}")
+    report = payload.get("report") or {}
+    if report.get("available"):
+        print(f"- Report: {report.get('report_name', '-')}")
+    else:
+        print(f"- Report: {report.get('reason', 'not_ready')}")
+    capabilities = ((payload.get("capabilities") or {}).get("snapshot") or {})
+    print(f"- Product posture: {capabilities.get('product_posture', '-')}")
     print()
 
 
@@ -423,6 +459,7 @@ def _print_capabilities(payload: dict[str, Any]) -> None:
     print(f"- Tool count: {tool_catalog.get('count', '-')}")
     readiness = (payload.get("readiness") or {}).get("stage8_live_readiness") or {}
     print(f"- Stage8 live readiness: {readiness.get('status', '-')}")
+    print(f"- Readiness reason: {readiness.get('canonical_reason_code', '-')}")
     missing = readiness.get("missing_env") or []
     if missing:
         print(f"- Missing env: {', '.join(missing)}")
@@ -462,6 +499,9 @@ def _emit_payload(payload: dict[str, Any], *, as_json: bool, command: str) -> No
         return
     if command == "report":
         _print_report(payload)
+        return
+    if command == "bundle":
+        _print_bundle(payload)
         return
     if command == "approvals":
         _print_approvals(payload)
@@ -647,6 +687,13 @@ def build_parser() -> argparse.ArgumentParser:
     report_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
     report_parser.add_argument("--json", action="store_true")
 
+    bundle_parser = subparsers.add_parser("bundle", help="show a canonical execution bundle for one agent task")
+    bundle_parser.add_argument("--task-id", required=True)
+    bundle_parser.add_argument("--max-chars", type=int, default=4000)
+    bundle_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    bundle_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    bundle_parser.add_argument("--json", action="store_true")
+
     approvals_parser = subparsers.add_parser("approvals", help="list approval queue items")
     approvals_parser.add_argument("--status")
     approvals_parser.add_argument("--approver-group")
@@ -785,6 +832,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             actor_role=args.actor_role,
         )
         _emit_payload(payload, as_json=args.json, command="report")
+        return exit_code
+
+    if args.command == "bundle":
+        payload, exit_code = _bundle_payload(
+            args.task_id,
+            max_chars=args.max_chars,
+            actor_id=args.actor_id,
+            actor_role=args.actor_role,
+        )
+        _emit_payload(payload, as_json=args.json, command="bundle")
         return exit_code
 
     if args.command == "approvals":

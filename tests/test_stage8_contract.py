@@ -129,11 +129,13 @@ class TestStage8Contract(unittest.TestCase):
 
     def test_dev_qa_cycle_supports_stage8(self) -> None:
         source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
-        self.assertIn("target-stage: 1..9", source)
+        self.assertIn("target-stage: 1..10", source)
         self.assertIn("check_stage_8", source)
         self.assertIn("check_stage_9", source)
+        self.assertIn("check_stage_10", source)
         self.assertIn("tests.test_stage8_contract", source)
         self.assertIn("tests.test_stage9_contract", source)
+        self.assertIn("tests.test_stage10_contract", source)
         self.assertIn("tests.test_agent_planner_contract", source)
         self.assertIn("tests.test_model_registry_contract", source)
         self.assertIn("tests.test_provider_invoker_contract", source)
@@ -157,8 +159,8 @@ class TestStage8Contract(unittest.TestCase):
 
     def test_auto_cycle_supports_stage8(self) -> None:
         source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
-        self.assertIn("target-stage:1..9", source)
-        self.assertIn("target-stage must be 1..9", source)
+        self.assertIn("target-stage:1..10", source)
+        self.assertIn("target-stage must be 1..10", source)
 
     def test_micro_cycle_supports_stage8_gate_flow(self) -> None:
         source = Path("scripts/run_micro_cycle.sh").read_text(encoding="utf-8")
@@ -221,6 +223,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn('subparsers.add_parser("events"', source)
         self.assertIn('subparsers.add_parser("recent"', source)
         self.assertIn('subparsers.add_parser("report"', source)
+        self.assertIn('subparsers.add_parser("bundle"', source)
         self.assertIn('subparsers.add_parser("approvals"', source)
         self.assertIn('subparsers.add_parser("approval-get"', source)
         self.assertIn('subparsers.add_parser("approve"', source)
@@ -245,6 +248,7 @@ class TestStage8Contract(unittest.TestCase):
         self.assertIn('"agent.events"', source)
         self.assertIn('"agent.recent"', source)
         self.assertIn('"agent.report"', source)
+        self.assertIn('"agent.bundle"', source)
         self.assertIn('"approval.list"', source)
         self.assertIn('"approval.get"', source)
         self.assertIn('"approval.approve"', source)

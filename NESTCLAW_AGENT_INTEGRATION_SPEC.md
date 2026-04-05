@@ -74,6 +74,7 @@ Human Operator
 4. session 시작 시 또는 capability 확인이 필요할 때 `capabilities`
 5. 필요 시 `approvals`
 6. `report`
+7. handoff/export가 필요하면 `bundle`
 
 ### 5.2 권장 상태 해석
 - `READY`: 생성은 됐지만 아직 실행 전이다.
@@ -98,6 +99,7 @@ Human Operator
 - `GET /api/v1/agent/recent`
 - `GET /api/v1/agent/report/{task_id}`
 - `GET /api/v1/agent/report/{task_id}/raw`
+- `GET /api/v1/agent/bundle/{task_id}`
 - `GET /api/v1/capabilities`
 - `GET /api/v1/approvals`
 - `GET /api/v1/approvals/{queue_id}`
@@ -117,6 +119,7 @@ Human Operator
 - `newclaw events`
  - `newclaw recent`
  - `newclaw report`
+ - `newclaw bundle`
  - `newclaw approvals`
  - `newclaw approval-get`
 - `newclaw approve`
@@ -134,6 +137,7 @@ Human Operator
 - `agent.events`
  - `agent.recent`
  - `agent.report`
+ - `agent.bundle`
 - `approval.list`
  - `approval.get`
 - `approval.approve`
@@ -185,7 +189,8 @@ Human Operator
 - 따라서 상위 에이전트는 `DONE` 이후 아래 순서를 따른다.
 1. `agent.report` preview 확인
 2. 필요 시 raw markdown 조회
-3. preview/raw에 근거해 최종 사용자 응답 생성
+3. operator handoff나 audit export가 필요하면 `agent.bundle` 조회
+4. preview/raw 또는 bundle에 근거해 최종 사용자 응답 생성
 
 금지:
 - status만 보고 결과를 상상해 응답
@@ -223,5 +228,5 @@ Human Operator
 ## 13. 이 문서를 읽은 뒤 바로 구현해야 하는 것
 1. MCP client에서 `agent.submit/status/events` 루프 구현
 2. approval handoff UX 연결
-3. report preview 기반 최종 응답 생성
+3. report preview 또는 bundle 기반 최종 응답 생성
 4. capability manifest를 startup 시 읽고 agent prompt에 반영
