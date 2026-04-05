@@ -4,7 +4,7 @@
 - goal: `Document and harden MCP startup, transport, and auth expectations for repeated upper-agent use`
 - target_stage: `10`
 - created_at_utc: `20260405T101839Z`
-- status: `IMPLEMENT_PENDING`
+- status: `DONE`
 
 ## Roles
 - Plan Lead: A01 (Product Owner)
@@ -17,9 +17,9 @@
 ## Phase Checklist
 - [x] Plan gate passed
 - [x] Review gate passed
-- [ ] Implement gate passed
-- [ ] Evaluate gate passed
-- [ ] Sync evidence recorded
+- [x] Implement gate passed
+- [x] Evaluate gate passed
+- [x] Sync evidence recorded
 
 ## Files
 - `PLAN_NOTES.md`

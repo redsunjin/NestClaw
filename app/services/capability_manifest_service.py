@@ -60,6 +60,14 @@ class CapabilityManifestService:
                 {"surface": "web_quickstart", "status": "lightweight"},
                 {"surface": "web_console", "status": "operator_dashboard"},
             ],
+            "transport": {
+                "mcp": {
+                    "baseline": "stdio",
+                    "status": "stable_baseline",
+                    "remote_gateway": "future_boundary",
+                    "actor_context_required": True,
+                }
+            },
             "roles": sorted(VALID_ROLES),
             "auth_modes": [
                 "jwt_local",

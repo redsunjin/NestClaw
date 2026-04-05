@@ -151,6 +151,17 @@ Human Operator
 - `catalog.apply_draft`
 - `catalog.rollback_tool`
 
+### 6.4 MCP Transport Baseline
+- 현재 canonical transport는 `stdio`다.
+- 기준 실행 명령:
+  - `python3 app/mcp_server.py`
+- 상위 agent host는 이 프로세스를 child process로 띄우고 JSON-RPC over stdio로 연결하는 것을 기본으로 본다.
+- `actor_id`는 모든 tool call에 포함하는 것이 권장된다.
+- `actor_role`도 명시적으로 넣는 편이 좋고, 기본은 `requester` 또는 `reviewer`로 둔다.
+- `approval.approve`, `approval.reject`, `catalog.apply_draft`, `catalog.rollback_tool`은 approver/admin boundary 안에서만 사용한다.
+- packaged remote transport는 아직 baseline이 아니다. 필요한 경우 별도 wrapper/gateway에서 auth termination과 actor injection을 담당해야 한다.
+- 상세 운영 가이드는 `NESTCLAW_MCP_TRANSPORT_DEPLOYMENT_GUIDE.md`를 기준으로 본다.
+
 ## 7. Role and Control Policy
 ### 7.1 기본 역할
 - `requester`
@@ -209,6 +220,16 @@ Human Operator
 ### 10.3 env blocked
 - sandbox/live readiness는 env 부재 시 `BLOCKED`가 될 수 있다.
 - 이는 기능 오류라기보다 운영 환경 미준비다.
+
+### 10.4 Canonical Reason Vocabulary
+- runtime과 readiness는 가능한 한 `canonical_state`와 `canonical_reason_code`를 같이 본다.
+- 예:
+  - `env_blocked`
+  - `policy_blocked`
+  - `approval_pending`
+  - `retryable_failure`
+  - `planner_degraded`
+- 상위 에이전트는 이 reason code를 사용자 번역이나 handoff 판단의 기준으로 쓸 수 있다.
 
 ## 11. 권장 상위 에이전트 시스템 지침
 상위 agent에 아래 운영 지침을 주는 것을 권장한다.

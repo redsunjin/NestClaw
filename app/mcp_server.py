@@ -551,7 +551,10 @@ class NewClawMcpServer:
                     "protocolVersion": protocol_version,
                     "capabilities": {"tools": {"listChanged": False}},
                     "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
-                    "instructions": "NewClaw orchestration agent tools over MCP.",
+                    "instructions": (
+                        "NestClaw MCP stdio baseline. Use requester/reviewer for observe loops; "
+                        "approver/admin only for elevated approval or catalog controls."
+                    ),
                 },
             )
 

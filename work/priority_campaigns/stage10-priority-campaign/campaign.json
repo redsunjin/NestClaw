@@ -39,7 +39,9 @@
       "title": "Package MCP transport and deployment guidance for upper-agent integration",
       "unit_id": "stage10-w1-004",
       "goal": "Document and harden MCP startup, transport, and auth expectations for repeated upper-agent use",
-      "status": "in_progress"
+      "status": "completed",
+      "completed_unit_id": "stage10-w1-004",
+      "completed_at": "2026-04-05T12:16:01+00:00"
     }
   ]
 }

@@ -91,6 +91,7 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["product_posture"], "orchestration_backend_with_human_dashboard")
         self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
+        self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
         self.assertIn(
             payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
             {"ready", "env_blocked"},

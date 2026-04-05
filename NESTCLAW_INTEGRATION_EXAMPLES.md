@@ -21,7 +21,19 @@ Treat NEEDS_HUMAN_APPROVAL and BLOCKED as unfinished states.
 ```
 
 ## 3. MCP Example
-### 3.0 Read Manifest First
+### 3.0 stdio Bootstrap
+
+```bash
+python3 app/mcp_server.py
+```
+
+운영 전제:
+- 현재 canonical MCP transport는 stdio다.
+- upper-agent host가 child process로 붙는 구성을 기본으로 본다.
+- remote gateway/SSE 배포는 아직 future boundary다.
+- 가능한 모든 tool call에 `actor_id`, `actor_role`를 명시한다.
+
+### 3.1 Read Manifest First
 Tool: `catalog.manifest`
 
 ```json
@@ -31,7 +43,7 @@ Tool: `catalog.manifest`
 }
 ```
 
-### 3.1 Submit
+### 3.2 Submit
 Tool: `agent.submit`
 
 ```json
@@ -52,7 +64,7 @@ Tool: `agent.submit`
 }
 ```
 
-### 3.2 Poll Status
+### 3.3 Poll Status
 Tool: `agent.status`
 
 ```json
@@ -68,7 +80,7 @@ Tool: `agent.status`
 - `NEEDS_HUMAN_APPROVAL`: 사람에게 handoff
 - `DONE`: report 읽기
 
-### 3.3 Fetch Events
+### 3.4 Fetch Events
 Tool: `agent.events`
 
 ```json
@@ -79,7 +91,7 @@ Tool: `agent.events`
 }
 ```
 
-### 3.4 Recent / Report
+### 3.5 Recent / Report
 Tool: `agent.recent`
 
 ```json
@@ -101,7 +113,7 @@ Tool: `agent.report`
 }
 ```
 
-### 3.5 Approval Handoff
+### 3.6 Approval Handoff
 사람 approver가 있을 때만:
 
 Tool: `approval.list`
@@ -135,6 +147,10 @@ Tool: `approval.approve`
   "actor_role": "approver"
 }
 ```
+
+주의:
+- `approval.approve`, `approval.reject`, `catalog.apply_draft`, `catalog.rollback_tool`은 기본 requester flow에 넣지 않는다.
+- upper-agent가 elevated control을 쓸 때는 명시적 approver/admin trust boundary가 있어야 한다.
 
 ## 4. HTTP Example
 ### 4.0 Capabilities

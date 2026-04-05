@@ -142,6 +142,7 @@
 - 표면 의사결정 체크리스트: `NESTCLAW_SURFACE_DECISION_CHECKLIST.md`
 - Assistive chat panel 검토: `NESTCLAW_ASSISTIVE_CHAT_PANEL_REVIEW_2026-04-04.md`
 - 상위 에이전트/MCP/CLI/HTTP 예제: `NESTCLAW_INTEGRATION_EXAMPLES.md`
+- MCP transport/deployment 가이드: `NESTCLAW_MCP_TRANSPORT_DEPLOYMENT_GUIDE.md`
 - Stage 8 마이크로 작업 프로토콜: `MICRO_AGENT_WORKFLOW.md`
 
 ## 10) 현재 구현 상태
@@ -310,6 +311,13 @@ python3 app/cli.py
 ```bash
 python3 app/mcp_server.py
 ```
+
+MCP 운영 메모:
+- 현재 canonical transport는 stdio baseline이다.
+- upper-agent host가 child process로 붙는 구성을 기본으로 본다.
+- remote gateway/SSE 배포는 아직 future boundary다.
+- MCP tool call에는 `actor_id`와 가능하면 `actor_role`까지 명시하는 편이 안전하다.
+- 상세 운영 경계는 `NESTCLAW_MCP_TRANSPORT_DEPLOYMENT_GUIDE.md`를 기준으로 본다.
 
 6. LM Studio intent classifier 사용
 ```bash

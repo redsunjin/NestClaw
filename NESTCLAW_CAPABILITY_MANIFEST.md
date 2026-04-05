@@ -27,6 +27,13 @@
 | Web Quickstart `/` | Lightweight | 단일 실행/결과 확인 |
 | Web Console `/console` | Operator dashboard | 상태/승인/카탈로그/드래프트 운영, 필요 시 보조 chat panel |
 
+### 4.1 MCP Transport Boundary
+- 현재 canonical transport: `stdio`
+- 현재 상태: stable baseline
+- remote gateway: future boundary
+- actor context: `actor_id` 필수, `actor_role` 명시 권장
+- 참조 문서: `NESTCLAW_MCP_TRANSPORT_DEPLOYMENT_GUIDE.md`
+
 ## 5. Execution Capabilities
 ### 5.1 현재 planner가 직접 다루는 tool set
 - `internal.summary.generate`

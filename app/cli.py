@@ -457,6 +457,8 @@ def _print_capabilities(payload: dict[str, Any]) -> None:
     print(f"- Roles: {', '.join(payload.get('roles', [])) or '-'}")
     tool_catalog = payload.get("tool_catalog") or {}
     print(f"- Tool count: {tool_catalog.get('count', '-')}")
+    mcp_transport = (payload.get("transport") or {}).get("mcp") or {}
+    print(f"- MCP transport: {mcp_transport.get('baseline', '-')}")
     readiness = (payload.get("readiness") or {}).get("stage8_live_readiness") or {}
     print(f"- Stage8 live readiness: {readiness.get('status', '-')}")
     print(f"- Readiness reason: {readiness.get('canonical_reason_code', '-')}")

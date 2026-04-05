@@ -12,6 +12,13 @@ class TestStage10Contract(unittest.TestCase):
         self.assertIn("Readiness / Error Taxonomy Normalization", source)
         self.assertIn("MCP Transport / Deployment Hardening", source)
 
+    def test_mcp_transport_guide_exists(self) -> None:
+        source = Path("NESTCLAW_MCP_TRANSPORT_DEPLOYMENT_GUIDE.md").read_text(encoding="utf-8")
+        self.assertIn("stdio", source)
+        self.assertIn("future boundary", source)
+        self.assertIn("actor_id", source)
+        self.assertIn("approval.approve", source)
+
     def test_stage10_priority_campaign_exists(self) -> None:
         data = json.loads(
             Path("work/priority_campaigns/stage10-priority-campaign/campaign.json").read_text(encoding="utf-8")
@@ -37,7 +44,8 @@ class TestStage10Contract(unittest.TestCase):
         self.assertEqual(data["items"][2]["status"], "completed")
         self.assertEqual(data["items"][2]["completed_unit_id"], "stage10-w1-003")
         self.assertEqual(data["items"][3]["unit_id"], "stage10-w1-004")
-        self.assertEqual(data["items"][3]["status"], "in_progress")
+        self.assertEqual(data["items"][3]["status"], "completed")
+        self.assertEqual(data["items"][3]["completed_unit_id"], "stage10-w1-004")
 
     def test_stage10_first_micro_unit_is_initialized(self) -> None:
         work_unit = Path("work/micro_units/stage10-w1-001/WORK_UNIT.md").read_text(encoding="utf-8")
@@ -65,10 +73,7 @@ class TestStage10Contract(unittest.TestCase):
     def test_stage10_fourth_micro_unit_is_initialized(self) -> None:
         work_unit = Path("work/micro_units/stage10-w1-004/WORK_UNIT.md").read_text(encoding="utf-8")
         self.assertIn("stage10-w1-004", work_unit)
-        self.assertRegex(
-            work_unit,
-            r"status: `(PLAN_PENDING|REVIEW_PENDING|IMPLEMENT_PENDING|EVALUATE_PENDING|SYNC_PENDING|DONE)`",
-        )
+        self.assertIn("status: `DONE`", work_unit)
         self.assertIn("MCP startup, transport, and auth expectations", work_unit)
 
     def test_execution_bundle_surface_is_declared(self) -> None:
@@ -92,6 +97,17 @@ class TestStage10Contract(unittest.TestCase):
         self.assertIn("tests.test_mcp_server_smoke", cycle_source)
         self.assertIn("target-stage:1..10", auto_source)
         self.assertIn("target-stage must be 1..10", auto_source)
+
+    def test_integration_docs_reference_mcp_stdio_boundary(self) -> None:
+        readme_source = Path("README.md").read_text(encoding="utf-8")
+        spec_source = Path("NESTCLAW_AGENT_INTEGRATION_SPEC.md").read_text(encoding="utf-8")
+        examples_source = Path("NESTCLAW_INTEGRATION_EXAMPLES.md").read_text(encoding="utf-8")
+        self.assertIn("NESTCLAW_MCP_TRANSPORT_DEPLOYMENT_GUIDE.md", readme_source)
+        self.assertIn("canonical transport는 stdio baseline", readme_source)
+        self.assertIn("MCP Transport Baseline", spec_source)
+        self.assertIn("packaged remote transport는 아직 baseline이 아니다", spec_source)
+        self.assertIn("stdio Bootstrap", examples_source)
+        self.assertIn("child process", examples_source)
 
 
 if __name__ == "__main__":

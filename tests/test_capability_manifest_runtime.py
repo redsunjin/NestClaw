@@ -34,6 +34,8 @@ class TestCapabilityManifestRuntime(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["product_posture"], "orchestration_backend_with_human_dashboard")
         self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
+        self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
+        self.assertEqual(payload["transport"]["mcp"]["remote_gateway"], "future_boundary")
         families = {item["kind"] for item in payload["workflow_families"]}
         self.assertEqual(families, {"task", "incident"})
         self.assertIn("requester", payload["roles"])
@@ -58,6 +60,7 @@ class TestCapabilityManifestRuntime(unittest.TestCase):
         payload = json.loads(stdout.getvalue().strip() or "{}")
         self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
         self.assertIn("mcp", {item["surface"] for item in payload["delivery_surfaces"]})
+        self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
         self.assertIn(
             payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
             {"ready", "env_blocked"},

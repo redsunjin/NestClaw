@@ -109,6 +109,8 @@ class TestMcpServerSmoke(unittest.TestCase):
             }
         )
         self.assertEqual(response["result"]["protocolVersion"], "2025-06-18")
+        self.assertIn("stdio", response["result"]["instructions"])
+        self.assertIn("approver/admin", response["result"]["instructions"])
         self._send({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
 
     def test_tools_list_includes_agent_and_approval_tools(self) -> None:
@@ -154,6 +156,8 @@ class TestMcpServerSmoke(unittest.TestCase):
         payload = response["result"]["structuredContent"]
         self.assertEqual(payload["product_posture"], "orchestration_backend_with_human_dashboard")
         self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
+        self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
+        self.assertEqual(payload["transport"]["mcp"]["remote_gateway"], "future_boundary")
         self.assertIn("requester", payload["roles"])
         self.assertGreaterEqual(int(payload["tool_catalog"]["count"]), 6)
         self.assertIn(
