@@ -89,14 +89,14 @@ class TestStage10Contract(unittest.TestCase):
     def test_cycle_scripts_support_stage10(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
-        self.assertIn("target-stage: 1..10", cycle_source)
+        self.assertIn("target-stage: 1..11", cycle_source)
         self.assertIn("check_stage_10", cycle_source)
         self.assertIn("tests.test_stage10_contract", cycle_source)
         self.assertIn("tests.test_agent_entrypoint_smoke", cycle_source)
         self.assertIn("tests.test_tool_cli_smoke", cycle_source)
         self.assertIn("tests.test_mcp_server_smoke", cycle_source)
-        self.assertIn("target-stage:1..10", auto_source)
-        self.assertIn("target-stage must be 1..10", auto_source)
+        self.assertIn("target-stage:1..11", auto_source)
+        self.assertIn("target-stage must be 1..11", auto_source)
 
     def test_integration_docs_reference_mcp_stdio_boundary(self) -> None:
         readme_source = Path("README.md").read_text(encoding="utf-8")

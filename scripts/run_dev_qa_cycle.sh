@@ -2,8 +2,8 @@
 set -euo pipefail
 
 TARGET_STAGE="${1:-4}"
-if ! [[ "$TARGET_STAGE" =~ ^10$|^[1-9]$ ]]; then
-  echo "Usage: $0 <target-stage: 1..10>"
+if ! [[ "$TARGET_STAGE" =~ ^11$|^10$|^[1-9]$ ]]; then
+  echo "Usage: $0 <target-stage: 1..11>"
   exit 2
 fi
 
@@ -216,6 +216,10 @@ check_stage_10() {
   run_optional_check "stage10 agent entrypoint runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_agent_entrypoint_smoke
   run_optional_check "stage10 tool cli runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_tool_cli_smoke
   run_optional_check "stage10 mcp server runtime smoke tests (requires fastapi stack)" python3 -m unittest tests.test_mcp_server_smoke
+}
+
+check_stage_11() {
+  run_check "stage11 static contract tests" python3 -m unittest tests.test_stage11_contract
 }
 
 write_header

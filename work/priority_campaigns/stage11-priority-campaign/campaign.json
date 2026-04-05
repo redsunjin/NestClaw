@@ -1,0 +1,39 @@
+{
+  "campaign_id": "stage11-priority-campaign",
+  "goal": "Drive pilot operationalization without gaps between env handoff, operator export, deployment profile, and acceptance loops",
+  "target_stage": 11,
+  "items": [
+    {
+      "item_id": "g1-external-env-handoff-profile",
+      "group": "G1",
+      "title": "Create canonical external env handoff profile",
+      "unit_id": "stage11-w1-001",
+      "goal": "Package Stage 8 sandbox/live env requirements into one canonical handoff profile with reproducible validation",
+      "status": "in_progress"
+    },
+    {
+      "item_id": "g2-operator-handoff-packet-export",
+      "group": "G2",
+      "title": "Export operator handoff packets from execution evidence",
+      "unit_id": "stage11-w1-002",
+      "goal": "Define and expose a compact operator handoff packet for blocked, approval-pending, and completed runs",
+      "status": "pending"
+    },
+    {
+      "item_id": "g3-deployment-profile-bootstrap",
+      "group": "G3",
+      "title": "Provide deployment bootstrap profiles",
+      "unit_id": "stage11-w1-003",
+      "goal": "Document and package standard uvicorn plus MCP stdio bootstrap profiles for repeated operator and upper-agent use",
+      "status": "pending"
+    },
+    {
+      "item_id": "g4-pilot-acceptance-cycle",
+      "group": "G4",
+      "title": "Turn pilot evidence into repeatable acceptance cycle",
+      "unit_id": "stage11-w1-004",
+      "goal": "Connect packet, runbook, and evidence matrix into a repeatable pilot acceptance loop",
+      "status": "pending"
+    }
+  ]
+}
