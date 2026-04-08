@@ -19,7 +19,9 @@
       "title": "Export operator handoff packets from execution evidence",
       "unit_id": "stage11-w1-002",
       "goal": "Define and expose a compact operator handoff packet for blocked, approval-pending, and completed runs",
-      "status": "in_progress"
+      "status": "completed",
+      "completed_unit_id": "stage11-w1-002",
+      "completed_at": "2026-04-06T15:17:13+00:00"
     },
     {
       "item_id": "g3-deployment-profile-bootstrap",
@@ -27,7 +29,7 @@
       "title": "Provide deployment bootstrap profiles",
       "unit_id": "stage11-w1-003",
       "goal": "Document and package standard uvicorn plus MCP stdio bootstrap profiles for repeated operator and upper-agent use",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "item_id": "g4-pilot-acceptance-cycle",

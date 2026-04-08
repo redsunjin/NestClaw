@@ -188,6 +188,7 @@
 - 승인 큐/이벤트 로그/audit/상태 조회를 일관된 경로로 처리
 - MCP server를 통해 외부 AI가 `agent.submit/status/events`, `approval.*`, `catalog.*`를 호출 가능
 - MCP server를 통해 외부 AI가 `agent.bundle`로 canonical execution bundle을 한 번에 조회 가능
+- MCP server를 통해 외부 AI가 `agent.handoff`로 compact operator handoff packet을 조회 가능
 - Redmine MCP live bridge 및 rehearsal script를 통해 sandbox 연동 경로 준비
 - `configs/model_registry.yaml`를 runtime에서 읽고 provider selection과 intent classification provenance를 status/event에 기록
 - `meeting_summary` workflow는 provider selection 뒤 실제 provider invocation을 시도하고 실패 시 템플릿 renderer로 fallback
@@ -203,6 +204,7 @@
 - Web Console에서 최근 task / 최근 approval 히스토리를 볼 수 있음
 - Web Console에서 최근 task와 현재 task의 report preview / raw report 열기를 할 수 있음
 - HTTP/CLI/MCP에서 status/events/report/approval/capability snapshot을 묶은 execution bundle을 조회할 수 있음
+- HTTP/CLI/MCP에서 operator handoff용 compact packet을 조회할 수 있음
 - Web Console에서 approval 상세와 comment/history를 drill-down 할 수 있음
 - 전문가 에이전트 운영 프로토콜 문서와 wrapper script를 통해 `Plan -> Review -> Implement -> Evaluate -> Sync` 절차를 강제할 수 있음
 - priority campaign 레이어를 통해 여러 우선순위 MWU를 `pending -> in_progress -> completed`로 끊김 없이 이어갈 수 있음
@@ -299,6 +301,7 @@ python3 app/cli.py submit --requested-by qa_user --task-kind task --request-text
 python3 app/cli.py status --task-id <task_id> --actor-id qa_user --json
 python3 app/cli.py events --task-id <task_id> --actor-id qa_user --json
 python3 app/cli.py bundle --task-id <task_id> --actor-id qa_user --json
+python3 app/cli.py handoff --task-id <task_id> --actor-id qa_user --json
 python3 app/cli.py capabilities --actor-id qa_user --json
 ```
 
@@ -352,6 +355,7 @@ export NEWCLAW_OPENAI_BASE_URL=http://localhost:1234
 - `agent.status`
 - `agent.events`
 - `agent.bundle`
+- `agent.handoff`
 - `approval.list`
 - `approval.approve`
 - `approval.reject`

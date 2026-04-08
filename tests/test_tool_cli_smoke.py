@@ -92,6 +92,7 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertEqual(payload["product_posture"], "orchestration_backend_with_human_dashboard")
         self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
         self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
+        self.assertIn("agent.handoff", payload["controls"]["safe_for_upper_agents"])
         self.assertIn(
             payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
             {"ready", "env_blocked"},
@@ -223,6 +224,37 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertEqual(approver_bundle["approval"]["access_level"], "detail")
         self.assertIn("item", approver_bundle["approval"])
         self.assertEqual(approver_bundle["status"]["state_summary"]["canonical_reason_code"], "policy_blocked")
+
+    def test_handoff_command_returns_compact_operator_packet(self) -> None:
+        exit_code, submit_payload = self._run_cli_json(
+            "submit",
+            "--requested-by",
+            "qa_user",
+            "--task-kind",
+            "task",
+            "--request-text",
+            "요약 결과를 외부 전송 해주세요",
+            "--metadata-json",
+            json.dumps(
+                {
+                    "meeting_title": "approval-needed",
+                    "meeting_date": "2026-03-12",
+                    "participants": ["Ops"],
+                    "notes": "요약 결과를 외부 전송 해주세요",
+                },
+                ensure_ascii=False,
+            ),
+        )
+        self.assertEqual(exit_code, 0)
+        task_id = str(submit_payload["task_id"])
+
+        exit_code, handoff_payload = self._run_cli_json("handoff", "--task-id", task_id, "--actor-id", "qa_user")
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(handoff_payload["packet_version"], "v1")
+        self.assertEqual(handoff_payload["packet_type"], "approval_pending")
+        self.assertEqual(handoff_payload["recommended_handoff_owner"], "approver_admin")
+        self.assertEqual(handoff_payload["approval"]["access_level"], "summary")
+        self.assertIn("NestClaw Operator Handoff Packet", handoff_payload["markdown"])
 
     def test_tool_draft_command_creates_reviewable_slack_draft(self) -> None:
         exit_code, payload = self._run_cli_json(

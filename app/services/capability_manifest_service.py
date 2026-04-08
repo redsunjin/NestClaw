@@ -82,6 +82,8 @@ class CapabilityManifestService:
                     "agent.events",
                     "agent.recent",
                     "agent.report",
+                    "agent.bundle",
+                    "agent.handoff",
                     "approval.get",
                     "catalog.list",
                     "catalog.get",

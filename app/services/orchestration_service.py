@@ -319,6 +319,8 @@ class OrchestrationService:
             response = self.build_task_status_payload(task)
         response["entrypoint"] = self.deps.agent_entrypoint
         response["resolved_kind"] = str(task.get("agent_route") or self._resolved_kind_for_task(task))
+        response["title"] = task.get("title")
+        response["requested_by"] = task.get("requested_by")
         if task.get("intent_classification"):
             response["intent_classification"] = task["intent_classification"]
         request_text = str((task.get("agent_request") or {}).get("request_text") or task.get("title") or "").strip()
@@ -872,6 +874,207 @@ class OrchestrationService:
                 "snapshot": capability_snapshot,
             },
         }
+
+    def _handoff_packet_type(self, status_payload: Mapping[str, Any], approval_payload: Mapping[str, Any]) -> str:
+        state_summary = dict(status_payload.get("state_summary") or {})
+        canonical_state = str(state_summary.get("canonical_state") or "")
+        canonical_reason = str(state_summary.get("canonical_reason_code") or "")
+        if canonical_state == "done":
+            return "completed"
+        if canonical_state == "approval_pending" or bool(approval_payload.get("available")):
+            return "approval_pending"
+        if canonical_state in {"retryable_failure", "blocked"} or canonical_reason in {"retryable_failure", "env_blocked"}:
+            return "blocked"
+        return "observe"
+
+    def _handoff_owner(self, packet_type: str) -> str:
+        if packet_type == "approval_pending":
+            return "approver_admin"
+        if packet_type == "blocked":
+            return "operator_or_integration_owner"
+        if packet_type == "completed":
+            return "requester_or_operator"
+        return "requester_or_reviewer"
+
+    def _handoff_actions(
+        self,
+        packet_type: str,
+        status_payload: Mapping[str, Any],
+        approval_payload: Mapping[str, Any],
+        report_payload: Mapping[str, Any],
+    ) -> list[str]:
+        queue_id = str(approval_payload.get("queue_id") or "").strip()
+        if packet_type == "approval_pending":
+            actions = []
+            if queue_id:
+                actions.append(f"Review approval queue item `{queue_id}` and confirm policy intent.")
+            actions.append("Approver/admin should decide approve or reject before resuming execution.")
+            actions.append("Re-open the handoff packet or bundle after the approval decision to confirm the next state.")
+            return actions
+        if packet_type == "completed":
+            actions = ["Review report preview or raw report and hand the final output to the operator or requester."]
+            if report_payload.get("available"):
+                actions.append("Use the raw report path or URL as the canonical completion artifact.")
+            actions.append("If operator acknowledgment is needed, attach this packet to the closeout thread.")
+            return actions
+        if packet_type == "blocked":
+            return [
+                "Inspect the canonical reason code, detail reason, and last error before retrying.",
+                "Resolve the blocking runtime or external dependency condition, then re-run the workflow or readiness step.",
+                "Escalate with this packet and the execution bundle if another owner must unblock the run.",
+            ]
+        return [
+            "Keep observing status and events until the workflow reaches approval-pending, blocked, or completed state.",
+            "Use the execution bundle for deeper planner/event detail if the operator needs a fuller audit trail.",
+        ]
+
+    def _handoff_markdown(self, packet: Mapping[str, Any]) -> str:
+        summary = dict(packet.get("operator_summary") or {})
+        planning = dict(packet.get("planning") or {})
+        execution = dict(packet.get("execution") or {})
+        approval = dict(packet.get("approval") or {})
+        report = dict(packet.get("report") or {})
+        readiness = dict(packet.get("environment_readiness") or {})
+        actions = [str(item).strip() for item in packet.get("operator_actions") or [] if str(item).strip()]
+
+        lines = [
+            "# NestClaw Operator Handoff Packet",
+            "",
+            f"- packet_type: `{packet.get('packet_type', '-')}`",
+            f"- task_id: `{packet.get('task_id', '-')}`",
+            f"- resolved_kind: `{packet.get('resolved_kind', '-')}`",
+            f"- recommended_handoff_owner: `{packet.get('recommended_handoff_owner', '-')}`",
+            f"- current_status: `{summary.get('status', '-')}`",
+            f"- canonical_state: `{summary.get('canonical_state', '-')}`",
+            f"- canonical_reason_code: `{summary.get('canonical_reason_code', '-')}`",
+            f"- title: `{summary.get('title', '-')}`",
+            f"- requested_by: `{summary.get('requested_by', '-')}`",
+            f"- next_action: `{summary.get('next_action', '-')}`",
+            f"- current_stage: `{summary.get('current_stage', '-')}`",
+            "",
+            "## Planning",
+            f"- source: `{planning.get('source', '-')}`",
+            f"- provider_id: `{planning.get('provider_id', '-')}`",
+            f"- degraded_mode: `{planning.get('degraded_mode', False)}`",
+            f"- fallback_reason: `{planning.get('fallback_reason', '-')}`",
+            f"- rationale: {planning.get('rationale', '-')}",
+            "",
+            "## Execution",
+            f"- event_count: `{execution.get('event_count', 0)}`",
+            f"- planned_tool_ids: `{', '.join(execution.get('planned_tool_ids') or []) or '-'}`",
+            f"- executed_tool_ids: `{', '.join(execution.get('executed_tool_ids') or []) or '-'}`",
+            f"- actions_executed: `{execution.get('actions_executed', '-')}`",
+            "",
+            "## Approval",
+            f"- available: `{approval.get('available', False)}`",
+            f"- queue_id: `{approval.get('queue_id', '-')}`",
+            f"- access_level: `{approval.get('access_level', '-')}`",
+            f"- approval_reason: `{approval.get('approval_reason', '-')}`",
+            f"- item_status: `{approval.get('item_status', '-')}`",
+            "",
+            "## Report",
+            f"- available: `{report.get('available', False)}`",
+            f"- report_name: `{report.get('report_name', '-')}`",
+            f"- raw_url: `{report.get('raw_url', '-')}`",
+            f"- reason: `{report.get('reason', '-')}`",
+            "",
+            "## Environment Readiness",
+            f"- stage8_live_status: `{readiness.get('status', '-')}`",
+            f"- stage8_live_reason: `{readiness.get('canonical_reason_code', '-')}`",
+            "",
+            "## Recommended Operator Actions",
+        ]
+        for index, action in enumerate(actions, start=1):
+            lines.append(f"{index}. {action}")
+        preview_text = str(report.get("preview_text") or "").strip()
+        if preview_text:
+            lines.extend(["", "## Report Preview", preview_text])
+        return "\n".join(lines).strip() + "\n"
+
+    def agent_handoff(self, task_id: str, actor: ActorContext, *, max_chars: int = 1600) -> dict[str, Any]:
+        normalized_max_chars = max(200, min(int(max_chars or 1600), 20000))
+        bundle = self.agent_bundle(task_id, actor, max_chars=normalized_max_chars)
+        status_payload = dict(bundle.get("status") or {})
+        state_summary = dict(status_payload.get("state_summary") or {})
+        approval_payload = dict(bundle.get("approval") or {})
+        report_payload = dict(bundle.get("report") or {})
+        capabilities = dict((bundle.get("capabilities") or {}).get("snapshot") or {})
+        planning = dict(status_payload.get("planning_provenance") or {})
+        provider_selection = dict(status_payload.get("provider_selection") or planning.get("provider_selection") or {})
+        planned_actions = list(status_payload.get("planned_actions") or [])
+        action_results = list(status_payload.get("action_results") or [])
+        result = dict(status_payload.get("result") or {})
+        packet_type = self._handoff_packet_type(status_payload, approval_payload)
+        operator_actions = self._handoff_actions(packet_type, status_payload, approval_payload, report_payload)
+
+        packet = {
+            "packet_version": "v1",
+            "source_bundle_version": bundle.get("bundle_version"),
+            "packet_type": packet_type,
+            "task_id": bundle.get("task_id"),
+            "resolved_kind": bundle.get("resolved_kind"),
+            "generated_at": self.deps.now_iso(),
+            "recommended_handoff_owner": self._handoff_owner(packet_type),
+            "operator_summary": {
+                "title": status_payload.get("title"),
+                "requested_by": status_payload.get("requested_by"),
+                "status": status_payload.get("status"),
+                "current_stage": status_payload.get("current_stage"),
+                "next_action": status_payload.get("next_action"),
+                "last_event_at": status_payload.get("last_event_at"),
+                "request_summary": status_payload.get("request_summary"),
+                "canonical_state": state_summary.get("canonical_state"),
+                "canonical_reason_code": state_summary.get("canonical_reason_code"),
+                "detail_reason_code": state_summary.get("detail_reason_code"),
+                "state_message": state_summary.get("message"),
+                "run_mode": status_payload.get("run_mode"),
+            },
+            "planning": {
+                "source": planning.get("source"),
+                "provider_id": provider_selection.get("provider_id"),
+                "confidence": planning.get("confidence"),
+                "rationale": planning.get("rationale"),
+                "degraded_mode": bool(planning.get("degraded_mode")),
+                "fallback_reason": planning.get("fallback_reason"),
+            },
+            "execution": {
+                "event_count": int((bundle.get("events") or {}).get("count") or 0),
+                "planned_action_count": len(planned_actions),
+                "planned_tool_ids": [str(item.get("tool_id") or "") for item in planned_actions if item.get("tool_id")],
+                "executed_action_count": len(action_results),
+                "executed_tool_ids": [str(item.get("tool_id") or "") for item in action_results if item.get("tool_id")],
+                "actions_executed": result.get("actions_executed"),
+                "report_path": result.get("report_path"),
+            },
+            "approval": {
+                "available": bool(approval_payload.get("available")),
+                "queue_id": approval_payload.get("queue_id"),
+                "access_level": approval_payload.get("access_level"),
+                "approval_reason": approval_payload.get("approval_reason"),
+                "item_status": ((approval_payload.get("item") or {}).get("status")),
+                "approver_group": ((approval_payload.get("item") or {}).get("approver_group")),
+                "action_count": approval_payload.get("action_count"),
+                "actions": approval_payload.get("actions") or [],
+            },
+            "report": {
+                "available": bool(report_payload.get("available")),
+                "report_name": report_payload.get("report_name"),
+                "report_path": report_payload.get("report_path"),
+                "raw_url": report_payload.get("raw_url"),
+                "reason": report_payload.get("reason"),
+                "preview_text": report_payload.get("preview_text"),
+                "truncated": report_payload.get("truncated"),
+            },
+            "environment_readiness": dict((capabilities.get("readiness") or {}).get("stage8_live_readiness") or {}),
+            "operator_actions": operator_actions,
+            "bundle_ref": {
+                "http": f"/api/v1/agent/bundle/{task_id}",
+                "cli": f"newclaw bundle --task-id {task_id} --actor-id <actor_id> --json",
+                "mcp": "agent.bundle",
+            },
+        }
+        packet["markdown"] = self._handoff_markdown(packet)
+        return packet
 
     def agent_recent(self, actor: ActorContext, *, limit: int = 10) -> dict[str, Any]:
         normalized_limit = max(1, min(int(limit or 10), 50))

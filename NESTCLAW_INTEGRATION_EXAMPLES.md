@@ -243,6 +243,7 @@ python3 app/cli.py events --task-id task_xxxxx --actor-id qa_user --actor-role r
 ```bash
 python3 app/cli.py recent --actor-id qa_user --actor-role requester --json
 python3 app/cli.py report --task-id task_xxxxx --actor-id qa_user --actor-role requester --json
+python3 app/cli.py handoff --task-id task_xxxxx --actor-id qa_user --actor-role requester --json
 python3 app/cli.py approvals --actor-id qa_approver --actor-role approver --json
 python3 app/cli.py approval-get --queue-id aq_xxxxx --actor-id qa_approver --actor-role approver --json
 ```

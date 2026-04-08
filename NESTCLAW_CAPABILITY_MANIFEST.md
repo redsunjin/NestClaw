@@ -109,7 +109,10 @@
 ## 11. Runtime Export Surface
 - HTTP: `GET /api/v1/capabilities`
 - HTTP: `GET /api/v1/agent/bundle/{task_id}`
+- HTTP: `GET /api/v1/agent/handoff/{task_id}`
 - MCP: `catalog.manifest`
 - MCP: `agent.bundle`
+- MCP: `agent.handoff`
 - CLI: `newclaw capabilities --json`
 - CLI: `newclaw bundle --task-id <task_id> --json`
+- CLI: `newclaw handoff --task-id <task_id> --json`

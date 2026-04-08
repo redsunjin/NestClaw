@@ -126,6 +126,7 @@ class TestMcpServerSmoke(unittest.TestCase):
                 "agent.recent",
                 "agent.report",
                 "agent.bundle",
+                "agent.handoff",
                 "approval.list",
                 "approval.get",
                 "approval.approve",
@@ -159,6 +160,7 @@ class TestMcpServerSmoke(unittest.TestCase):
         self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
         self.assertEqual(payload["transport"]["mcp"]["remote_gateway"], "future_boundary")
         self.assertIn("requester", payload["roles"])
+        self.assertIn("agent.handoff", payload["controls"]["safe_for_upper_agents"])
         self.assertGreaterEqual(int(payload["tool_catalog"]["count"]), 6)
         self.assertIn(
             payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
@@ -237,6 +239,22 @@ class TestMcpServerSmoke(unittest.TestCase):
         self.assertEqual(bundle_payload["status"]["status"], "DONE")
         self.assertEqual(bundle_payload["status"]["state_summary"]["canonical_state"], "done")
         self.assertTrue(bundle_payload["report"]["available"])
+
+        handoff_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 20_5,
+                "method": "tools/call",
+                "params": {
+                    "name": "agent.handoff",
+                    "arguments": {"task_id": task_id, "actor_id": "qa_user", "max_chars": 500},
+                },
+            }
+        )
+        handoff_payload = handoff_response["result"]["structuredContent"]
+        self.assertEqual(handoff_payload["task_id"], task_id)
+        self.assertEqual(handoff_payload["packet_type"], "completed")
+        self.assertIn("NestClaw Operator Handoff Packet", handoff_payload["markdown"])
 
     def test_catalog_tools_return_registered_capabilities(self) -> None:
         list_response = self._request(

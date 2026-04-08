@@ -147,6 +147,17 @@ def _bundle_payload(
     return _invoke(CLI_ORCHESTRATION_SERVICE.agent_bundle, task_id, actor, max_chars=max_chars)
 
 
+def _handoff_payload(
+    task_id: str,
+    *,
+    max_chars: int,
+    actor_id: str,
+    actor_role: str,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    return _invoke(CLI_ORCHESTRATION_SERVICE.agent_handoff, task_id, actor, max_chars=max_chars)
+
+
 def _approve_payload(
     queue_id: str,
     *,
@@ -427,6 +438,22 @@ def _print_bundle(payload: dict[str, Any]) -> None:
     print()
 
 
+def _print_handoff(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    markdown = str(payload.get("markdown") or "").strip()
+    if markdown:
+        print()
+        print(markdown)
+        return
+    print("\n[운영자 인계 패킷]")
+    print(f"- Task ID: {payload.get('task_id', '-')}")
+    print(f"- Packet type: {payload.get('packet_type', '-')}")
+    print(f"- Recommended owner: {payload.get('recommended_handoff_owner', '-')}")
+    print()
+
+
 def _print_tools(payload: dict[str, Any]) -> None:
     if "error" in payload:
         _print_status(payload)
@@ -504,6 +531,9 @@ def _emit_payload(payload: dict[str, Any], *, as_json: bool, command: str) -> No
         return
     if command == "bundle":
         _print_bundle(payload)
+        return
+    if command == "handoff":
+        _print_handoff(payload)
         return
     if command == "approvals":
         _print_approvals(payload)
@@ -696,6 +726,13 @@ def build_parser() -> argparse.ArgumentParser:
     bundle_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
     bundle_parser.add_argument("--json", action="store_true")
 
+    handoff_parser = subparsers.add_parser("handoff", help="show a compact operator handoff packet for one agent task")
+    handoff_parser.add_argument("--task-id", required=True)
+    handoff_parser.add_argument("--max-chars", type=int, default=1600)
+    handoff_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    handoff_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    handoff_parser.add_argument("--json", action="store_true")
+
     approvals_parser = subparsers.add_parser("approvals", help="list approval queue items")
     approvals_parser.add_argument("--status")
     approvals_parser.add_argument("--approver-group")
@@ -844,6 +881,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             actor_role=args.actor_role,
         )
         _emit_payload(payload, as_json=args.json, command="bundle")
+        return exit_code
+
+    if args.command == "handoff":
+        payload, exit_code = _handoff_payload(
+            args.task_id,
+            max_chars=args.max_chars,
+            actor_id=args.actor_id,
+            actor_role=args.actor_role,
+        )
+        _emit_payload(payload, as_json=args.json, command="handoff")
         return exit_code
 
     if args.command == "approvals":

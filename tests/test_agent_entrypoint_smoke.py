@@ -264,6 +264,119 @@ class TestAgentEntrypointSmoke(unittest.TestCase):
         self.assertGreaterEqual(approver_bundle["approval"]["action_count"], 0)
         self.assertEqual(approver_bundle["status"]["state_summary"]["canonical_reason_code"], "policy_blocked")
 
+    def test_agent_handoff_packet_returns_completed_summary_for_done_task(self) -> None:
+        response = self.client.post(
+            "/api/v1/agent/submit",
+            json={
+                "task_kind": "task",
+                "title": "handoff complete task",
+                "request_text": "주간 운영회의 메모를 요약해줘",
+                "requested_by": "qa_user",
+                "metadata": {
+                    "meeting_title": "ops sync",
+                    "meeting_date": "2026-03-13",
+                    "participants": ["Kim"],
+                    "notes": "preview note",
+                },
+            },
+            headers=self.requester_headers,
+        )
+        self.assertEqual(response.status_code, 202)
+        task_id = response.json()["task_id"]
+        final_payload = self._wait_status(task_id, {"DONE"})
+        self.assertIsNotNone(final_payload)
+
+        handoff_response = self.client.get(
+            f"/api/v1/agent/handoff/{task_id}?max_chars=500",
+            headers=self.requester_headers,
+        )
+        self.assertEqual(handoff_response.status_code, 200)
+        payload = handoff_response.json()
+        self.assertEqual(payload["packet_version"], "v1")
+        self.assertEqual(payload["packet_type"], "completed")
+        self.assertEqual(payload["recommended_handoff_owner"], "requester_or_operator")
+        self.assertTrue(payload["report"]["available"])
+        self.assertIn("NestClaw Operator Handoff Packet", payload["markdown"])
+        self.assertIn(task_id, payload["markdown"])
+
+    def test_agent_handoff_packet_preserves_approval_role_gating(self) -> None:
+        approver_headers = {"Authorization": f"Bearer {issue_dev_jwt('qa_approver', 'approver')}"}
+        response = self.client.post(
+            "/api/v1/agent/submit",
+            json={
+                "task_kind": "task",
+                "title": "handoff approval task",
+                "request_text": "요약 결과를 외부 전송 해주세요",
+                "requested_by": "qa_user",
+                "metadata": {
+                    "meeting_title": "approval sync",
+                    "meeting_date": "2026-03-13",
+                    "participants": ["Kim"],
+                    "notes": "요약 결과를 외부 전송 해주세요",
+                },
+            },
+            headers=self.requester_headers,
+        )
+        self.assertEqual(response.status_code, 202)
+        task_id = response.json()["task_id"]
+
+        requester_response = self.client.get(
+            f"/api/v1/agent/handoff/{task_id}?max_chars=500",
+            headers=self.requester_headers,
+        )
+        self.assertEqual(requester_response.status_code, 200)
+        requester_payload = requester_response.json()
+        self.assertEqual(requester_payload["packet_type"], "approval_pending")
+        self.assertEqual(requester_payload["recommended_handoff_owner"], "approver_admin")
+        self.assertEqual(requester_payload["approval"]["access_level"], "summary")
+        self.assertEqual(requester_payload["approval"]["actions"], [])
+
+        approver_response = self.client.get(
+            f"/api/v1/agent/handoff/{task_id}?max_chars=500",
+            headers=approver_headers,
+        )
+        self.assertEqual(approver_response.status_code, 200)
+        approver_payload = approver_response.json()
+        self.assertEqual(approver_payload["packet_type"], "approval_pending")
+        self.assertEqual(approver_payload["approval"]["access_level"], "detail")
+
+    def test_agent_handoff_packet_classifies_retryable_failure_as_blocked(self) -> None:
+        response = self.client.post(
+            "/api/v1/agent/submit",
+            json={
+                "task_kind": "task",
+                "title": "handoff blocked task",
+                "request_text": "운영 메모를 정리해줘",
+                "requested_by": "qa_user",
+                "auto_run": False,
+                "metadata": {
+                    "meeting_title": "blocked sync",
+                    "meeting_date": "2026-03-13",
+                    "participants": ["Kim"],
+                    "notes": "internal only",
+                },
+            },
+            headers=self.requester_headers,
+        )
+        self.assertEqual(response.status_code, 202)
+        task_id = response.json()["task_id"]
+
+        with main_module.STORE_LOCK:
+            task = main_module.TASKS[task_id]
+            main_module._set_status(task, main_module.TaskStatus.FAILED_RETRYABLE, next_action="retry_allowed")
+            task["last_error"] = "timeout while sending handoff packet"
+
+        handoff_response = self.client.get(
+            f"/api/v1/agent/handoff/{task_id}?max_chars=500",
+            headers=self.requester_headers,
+        )
+        self.assertEqual(handoff_response.status_code, 200)
+        payload = handoff_response.json()
+        self.assertEqual(payload["packet_type"], "blocked")
+        self.assertEqual(payload["operator_summary"]["canonical_state"], "retryable_failure")
+        self.assertEqual(payload["operator_summary"]["canonical_reason_code"], "retryable_failure")
+        self.assertIn("retryable_failure", payload["markdown"])
+
 
 if __name__ == "__main__":
     unittest.main()

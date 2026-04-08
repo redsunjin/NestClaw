@@ -183,6 +183,23 @@ class NewClawMcpServer:
                 },
                 handler=self._handle_agent_bundle,
             ),
+            "agent.handoff": ToolSpec(
+                name="agent.handoff",
+                title="Get Operator Handoff Packet",
+                description="Fetch a compact operator handoff packet for blocked, approval-pending, or completed workflows.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "task_id": {"type": "string"},
+                        "max_chars": {"type": "integer"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["task_id", "actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_agent_handoff,
+            ),
             "approval.list": ToolSpec(
                 name="approval.list",
                 title="List Approvals",
@@ -464,6 +481,16 @@ class NewClawMcpServer:
         max_chars = int(arguments.get("max_chars") or 4000)
         return _invoke(
             self.orchestration_service.agent_bundle,
+            str(arguments.get("task_id") or ""),
+            actor,
+            max_chars=max_chars,
+        )
+
+    def _handle_agent_handoff(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="requester")
+        max_chars = int(arguments.get("max_chars") or 1600)
+        return _invoke(
+            self.orchestration_service.agent_handoff,
             str(arguments.get("task_id") or ""),
             actor,
             max_chars=max_chars,

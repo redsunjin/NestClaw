@@ -28,9 +28,12 @@ class TestStage11Contract(unittest.TestCase):
             ],
         )
         self.assertEqual(data["items"][0]["unit_id"], "stage11-w1-001")
-        self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+        self.assertEqual(data["items"][0]["status"], "completed")
+        self.assertEqual(data["items"][0]["completed_unit_id"], "stage11-w1-001")
         self.assertEqual(data["items"][1]["unit_id"], "stage11-w1-002")
-        self.assertIn(data["items"][1]["status"], {"pending", "in_progress"})
+        self.assertIn(data["items"][1]["status"], {"completed"})
+        self.assertEqual(data["items"][2]["unit_id"], "stage11-w1-003")
+        self.assertIn(data["items"][2]["status"], {"in_progress", "completed"})
 
     def test_cycle_scripts_support_stage11(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
@@ -65,6 +68,33 @@ class TestStage11Contract(unittest.TestCase):
         self.assertIn("NEWCLAW_STAGE8_SANDBOX_ENABLED=", source)
         self.assertIn('NEWCLAW_STAGE8_SANDBOX_TRANSITION="In Progress"', source)
         self.assertIn("NEWCLAW_REDMINE_MCP_TOKEN=", source)
+
+    def test_stage11_operator_handoff_packet_spec_and_surfaces_exist(self) -> None:
+        spec_source = Path("NESTCLAW_OPERATOR_HANDOFF_PACKET_SPEC.md").read_text(encoding="utf-8")
+        main_source = Path("app/main.py").read_text(encoding="utf-8")
+        cli_source = Path("app/cli.py").read_text(encoding="utf-8")
+        mcp_source = Path("app/mcp_server.py").read_text(encoding="utf-8")
+        self.assertIn("agent.handoff", spec_source)
+        self.assertIn("packet_type", spec_source)
+        self.assertIn('"/api/v1/agent/handoff/{task_id}"', main_source)
+        self.assertIn('subparsers.add_parser("handoff"', cli_source)
+        self.assertIn('"agent.handoff"', mcp_source)
+
+    def test_stage11_second_micro_unit_is_initialized(self) -> None:
+        work_unit = Path("work/micro_units/stage11-w1-002/WORK_UNIT.md").read_text(encoding="utf-8")
+        review_notes = Path("work/micro_units/stage11-w1-002/REVIEW_NOTES.md").read_text(encoding="utf-8")
+        self.assertIn("stage11-w1-002", work_unit)
+        self.assertRegex(work_unit, r"status: `(REVIEW_PENDING|IMPLEMENT_PENDING|DONE)`")
+        self.assertIn("handoff", review_notes.lower())
+        self.assertIn("bundle", review_notes.lower())
+
+    def test_stage11_third_micro_unit_is_initialized(self) -> None:
+        work_unit = Path("work/micro_units/stage11-w1-003/WORK_UNIT.md").read_text(encoding="utf-8")
+        plan_notes = Path("work/micro_units/stage11-w1-003/PLAN_NOTES.md").read_text(encoding="utf-8")
+        self.assertIn("stage11-w1-003", work_unit)
+        self.assertRegex(work_unit, r"status: `(REVIEW_PENDING|IMPLEMENT_PENDING|DONE)`")
+        self.assertIn("deployment", plan_notes.lower())
+        self.assertIn("uvicorn", plan_notes.lower())
 
 
 if __name__ == "__main__":

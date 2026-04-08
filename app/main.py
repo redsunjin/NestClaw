@@ -1890,6 +1890,15 @@ def agent_bundle(
     return ORCHESTRATION_SERVICE.agent_bundle(task_id, actor, max_chars=max_chars)
 
 
+@APP.get("/api/v1/agent/handoff/{task_id}")
+def agent_handoff(
+    task_id: str,
+    max_chars: int = Query(default=1600, ge=200, le=20000),
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return ORCHESTRATION_SERVICE.agent_handoff(task_id, actor, max_chars=max_chars)
+
+
 @APP.get("/api/v1/agent/report/{task_id}/raw")
 def agent_report_raw(
     task_id: str,
