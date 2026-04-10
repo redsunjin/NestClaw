@@ -6,7 +6,7 @@
 
 ## Canonical Blocker Baseline
 - 최신 rerun summary: `STAGE8_QA_RERUN_STATUS_2026-04-05.md`
-- 최신 readiness bundle: `/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/stage8-readiness-bundle-20260405T034720Z.md`
+- 최신 readiness bundle: `/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/stage8-readiness-bundle-20260410T131205Z.md`
 - 현재 canonical state: `BLOCKED`
 - 핵심 이유: required external env 5개 미설정
 
@@ -32,6 +32,7 @@
 - canonical template: `configs/stage8_external_env.handoff.env.example`
 - local validator: `scripts/validate_stage8_env_handoff.sh`
 - resume runbook: `STAGE8_BLOCKED_TO_RESUMED_RUNBOOK_2026-04-05.md`
+- external request kit: `STAGE8_EXTERNAL_ENV_REQUEST_KIT_2026-04-10.md`
 
 ## Validation Workflow
 1. template를 복사해 secure channel 또는 secret store 기준으로 값을 채운다.

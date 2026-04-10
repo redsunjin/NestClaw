@@ -6,12 +6,12 @@
 
 ## Current Blocked State
 - 최신 canonical summary: `STAGE8_QA_RERUN_STATUS_2026-04-05.md`
-- 최신 readiness bundle: `/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/stage8-readiness-bundle-20260405T034720Z.md`
+- 최신 readiness bundle: `/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/stage8-readiness-bundle-20260410T131205Z.md`
 - 현재 상태: `BLOCKED`
 - 핵심 blocker: required env 미설정
 - grouped self evaluation: `PASS`
 - readiness score: `7/8 (87%)`
-- 메모: QA local DB 재생성과 QA worktree fast-forward 이후 다시 확인한 상태다.
+- 메모: QA local DB 재생성과 QA worktree fast-forward 이후 다시 확인한 상태다. 최신 QA worktree HEAD는 `da52a06`이다.
 
 ## Required Env Contract
 - `NEWCLAW_STAGE8_SANDBOX_ENABLED`
@@ -29,15 +29,16 @@
 
 ## Resume Procedure
 1. 외부 운영 담당자에게 env 5개와 owner 정보를 받는다.
-2. canonical template `configs/stage8_external_env.handoff.env.example`를 secure local copy로 채운다.
-3. `bash scripts/validate_stage8_env_handoff.sh /path/to/filled.env`로 required env completeness를 먼저 확인한다.
-4. secret/token 값은 repo에 기록하지 않고 shell/session secret store에만 넣는다.
-5. QA worktree로 이동한다.
-6. QA virtualenv를 활성화한다.
-7. readiness bundle을 재실행한다.
-8. bundle report에서 `PASS/FAIL/BLOCKED`를 판정한다.
-9. `PASS`면 pilot evidence matrix와 go/no-go packet을 갱신한다.
-10. `FAIL`이면 sandbox/live 개별 report를 drill-down 한다.
+2. 필요하면 `STAGE8_EXTERNAL_ENV_REQUEST_KIT_2026-04-10.md`의 copy/paste 요청 메시지를 그대로 사용한다.
+3. canonical template `configs/stage8_external_env.handoff.env.example`를 secure local copy로 채운다.
+4. `bash scripts/validate_stage8_env_handoff.sh /path/to/filled.env`로 required env completeness를 먼저 확인한다.
+5. secret/token 값은 repo에 기록하지 않고 shell/session secret store에만 넣는다.
+6. QA worktree로 이동한다.
+7. QA virtualenv를 활성화한다.
+8. readiness bundle을 재실행한다.
+9. bundle report에서 `PASS/FAIL/BLOCKED`를 판정한다.
+10. `PASS`면 pilot evidence matrix와 go/no-go packet을 갱신한다.
+11. `FAIL`이면 sandbox/live 개별 report를 drill-down 한다.
 
 ## Resume Command
 ```bash

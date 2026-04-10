@@ -12,12 +12,14 @@
 2. 외부 env 5개가 비어 있어 sandbox/live rehearsal을 실제로 닫을 수 없다.
 3. QA rerun에서 local DB 손상과 stale worktree 문제는 정리됐고, 현재 blocker는 다시 `운영 입력 부재`로 수렴했다.
 4. env handoff 기준선은 `STAGE8_EXTERNAL_ENV_HANDOFF_PROFILE_2026-04-05.md`로 canonicalized 되었고, validator 통과 후 readiness bundle 재실행이 다음 단계다.
+5. 외부 전달용 copy/paste 요청 메시지와 체크리스트는 `STAGE8_EXTERNAL_ENV_REQUEST_KIT_2026-04-10.md`로 준비돼 있다.
 
 근거 문서:
 - `reports/qa/cycle-20260404T153334Z.md`
 - `STAGE8_QA_RERUN_STATUS_2026-04-05.md`
-- `/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/stage8-readiness-bundle-20260405T034720Z.md`
-- `/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/stage8-self-eval-20260405T034720Z.md`
+- `reports/qa/cycle-20260410T130732Z.md`
+- `/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/stage8-readiness-bundle-20260410T131205Z.md`
+- `/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation-qa/reports/qa/stage8-self-eval-20260410T131205Z.md`
 
 ## What Is Already Ready
 - Stage 9 기준 회귀는 PASS다.
@@ -27,6 +29,7 @@
 
 ## Required Inputs Before Reconsidering
 - use template: `configs/stage8_external_env.handoff.env.example`
+- handoff message kit: `STAGE8_EXTERNAL_ENV_REQUEST_KIT_2026-04-10.md`
 - preflight validator: `bash scripts/validate_stage8_env_handoff.sh /path/to/filled.env`
 - `NEWCLAW_STAGE8_SANDBOX_ENABLED=1`
 - `NEWCLAW_STAGE8_SANDBOX_BASE_URL=<sandbox base url>`
