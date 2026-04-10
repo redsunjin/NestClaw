@@ -29,7 +29,9 @@
       "title": "Provide deployment bootstrap profiles",
       "unit_id": "stage11-w1-003",
       "goal": "Document and package standard uvicorn plus MCP stdio bootstrap profiles for repeated operator and upper-agent use",
-      "status": "in_progress"
+      "status": "completed",
+      "completed_unit_id": "stage11-w1-003",
+      "completed_at": "2026-04-08T13:14:02+00:00"
     },
     {
       "item_id": "g4-pilot-acceptance-cycle",
@@ -37,7 +39,9 @@
       "title": "Turn pilot evidence into repeatable acceptance cycle",
       "unit_id": "stage11-w1-004",
       "goal": "Connect packet, runbook, and evidence matrix into a repeatable pilot acceptance loop",
-      "status": "pending"
+      "status": "completed",
+      "completed_unit_id": "stage11-w1-004",
+      "completed_at": "2026-04-10T13:08:26+00:00"
     }
   ]
 }

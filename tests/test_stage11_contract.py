@@ -42,6 +42,8 @@ class TestStage11Contract(unittest.TestCase):
         self.assertIn("check_stage_11", cycle_source)
         self.assertIn("tests.test_stage11_contract", cycle_source)
         self.assertIn("tests.test_stage11_env_handoff_smoke", cycle_source)
+        self.assertIn("tests.test_stage11_deployment_bootstrap_smoke", cycle_source)
+        self.assertIn("tests.test_stage11_pilot_acceptance_smoke", cycle_source)
         self.assertIn("target-stage:1..11", auto_source)
         self.assertIn("target-stage must be 1..11", auto_source)
 
@@ -50,7 +52,7 @@ class TestStage11Contract(unittest.TestCase):
         plan_notes = Path("work/micro_units/stage11-w1-001/PLAN_NOTES.md").read_text(encoding="utf-8")
         review_notes = Path("work/micro_units/stage11-w1-001/REVIEW_NOTES.md").read_text(encoding="utf-8")
         self.assertIn("stage11-w1-001", work_unit)
-        self.assertRegex(work_unit, r"status: `(REVIEW_PENDING|IMPLEMENT_PENDING|DONE)`")
+        self.assertRegex(work_unit, r"status: `(REVIEW_PENDING|IMPLEMENT_PENDING|EVALUATE_PENDING|DONE)`")
         self.assertIn("external env", plan_notes.lower())
         self.assertIn("secret", review_notes.lower())
         self.assertIn("blocked", review_notes.lower())
@@ -69,6 +71,26 @@ class TestStage11Contract(unittest.TestCase):
         self.assertIn('NEWCLAW_STAGE8_SANDBOX_TRANSITION="In Progress"', source)
         self.assertIn("NEWCLAW_REDMINE_MCP_TOKEN=", source)
 
+    def test_stage11_deployment_bootstrap_profile_exists(self) -> None:
+        source = Path("NESTCLAW_DEPLOYMENT_BOOTSTRAP_PROFILES_2026-04-08.md").read_text(encoding="utf-8")
+        profile_source = Path("configs/deployment_bootstrap_profiles.json").read_text(encoding="utf-8")
+        self.assertIn("local_dev", source)
+        self.assertIn("operator_sidecar", source)
+        self.assertIn("upper_agent_host", source)
+        self.assertIn("uvicorn app.main:APP", source)
+        self.assertIn("python3 app/mcp_server.py", source)
+        self.assertIn('"profile_id": "local_dev"', profile_source)
+        self.assertIn('"profile_id": "upper_agent_host"', profile_source)
+
+    def test_stage11_pilot_acceptance_cycle_exists(self) -> None:
+        source = Path("NESTCLAW_PILOT_ACCEPTANCE_CYCLE_2026-04-10.md").read_text(encoding="utf-8")
+        self.assertIn("GO", source)
+        self.assertIn("Conditional Go", source)
+        self.assertIn("NO-GO", source)
+        self.assertIn("operational hold", source)
+        self.assertIn("NESTCLAW_PILOT_GO_NO_GO_PACKET_2026-04-05.md", source)
+        self.assertIn("STAGE8_BLOCKED_TO_RESUMED_RUNBOOK_2026-04-05.md", source)
+
     def test_stage11_operator_handoff_packet_spec_and_surfaces_exist(self) -> None:
         spec_source = Path("NESTCLAW_OPERATOR_HANDOFF_PACKET_SPEC.md").read_text(encoding="utf-8")
         main_source = Path("app/main.py").read_text(encoding="utf-8")
@@ -84,17 +106,29 @@ class TestStage11Contract(unittest.TestCase):
         work_unit = Path("work/micro_units/stage11-w1-002/WORK_UNIT.md").read_text(encoding="utf-8")
         review_notes = Path("work/micro_units/stage11-w1-002/REVIEW_NOTES.md").read_text(encoding="utf-8")
         self.assertIn("stage11-w1-002", work_unit)
-        self.assertRegex(work_unit, r"status: `(REVIEW_PENDING|IMPLEMENT_PENDING|DONE)`")
+        self.assertRegex(work_unit, r"status: `(REVIEW_PENDING|IMPLEMENT_PENDING|EVALUATE_PENDING|DONE)`")
         self.assertIn("handoff", review_notes.lower())
         self.assertIn("bundle", review_notes.lower())
 
     def test_stage11_third_micro_unit_is_initialized(self) -> None:
         work_unit = Path("work/micro_units/stage11-w1-003/WORK_UNIT.md").read_text(encoding="utf-8")
         plan_notes = Path("work/micro_units/stage11-w1-003/PLAN_NOTES.md").read_text(encoding="utf-8")
+        review_notes = Path("work/micro_units/stage11-w1-003/REVIEW_NOTES.md").read_text(encoding="utf-8")
         self.assertIn("stage11-w1-003", work_unit)
-        self.assertRegex(work_unit, r"status: `(REVIEW_PENDING|IMPLEMENT_PENDING|DONE)`")
+        self.assertRegex(work_unit, r"status: `(REVIEW_PENDING|IMPLEMENT_PENDING|EVALUATE_PENDING|DONE)`")
         self.assertIn("deployment", plan_notes.lower())
         self.assertIn("uvicorn", plan_notes.lower())
+        self.assertIn("trust boundary", review_notes.lower())
+
+    def test_stage11_fourth_micro_unit_is_initialized(self) -> None:
+        work_unit = Path("work/micro_units/stage11-w1-004/WORK_UNIT.md").read_text(encoding="utf-8")
+        plan_notes = Path("work/micro_units/stage11-w1-004/PLAN_NOTES.md").read_text(encoding="utf-8")
+        review_notes = Path("work/micro_units/stage11-w1-004/REVIEW_NOTES.md").read_text(encoding="utf-8")
+        self.assertIn("stage11-w1-004", work_unit)
+        self.assertRegex(work_unit, r"status: `(REVIEW_PENDING|IMPLEMENT_PENDING|EVALUATE_PENDING|DONE)`")
+        self.assertIn("acceptance", plan_notes.lower())
+        self.assertIn("operational hold", plan_notes.lower())
+        self.assertIn("validator", review_notes.lower())
 
 
 if __name__ == "__main__":

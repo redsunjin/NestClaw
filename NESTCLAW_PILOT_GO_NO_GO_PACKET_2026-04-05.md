@@ -5,6 +5,7 @@
 - 제품 posture: `closed orchestration runtime + operator dashboard`
 - 현재 권고: `NO-GO for external live pilot`
 - 예외 권고: `GO for internal dry-run / operator walkthrough`
+- acceptance cycle 기준: `NESTCLAW_PILOT_ACCEPTANCE_CYCLE_2026-04-10.md`
 
 ## Why It Is No-Go Today
 1. Stage 8 readiness bundle 최신 결과가 `BLOCKED`다.
@@ -50,6 +51,10 @@
 ### Conditional Go
 - 내부 dry-run session, operator UI review, agent integration rehearsal만 수행
 - 외부 write/live side effect는 금지
+
+### Operational Hold
+- code/runtime/readiness evidence는 pilot 가능 수준이지만 owner, approver, schedule, freeze window 같은 운영 사유로 시작을 보류
+- 이 경우 `FAIL`이 아니라 `operational hold`로 기록하고 resume trigger를 남긴다
 
 ### No-Go
 - readiness bundle이 `BLOCKED`

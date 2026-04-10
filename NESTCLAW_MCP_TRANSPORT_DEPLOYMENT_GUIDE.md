@@ -3,6 +3,7 @@
 ## 1. 목적
 - 이 문서는 상위 에이전트나 MCP client가 NestClaw MCP를 반복적으로 붙일 때 필요한 startup, transport, auth boundary를 고정한다.
 - 목표는 "지금 실제로 지원되는 경계"를 분명히 하는 것이다.
+- profile별 bootstrap 묶음은 `NESTCLAW_DEPLOYMENT_BOOTSTRAP_PROFILES_2026-04-08.md`와 `configs/deployment_bootstrap_profiles.json`를 기준으로 본다.
 
 ## 2. 현재 지원 범위
 - 현재 productized baseline은 `stdio MCP server`다.

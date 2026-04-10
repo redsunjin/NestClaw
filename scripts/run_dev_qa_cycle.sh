@@ -221,6 +221,8 @@ check_stage_10() {
 check_stage_11() {
   run_check "stage11 static contract tests" python3 -m unittest tests.test_stage11_contract
   run_check "stage11 env handoff validator smoke tests" python3 -m unittest tests.test_stage11_env_handoff_smoke
+  run_check "stage11 deployment bootstrap profile smoke tests" python3 -m unittest tests.test_stage11_deployment_bootstrap_smoke
+  run_check "stage11 pilot acceptance cycle smoke tests" python3 -m unittest tests.test_stage11_pilot_acceptance_smoke
 }
 
 write_header

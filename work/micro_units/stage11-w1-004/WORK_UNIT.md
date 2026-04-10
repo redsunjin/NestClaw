@@ -1,9 +1,9 @@
 # Micro Work Unit Card
 
-- unit_id: `stage11-w1-003`
-- goal: `Document and package standard uvicorn plus MCP stdio bootstrap profiles for repeated operator and upper-agent use`
+- unit_id: `stage11-w1-004`
+- goal: `Connect packet, runbook, and evidence matrix into a repeatable pilot acceptance loop`
 - target_stage: `11`
-- created_at_utc: `20260406T151713Z`
+- created_at_utc: `20260408T131402Z`
 - status: `DONE`
 
 ## Roles

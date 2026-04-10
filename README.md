@@ -305,6 +305,10 @@ python3 app/cli.py handoff --task-id <task_id> --actor-id qa_user --json
 python3 app/cli.py capabilities --actor-id qa_user --json
 ```
 
+bootstrap profile 참고:
+- `NESTCLAW_DEPLOYMENT_BOOTSTRAP_PROFILES_2026-04-08.md`
+- `configs/deployment_bootstrap_profiles.json`
+
 4. interactive menu CLI 실행
 ```bash
 python3 app/cli.py
@@ -449,6 +453,8 @@ bash scripts/manage_local_postgres.sh dsn
 - Stage 8 blocked-to-resumed runbook: `STAGE8_BLOCKED_TO_RESUMED_RUNBOOK_2026-04-05.md`
 - Pilot evidence matrix: `NESTCLAW_PILOT_EVIDENCE_MATRIX_2026-04-05.md`
 - Pilot go/no-go packet: `NESTCLAW_PILOT_GO_NO_GO_PACKET_2026-04-05.md`
+- Pilot acceptance cycle: `NESTCLAW_PILOT_ACCEPTANCE_CYCLE_2026-04-10.md`
+- Pilot acceptance validator: `scripts/validate_pilot_acceptance_cycle.sh`
 - 마이크로 사이클 스크립트: `scripts/run_micro_cycle.sh`
 - 전문가 에이전트 wrapper: `scripts/run_expert_agent_workflow.sh`
 - priority campaign wrapper: `scripts/run_priority_campaign.sh`

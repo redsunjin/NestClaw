@@ -1,0 +1,95 @@
+{
+  "profile_version": "2026-04-08",
+  "profiles": [
+    {
+      "profile_id": "local_dev",
+      "primary_use": "workstation development and debugging",
+      "http": {
+        "required": true,
+        "command": "uvicorn app.main:APP --host 127.0.0.1 --port 8000 --reload",
+        "health_url": "http://127.0.0.1:8000/health",
+        "dashboard_url": "http://127.0.0.1:8000/console"
+      },
+      "mcp": {
+        "required": true,
+        "transport": "stdio",
+        "command": "python3 app/mcp_server.py",
+        "readiness_sequence": [
+          "initialize",
+          "notifications/initialized",
+          "tools/list",
+          "catalog.manifest"
+        ]
+      },
+      "auth": {
+        "recommended_mode": "jwt_local",
+        "actor_context_source": "local bearer token or explicit cli/mcp actor args",
+        "default_actor_role": "requester"
+      },
+      "restart_policy": {
+        "http": "reload on source change",
+        "mcp": "manual restart when source or prompt contract changes"
+      }
+    },
+    {
+      "profile_id": "operator_sidecar",
+      "primary_use": "internal operator dashboard plus sidecar automation",
+      "http": {
+        "required": true,
+        "command": "uvicorn app.main:APP --host 127.0.0.1 --port 8000",
+        "health_url": "http://127.0.0.1:8000/health",
+        "dashboard_url": "http://127.0.0.1:8000/console"
+      },
+      "mcp": {
+        "required": true,
+        "transport": "stdio",
+        "command": "python3 app/mcp_server.py",
+        "readiness_sequence": [
+          "initialize",
+          "notifications/initialized",
+          "tools/list",
+          "catalog.manifest"
+        ]
+      },
+      "auth": {
+        "recommended_mode": "trusted_sso_headers",
+        "actor_context_source": "trusted sidecar or ingress header injection",
+        "default_actor_role": "reviewer"
+      },
+      "restart_policy": {
+        "http": "supervisor restart on crash or failed /health probe",
+        "mcp": "supervisor restart on non-zero exit or EOF"
+      }
+    },
+    {
+      "profile_id": "upper_agent_host",
+      "primary_use": "upper conversational agent host with NestClaw child process",
+      "http": {
+        "required": false,
+        "command": "uvicorn app.main:APP --host 127.0.0.1 --port 8000",
+        "health_url": "http://127.0.0.1:8000/health",
+        "dashboard_url": "http://127.0.0.1:8000/console"
+      },
+      "mcp": {
+        "required": true,
+        "transport": "stdio",
+        "command": "python3 app/mcp_server.py",
+        "readiness_sequence": [
+          "initialize",
+          "notifications/initialized",
+          "tools/list",
+          "catalog.manifest"
+        ]
+      },
+      "auth": {
+        "recommended_mode": "jwt_local",
+        "actor_context_source": "host-provided actor_id and actor_role per tool call",
+        "default_actor_role": "requester"
+      },
+      "restart_policy": {
+        "http": "optional sidecar restart on operator demand",
+        "mcp": "host respawn on child process exit"
+      }
+    }
+  ]
+}
