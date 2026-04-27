@@ -20,6 +20,11 @@ from app.main import (
     build_tool_catalog_service,
     build_tool_draft_service,
 )
+from app.stage12_jobs import (
+    job_describe_payload as stage12_job_describe_payload,
+    job_list_payload as stage12_job_list_payload,
+    run_stage12_job,
+)
 
 
 DEFAULT_ACTOR_ID = "user_cli"
@@ -434,71 +439,16 @@ def _job_template_discovery_item(template: dict[str, Any], *, profile_id: str | 
 
 def _job_list_payload(*, profile_id: str | None = None, include_disabled: bool = False) -> tuple[dict[str, Any], int]:
     try:
-        templates_by_id, profiles_by_id, _ = _load_stage12_job_registries()
-        if profile_id and profile_id not in profiles_by_id:
-            raise ValueError(f"unknown agent profile: {profile_id}")
-        items = []
-        for template in templates_by_id.values():
-            if not include_disabled and not bool(template.get("enabled", True)):
-                continue
-            item = _job_template_discovery_item(template, profile_id=profile_id)
-            if profile_id and not item["profile_compatibility"]:
-                continue
-            items.append(item)
+        return stage12_job_list_payload(profile_id=profile_id, include_disabled=include_disabled), 0
     except ValueError as exc:
         return _error_payload("INVALID_JOB_DISCOVERY", str(exc)), 1
-    items.sort(key=lambda item: str(item.get("template_id") or ""))
-    return {
-        "surface": "newclaw job list",
-        "items": items,
-        "count": len(items),
-        "profile_filter": profile_id,
-        "implemented_job_template_ids": sorted(IMPLEMENTED_JOB_TEMPLATE_IDS),
-    }, 0
 
 
 def _job_describe_payload(*, template_id: str, profile_id: str | None = None) -> tuple[dict[str, Any], int]:
     try:
-        templates_by_id, profiles_by_id, packs_by_id = _load_stage12_job_registries()
-        template = templates_by_id.get(template_id)
-        if template is None:
-            raise ValueError(f"unknown job template: {template_id}")
-        if profile_id and profile_id not in profiles_by_id:
-            raise ValueError(f"unknown agent profile: {profile_id}")
-        item = _job_template_discovery_item(template, profile_id=profile_id)
-        required_pack_ids = [str(pack_id) for pack_id in template.get("required_capability_packs") or []]
-        packs = [packs_by_id[pack_id] for pack_id in required_pack_ids if pack_id in packs_by_id]
-        examples = list((template.get("schedule_trigger") or {}).get("examples") or [])
-        if not examples:
-            examples = [
-                f"newclaw job run --template {template_id} --profile <profile_id> --input-file <input.json> --json"
-            ]
+        return stage12_job_describe_payload(template_id=template_id, profile_id=profile_id), 0
     except ValueError as exc:
         return _error_payload("INVALID_JOB_DISCOVERY", str(exc)), 1
-    return {
-        "surface": "newclaw job describe",
-        "template": item,
-        "input_schema": dict(template.get("input_schema") or {}),
-        "provider_policy": dict(template.get("provider_policy") or {}),
-        "execution_budget_override": dict(template.get("execution_budget_override") or {}),
-        "approval_requirements": dict(template.get("approval_requirements") or {}),
-        "schedule_trigger": dict(template.get("schedule_trigger") or {}),
-        "output_evidence": dict(template.get("output_evidence") or {}),
-        "capability_packs": [
-            {
-                "pack_id": pack.get("pack_id"),
-                "display_name": pack.get("display_name"),
-                "risk_level": pack.get("risk_level"),
-                "pack_type": pack.get("pack_type"),
-                "allowed_tool_ids": list(pack.get("allowed_tool_ids") or []),
-                "runtime_read_surfaces": list(pack.get("runtime_read_surfaces") or []),
-                "approval_requirements": dict(pack.get("approval_requirements") or {}),
-                "data_boundary": dict(pack.get("data_boundary") or {}),
-            }
-            for pack in packs
-        ],
-        "examples": examples,
-    }, 0
 
 
 def _job_invocation_summary(
@@ -560,89 +510,26 @@ def _job_run_payload(
     auto_run: bool = True,
 ) -> tuple[dict[str, Any], int]:
     try:
-        contract = _resolve_job_contract(
+        actor = _actor_context(actor_id or requested_by, actor_role)
+        payload = run_stage12_job(
+            orchestration_service=CLI_ORCHESTRATION_SERVICE,
+            actor=actor,
             template_id=template_id,
             profile_id=profile_id,
             input_payload=input_payload,
-        )
-        metadata = _job_runtime_metadata(contract, input_payload)
-        invocation = _job_invocation_summary(
-            contract=contract,
-            input_payload=input_payload,
             requested_by=requested_by,
+            include_bundle=include_bundle,
+            include_handoff=include_handoff,
+            max_chars=max_chars,
             auto_run=auto_run,
         )
+        return payload, 0
+    except HTTPException as exc:
+        return _coerce_http_error(exc), 1
     except ValueError as exc:
         return _error_payload("INVALID_JOB_CONTRACT", str(exc)), 1
-
-    template = dict(contract["template"])
-    description = str(template.get("description") or template.get("display_name") or template_id)
-    request_text = f"Run Stage 12 job `{template_id}` for `{requested_by}`. {description}"
-    status_payload, submit_rc = _submit_payload(
-        request_text=request_text,
-        requested_by=requested_by,
-        task_kind=_job_template_task_kind(template),
-        title=str(template.get("display_name") or template_id),
-        metadata=metadata,
-        auto_run=auto_run,
-        incident_run_mode="dry-run",
-        actor_id=actor_id or requested_by,
-        actor_role=actor_role,
-    )
-    if submit_rc != 0:
-        return {"job_invocation": invocation, "status": status_payload}, submit_rc
-
-    task_id = str(status_payload.get("task_id") or "")
-    invocation["task_id"] = task_id
-    evidence_actor_id = actor_id or requested_by
-    events_payload, events_rc = _events_payload(task_id, actor_id=evidence_actor_id, actor_role=actor_role)
-
-    report_payload: dict[str, Any] = {
-        "available": False,
-        "reason": "not_requested_until_done",
-    }
-    report_rc = 0
-    if status_payload.get("status") == "DONE":
-        report_payload, report_rc = _report_payload(
-            task_id,
-            max_chars=max_chars,
-            actor_id=evidence_actor_id,
-            actor_role=actor_role,
-        )
-
-    bundle_payload: dict[str, Any] | None = None
-    bundle_rc = 0
-    if include_bundle:
-        bundle_payload, bundle_rc = _bundle_payload(
-            task_id,
-            max_chars=max_chars,
-            actor_id=evidence_actor_id,
-            actor_role=actor_role,
-        )
-
-    handoff_payload: dict[str, Any] | None = None
-    handoff_rc = 0
-    if include_handoff:
-        handoff_payload, handoff_rc = _handoff_payload(
-            task_id,
-            max_chars=max_chars,
-            actor_id=evidence_actor_id,
-            actor_role=actor_role,
-        )
-
-    payload: dict[str, Any] = {
-        "job_invocation": invocation,
-        "status": status_payload,
-        "events": events_payload,
-        "report": report_payload,
-    }
-    if bundle_payload is not None:
-        payload["bundle"] = bundle_payload
-    if handoff_payload is not None:
-        payload["handoff"] = handoff_payload
-
-    exit_code = 1 if any(rc != 0 for rc in (events_rc, report_rc, bundle_rc, handoff_rc)) else 0
-    return payload, exit_code
+    except Exception as exc:  # pragma: no cover - defensive
+        return _error_payload("CLI_ERROR", str(exc)), 1
 
 
 def _submit_payload(

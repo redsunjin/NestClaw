@@ -5,10 +5,13 @@ from pathlib import Path
 
 
 try:
+    from fastapi.testclient import TestClient
     from app import cli as cli_module
     from app import main as main_module
+    from app.auth import issue_dev_jwt
     from tests.runtime_test_utils import reset_runtime_state
 except Exception as exc:  # pragma: no cover - environment dependent
+    TestClient = None
     cli_module = None
     main_module = None
     IMPORT_ERROR = exc
@@ -20,6 +23,8 @@ else:
 class TestStage12JobInvocationSmoke(unittest.TestCase):
     def setUp(self) -> None:
         reset_runtime_state(main_module)
+        self.client = TestClient(main_module.APP)
+        self.headers = {"Authorization": f"Bearer {issue_dev_jwt('qa_user', 'requester')}"}
 
     def _daily_status_input(self) -> dict[str, object]:
         return {
@@ -153,6 +158,51 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
         event_types = {item["event_type"] for item in payload["events"]["items"]}
         self.assertIn("TASK_ACTIONS_PLANNED", event_types)
         self.assertIn("PLANNED_ACTION_EXECUTED", event_types)
+        self.assertTrue(payload["report"]["available"])
+        self.assertEqual(payload["bundle"]["bundle_version"], "v1")
+        self.assertEqual(payload["handoff"]["packet_type"], "completed")
+
+    def test_http_job_surfaces_discover_and_run_readiness_check(self) -> None:
+        list_response = self.client.get("/api/v1/jobs", headers=self.headers)
+        self.assertEqual(list_response.status_code, 200)
+        by_id = {item["template_id"]: item for item in list_response.json()["items"]}
+        self.assertTrue(by_id["readiness_check"]["executable"])
+
+        describe_response = self.client.get(
+            "/api/v1/jobs/readiness_check?profile_id=local_ops_default",
+            headers=self.headers,
+        )
+        self.assertEqual(describe_response.status_code, 200)
+        self.assertEqual(
+            describe_response.json()["template"]["required_capability_packs"],
+            ["readiness_probe_readonly", "core_status_readonly"],
+        )
+
+        run_response = self.client.post(
+            "/api/v1/jobs/run",
+            json={
+                "template_id": "readiness_check",
+                "profile_id": "local_ops_default",
+                "requested_by": "qa_user",
+                "input": {
+                    "check_set": "stage8-readiness",
+                    "target_stage": 8,
+                    "sensitivity": "internal",
+                    "env_profile": "local",
+                    "strict_gate": False,
+                    "timeout_seconds": 15,
+                },
+                "include_bundle": True,
+                "include_handoff": True,
+                "max_chars": 2400,
+            },
+            headers=self.headers,
+        )
+        self.assertEqual(run_response.status_code, 202)
+        payload = run_response.json()
+        self.assertEqual(payload["job_invocation"]["template_id"], "readiness_check")
+        self.assertEqual(payload["status"]["status"], "DONE")
+        self.assertGreaterEqual(payload["events"]["count"], 4)
         self.assertTrue(payload["report"]["available"])
         self.assertEqual(payload["bundle"]["bundle_version"], "v1")
         self.assertEqual(payload["handoff"]["packet_type"], "completed")

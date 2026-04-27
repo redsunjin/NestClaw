@@ -28,9 +28,12 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("newclaw job list", poc)
         self.assertIn("newclaw job describe", poc)
         self.assertIn("agent.bundle", poc)
+        self.assertIn("HTTP", poc)
+        self.assertIn("MCP", poc)
         self.assertIn("Stage 12 Priority Campaign", roadmap)
         self.assertIn("stage12-priority-campaign", work_groups)
         self.assertIn("stage12-job-surface-campaign", work_groups)
+        self.assertIn("stage12-agent-facing-job-api-campaign", work_groups)
 
     def test_agent_profile_spec_and_sample_registry_exist(self) -> None:
         spec = Path("NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md").read_text(encoding="utf-8")
@@ -266,6 +269,26 @@ class TestStage12Contract(unittest.TestCase):
         self.assertEqual(data["items"][1]["unit_id"], "stage12-w2-002")
         self.assertIn(data["items"][1]["status"], {"pending", "in_progress", "completed"})
 
+    def test_stage12_agent_facing_job_api_campaign_exists(self) -> None:
+        data = json.loads(
+            Path("work/priority_campaigns/stage12-agent-facing-job-api-campaign/campaign.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(data["campaign_id"], "stage12-agent-facing-job-api-campaign")
+        self.assertEqual(data["target_stage"], 12)
+        self.assertEqual(
+            [item["item_id"] for item in data["items"]],
+            [
+                "g1-http-job-api",
+                "g2-mcp-job-tools",
+            ],
+        )
+        self.assertEqual(data["items"][0]["unit_id"], "stage12-w3-001")
+        self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+        self.assertEqual(data["items"][1]["unit_id"], "stage12-w3-002")
+        self.assertIn(data["items"][1]["status"], {"pending", "in_progress", "completed"})
+
     def test_cycle_scripts_support_stage12(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
@@ -302,14 +325,26 @@ class TestStage12Contract(unittest.TestCase):
 
     def test_stage12_job_run_cli_surface_exists(self) -> None:
         cli_source = Path("app/cli.py").read_text(encoding="utf-8")
+        main_source = Path("app/main.py").read_text(encoding="utf-8")
+        mcp_source = Path("app/mcp_server.py").read_text(encoding="utf-8")
+        job_source = Path("app/stage12_jobs.py").read_text(encoding="utf-8")
         self.assertIn('subparsers.add_parser("job"', cli_source)
         self.assertIn('job_subparsers.add_parser("list"', cli_source)
         self.assertIn('job_subparsers.add_parser("describe"', cli_source)
         self.assertIn('job_subparsers.add_parser("run"', cli_source)
-        self.assertIn("_job_list_payload", cli_source)
-        self.assertIn("_job_describe_payload", cli_source)
+        self.assertIn("stage12_job_list_payload", cli_source)
+        self.assertIn("stage12_job_describe_payload", cli_source)
         self.assertIn("_job_run_payload", cli_source)
-        self.assertIn("_resolve_job_contract", cli_source)
+        self.assertIn("run_stage12_job", cli_source)
+        self.assertIn("@APP.get(\"/api/v1/jobs\")", main_source)
+        self.assertIn("@APP.get(\"/api/v1/jobs/{template_id}\")", main_source)
+        self.assertIn("@APP.post(\"/api/v1/jobs/run\"", main_source)
+        self.assertIn('"job.list"', mcp_source)
+        self.assertIn('"job.describe"', mcp_source)
+        self.assertIn('"job.run"', mcp_source)
+        self.assertIn("def run_stage12_job(", job_source)
+        self.assertIn("def job_list_payload(", job_source)
+        self.assertIn("def job_describe_payload(", job_source)
         self.assertIn("daily_status_digest", cli_source)
         self.assertIn("readiness_check", cli_source)
         self.assertIn("agent.bundle", cli_source)

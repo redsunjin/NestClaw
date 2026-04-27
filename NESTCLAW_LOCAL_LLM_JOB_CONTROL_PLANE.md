@@ -63,6 +63,8 @@
   - `newclaw job run`
   - `python3 -m app.cli job run --template daily_status_digest --profile local_ops_default --input-file <json> --json`
   - `python3 -m app.cli job run --template readiness_check --profile local_ops_default --input-file <json> --json`
+  - HTTP: `GET /api/v1/jobs`, `GET /api/v1/jobs/{template_id}`, `POST /api/v1/jobs/run`
+  - MCP: `job.list`, `job.describe`, `job.run`
   - `scripts/run_stage12_local_job_poc.sh`
 
 ### Execution Budget

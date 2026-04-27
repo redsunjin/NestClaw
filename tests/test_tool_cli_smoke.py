@@ -90,9 +90,11 @@ class TestToolCliSmoke(unittest.TestCase):
         exit_code, payload = self._run_cli_json("capabilities", "--actor-id", "qa_user")
         self.assertEqual(exit_code, 0)
         self.assertEqual(payload["product_posture"], "orchestration_backend_with_human_dashboard")
-        self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
+        self.assertIn("agent.submit/status/events", payload["primary_entrypoint"])
+        self.assertIn("job.list/describe/run", payload["primary_entrypoint"])
         self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
         self.assertIn("agent.handoff", payload["controls"]["safe_for_upper_agents"])
+        self.assertIn("job.run", payload["controls"]["safe_for_upper_agents"])
         self.assertIn(
             payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
             {"ready", "env_blocked"},

@@ -112,6 +112,11 @@
 - `stage12-w2-001`: `newclaw job list/describe` discovery for upper agents and operators.
 - `stage12-w2-002`: `readiness_check` executable adapter using the same status/events/report/bundle/handoff evidence contract.
 
+`stage12-agent-facing-job-api-campaign` exposes that same contract through service-native surfaces:
+
+- `stage12-w3-001`: HTTP `GET /api/v1/jobs`, `GET /api/v1/jobs/{template_id}`, and `POST /api/v1/jobs/run`.
+- `stage12-w3-002`: MCP `job.list`, `job.describe`, and `job.run`.
+
 ## UI/UX Position
 - No large UI rewrite is required for Stage 12.
 - Existing console can absorb new data as lists/details:

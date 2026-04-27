@@ -33,7 +33,8 @@ class TestCapabilityManifestRuntime(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["product_posture"], "orchestration_backend_with_human_dashboard")
-        self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
+        self.assertIn("agent.submit/status/events", payload["primary_entrypoint"])
+        self.assertIn("job.list/describe/run", payload["primary_entrypoint"])
         self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
         self.assertEqual(payload["transport"]["mcp"]["remote_gateway"], "future_boundary")
         families = {item["kind"] for item in payload["workflow_families"]}
@@ -51,6 +52,7 @@ class TestCapabilityManifestRuntime(unittest.TestCase):
         self.assertIn("redmine.issue.create", tool_ids)
         self.assertIn("slack.message.send", tool_ids)
         self.assertIn("agent.handoff", payload["controls"]["safe_for_upper_agents"])
+        self.assertIn("job.run", payload["controls"]["safe_for_upper_agents"])
         self.assertIn("catalog.manifest", payload["controls"]["safe_for_upper_agents"])
 
     def test_cli_capabilities_command_returns_manifest_json(self) -> None:
@@ -59,10 +61,12 @@ class TestCapabilityManifestRuntime(unittest.TestCase):
             exit_code = cli_module.main(["capabilities", "--actor-id", "qa_user", "--json"])
         self.assertEqual(exit_code, 0)
         payload = json.loads(stdout.getvalue().strip() or "{}")
-        self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
+        self.assertIn("agent.submit/status/events", payload["primary_entrypoint"])
+        self.assertIn("job.list/describe/run", payload["primary_entrypoint"])
         self.assertIn("mcp", {item["surface"] for item in payload["delivery_surfaces"]})
         self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
         self.assertIn("agent.handoff", payload["controls"]["safe_for_upper_agents"])
+        self.assertIn("job.list", payload["controls"]["safe_for_upper_agents"])
         self.assertIn(
             payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
             {"ready", "env_blocked"},

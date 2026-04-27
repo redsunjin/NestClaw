@@ -68,14 +68,15 @@ Human Operator
 
 ## 5. Canonical Execution Loop
 ### 5.1 기본 루프
-1. `submit`
-2. `status`
-3. `events`
-4. session 시작 시 또는 capability 확인이 필요할 때 `capabilities`
-5. 필요 시 `approvals`
-6. `report`
-7. operator handoff나 compact export가 필요하면 `handoff`
-8. deeper audit/export가 필요하면 `bundle`
+1. 고정 job이 있으면 `job.list` / `job.describe`로 template/profile/pack을 확인한다.
+2. 고정 job이면 `job.run`, 자유 요청이면 `submit`
+3. `status`
+4. `events`
+5. session 시작 시 또는 capability 확인이 필요할 때 `capabilities`
+6. 필요 시 `approvals`
+7. `report`
+8. operator handoff나 compact export가 필요하면 `handoff`
+9. deeper audit/export가 필요하면 `bundle`
 
 ### 5.2 권장 상태 해석
 - `READY`: 생성은 됐지만 아직 실행 전이다.
@@ -102,6 +103,9 @@ Human Operator
 - `GET /api/v1/agent/report/{task_id}/raw`
 - `GET /api/v1/agent/bundle/{task_id}`
 - `GET /api/v1/agent/handoff/{task_id}`
+- `GET /api/v1/jobs`
+- `GET /api/v1/jobs/{template_id}`
+- `POST /api/v1/jobs/run`
 - `GET /api/v1/capabilities`
 - `GET /api/v1/approvals`
 - `GET /api/v1/approvals/{queue_id}`
@@ -129,6 +133,9 @@ Human Operator
 - `newclaw reject`
 - `newclaw tools`
 - `newclaw capabilities`
+- `newclaw job list`
+- `newclaw job describe`
+- `newclaw job run`
 - `newclaw tool-draft`
 - `newclaw tool-validate`
 - `newclaw tool-apply`
@@ -140,8 +147,11 @@ Human Operator
 - `agent.events`
  - `agent.recent`
  - `agent.report`
- - `agent.bundle`
+- `agent.bundle`
  - `agent.handoff`
+- `job.list`
+- `job.describe`
+- `job.run`
 - `approval.list`
  - `approval.get`
 - `approval.approve`

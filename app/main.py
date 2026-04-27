@@ -32,6 +32,11 @@ from app.model_registry import load_model_registry, select_provider
 from app.persistence import create_state_store
 from app.provider_invoker import ProviderInvoker
 from app.slack_adapter import execute_slack_action
+from app.stage12_jobs import (
+    job_describe_payload,
+    job_list_payload,
+    run_stage12_job,
+)
 from app.services import (
     ApprovalService,
     ApprovalServiceDeps,
@@ -129,6 +134,17 @@ class AgentSubmitRequest(BaseModel):
     auto_run: bool = True
     idempotency_key: str | None = None
     incident_run_mode: str = "dry-run"
+
+
+class JobRunRequest(BaseModel):
+    template_id: str = Field(min_length=1, max_length=120)
+    profile_id: str = Field(min_length=1, max_length=120)
+    input: dict[str, Any]
+    requested_by: str = Field(min_length=1, max_length=100)
+    auto_run: bool = True
+    include_bundle: bool = False
+    include_handoff: bool = False
+    max_chars: int = Field(default=4000, ge=200, le=20000)
 
 
 class ApprovalDecisionRequest(BaseModel):
@@ -1897,6 +1913,54 @@ def agent_handoff(
     actor: ActorContext = Depends(actor_context_dependency),
 ) -> dict[str, Any]:
     return ORCHESTRATION_SERVICE.agent_handoff(task_id, actor, max_chars=max_chars)
+
+
+@APP.get("/api/v1/jobs")
+def list_jobs(
+    profile_id: str | None = Query(default=None),
+    include_disabled: bool = Query(default=False),
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    _authorize(actor.actor_role, {"requester", "reviewer", "approver", "admin"}, "job_list")
+    try:
+        return job_list_payload(profile_id=profile_id, include_disabled=include_disabled)
+    except ValueError as exc:
+        _error(400, "INVALID_JOB_DISCOVERY", str(exc))
+
+
+@APP.get("/api/v1/jobs/{template_id}")
+def describe_job(
+    template_id: str,
+    profile_id: str | None = Query(default=None),
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    _authorize(actor.actor_role, {"requester", "reviewer", "approver", "admin"}, "job_describe")
+    try:
+        return job_describe_payload(template_id=template_id, profile_id=profile_id)
+    except ValueError as exc:
+        _error(400, "INVALID_JOB_DISCOVERY", str(exc))
+
+
+@APP.post("/api/v1/jobs/run", status_code=202)
+def run_job(
+    req: JobRunRequest,
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    try:
+        return run_stage12_job(
+            orchestration_service=build_orchestration_service(sync_execution=True),
+            actor=actor,
+            template_id=req.template_id,
+            profile_id=req.profile_id,
+            input_payload=dict(req.input or {}),
+            requested_by=req.requested_by,
+            include_bundle=req.include_bundle,
+            include_handoff=req.include_handoff,
+            max_chars=req.max_chars,
+            auto_run=req.auto_run,
+        )
+    except ValueError as exc:
+        _error(400, "INVALID_JOB_CONTRACT", str(exc))
 
 
 @APP.get("/api/v1/agent/report/{task_id}/raw")

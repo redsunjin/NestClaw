@@ -67,9 +67,11 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Goal: turn NestClaw into a local-first LLM job control plane while preserving cloud/API provider optionality.
 - Follow-up campaign: `stage12-job-surface-campaign`
 - Follow-up goal: expose job discovery surfaces and extend executable local-first job adapters.
+- Agent-facing API campaign: `stage12-agent-facing-job-api-campaign`
+- Agent-facing API goal: expose Stage 12 job discovery and invocation through HTTP and MCP.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
 - Completed third unit: `stage12-w1-003`
 - Completed fourth unit: `stage12-w1-004`
-- Current focus: `stage12-w2-001` job discovery surface and `stage12-w2-002` readiness_check adapter.
+- Current focus: `stage12-w3-001` HTTP job API and `stage12-w3-002` MCP job tools.

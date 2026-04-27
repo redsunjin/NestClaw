@@ -1,0 +1,23 @@
+{
+  "campaign_id": "stage12-agent-facing-job-api-campaign",
+  "goal": "Expose Stage 12 job discovery and invocation through HTTP and MCP surfaces for upper agents",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-http-job-api",
+      "group": "G1",
+      "title": "Expose HTTP job API",
+      "unit_id": "stage12-w3-001",
+      "goal": "Provide HTTP endpoints for job list, describe, and run using the same Stage 12 job contract as CLI",
+      "status": "completed"
+    },
+    {
+      "item_id": "g2-mcp-job-tools",
+      "group": "G2",
+      "title": "Expose MCP job tools",
+      "unit_id": "stage12-w3-002",
+      "goal": "Provide MCP tools for job list, describe, and run using the same Stage 12 job contract as CLI and HTTP",
+      "status": "completed"
+    }
+  ]
+}

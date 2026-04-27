@@ -19,6 +19,7 @@ from app.main import (
     build_tool_catalog_service,
     build_tool_draft_service,
 )
+from app.stage12_jobs import job_describe_payload, job_list_payload, run_stage12_job
 
 
 SERVER_NAME = "newclaw-mcp"
@@ -199,6 +200,63 @@ class NewClawMcpServer:
                     "additionalProperties": False,
                 },
                 handler=self._handle_agent_handoff,
+            ),
+            "job.list": ToolSpec(
+                name="job.list",
+                title="List Stage 12 Jobs",
+                description="List Stage 12 job templates with executable status, compatible profiles, and runtime surfaces.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "profile_id": {"type": "string"},
+                        "include_disabled": {"type": "boolean"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_job_list,
+            ),
+            "job.describe": ToolSpec(
+                name="job.describe",
+                title="Describe Stage 12 Job",
+                description="Describe one Stage 12 job template, including input schema, compatible profile, capability packs, and examples.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "template_id": {"type": "string"},
+                        "profile_id": {"type": "string"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["template_id", "actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_job_describe,
+            ),
+            "job.run": ToolSpec(
+                name="job.run",
+                title="Run Stage 12 Job",
+                description="Run a bounded Stage 12 job template and return status, events, report, and optional bundle/handoff evidence.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "template_id": {"type": "string"},
+                        "profile_id": {"type": "string"},
+                        "input": {"type": "object"},
+                        "requested_by": {"type": "string"},
+                        "auto_run": {"type": "boolean"},
+                        "include_bundle": {"type": "boolean"},
+                        "include_handoff": {"type": "boolean"},
+                        "max_chars": {"type": "integer"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["template_id", "profile_id", "input", "requested_by", "actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_job_run,
             ),
             "approval.list": ToolSpec(
                 name="approval.list",
@@ -494,6 +552,38 @@ class NewClawMcpServer:
             str(arguments.get("task_id") or ""),
             actor,
             max_chars=max_chars,
+        )
+
+    def _handle_job_list(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        self._tool_actor(arguments, default_role="requester")
+        return _invoke(
+            job_list_payload,
+            profile_id=arguments.get("profile_id"),
+            include_disabled=bool(arguments.get("include_disabled", False)),
+        )
+
+    def _handle_job_describe(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        self._tool_actor(arguments, default_role="requester")
+        return _invoke(
+            job_describe_payload,
+            template_id=str(arguments.get("template_id") or ""),
+            profile_id=arguments.get("profile_id"),
+        )
+
+    def _handle_job_run(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="requester")
+        return _invoke(
+            run_stage12_job,
+            orchestration_service=self.orchestration_service,
+            actor=actor,
+            template_id=str(arguments.get("template_id") or ""),
+            profile_id=str(arguments.get("profile_id") or ""),
+            input_payload=dict(arguments.get("input") or {}),
+            requested_by=str(arguments.get("requested_by") or ""),
+            include_bundle=bool(arguments.get("include_bundle", False)),
+            include_handoff=bool(arguments.get("include_handoff", False)),
+            max_chars=int(arguments.get("max_chars") or 4000),
+            auto_run=bool(arguments.get("auto_run", True)),
         )
 
     def _handle_approval_list(self, arguments: dict[str, Any]) -> dict[str, Any]:

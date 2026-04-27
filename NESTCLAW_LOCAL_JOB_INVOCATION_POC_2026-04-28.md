@@ -15,6 +15,22 @@ python3 -m app.cli job list --json
 python3 -m app.cli job describe --template readiness_check --profile local_ops_default --json
 ```
 
+HTTP:
+
+```bash
+GET /api/v1/jobs
+GET /api/v1/jobs/readiness_check?profile_id=local_ops_default
+POST /api/v1/jobs/run
+```
+
+MCP:
+
+```text
+job.list
+job.describe
+job.run
+```
+
 CLI:
 
 ```bash

@@ -43,7 +43,50 @@ Tool: `catalog.manifest`
 }
 ```
 
-### 3.2 Submit
+### 3.2 Discover And Run A Fixed Job
+Tool: `job.list`
+
+```json
+{
+  "actor_id": "claude_user",
+  "actor_role": "requester"
+}
+```
+
+Tool: `job.describe`
+
+```json
+{
+  "template_id": "readiness_check",
+  "profile_id": "local_ops_default",
+  "actor_id": "claude_user",
+  "actor_role": "requester"
+}
+```
+
+Tool: `job.run`
+
+```json
+{
+  "template_id": "readiness_check",
+  "profile_id": "local_ops_default",
+  "requested_by": "claude_user",
+  "actor_id": "claude_user",
+  "actor_role": "requester",
+  "input": {
+    "check_set": "stage8-readiness",
+    "target_stage": 8,
+    "sensitivity": "internal",
+    "env_profile": "local",
+    "strict_gate": false,
+    "timeout_seconds": 15
+  },
+  "include_bundle": true,
+  "include_handoff": true
+}
+```
+
+### 3.3 Submit Freeform Request
 Tool: `agent.submit`
 
 ```json
@@ -64,7 +107,7 @@ Tool: `agent.submit`
 }
 ```
 
-### 3.3 Poll Status
+### 3.4 Poll Status
 Tool: `agent.status`
 
 ```json
@@ -80,7 +123,7 @@ Tool: `agent.status`
 - `NEEDS_HUMAN_APPROVAL`: 사람에게 handoff
 - `DONE`: report 읽기
 
-### 3.4 Fetch Events
+### 3.5 Fetch Events
 Tool: `agent.events`
 
 ```json
@@ -91,7 +134,7 @@ Tool: `agent.events`
 }
 ```
 
-### 3.5 Recent / Report
+### 3.6 Recent / Report
 Tool: `agent.recent`
 
 ```json
@@ -113,7 +156,7 @@ Tool: `agent.report`
 }
 ```
 
-### 3.6 Approval Handoff
+### 3.7 Approval Handoff
 사람 approver가 있을 때만:
 
 Tool: `approval.list`
@@ -160,7 +203,38 @@ curl http://127.0.0.1:8000/api/v1/capabilities \
   -H 'X-Actor-Role: requester'
 ```
 
-### 4.1 Submit
+### 4.1 Discover And Run A Fixed Job
+```bash
+curl http://127.0.0.1:8000/api/v1/jobs \
+  -H 'X-Actor-Id: qa_user' \
+  -H 'X-Actor-Role: requester'
+
+curl "http://127.0.0.1:8000/api/v1/jobs/readiness_check?profile_id=local_ops_default" \
+  -H 'X-Actor-Id: qa_user' \
+  -H 'X-Actor-Role: requester'
+
+curl -X POST http://127.0.0.1:8000/api/v1/jobs/run \
+  -H 'Content-Type: application/json' \
+  -H 'X-Actor-Id: qa_user' \
+  -H 'X-Actor-Role: requester' \
+  -d '{
+    "template_id": "readiness_check",
+    "profile_id": "local_ops_default",
+    "requested_by": "qa_user",
+    "input": {
+      "check_set": "stage8-readiness",
+      "target_stage": 8,
+      "sensitivity": "internal",
+      "env_profile": "local",
+      "strict_gate": false,
+      "timeout_seconds": 15
+    },
+    "include_bundle": true,
+    "include_handoff": true
+  }'
+```
+
+### 4.2 Submit Freeform Request
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/agent/submit \
   -H 'Content-Type: application/json' \
@@ -182,28 +256,28 @@ curl -X POST http://127.0.0.1:8000/api/v1/agent/submit \
   }'
 ```
 
-### 4.2 Status
+### 4.3 Status
 ```bash
 curl http://127.0.0.1:8000/api/v1/agent/status/task_xxxxx \
   -H 'X-Actor-Id: qa_user' \
   -H 'X-Actor-Role: requester'
 ```
 
-### 4.3 Events
+### 4.4 Events
 ```bash
 curl http://127.0.0.1:8000/api/v1/agent/events/task_xxxxx \
   -H 'X-Actor-Id: qa_user' \
   -H 'X-Actor-Role: requester'
 ```
 
-### 4.4 Report Preview
+### 4.5 Report Preview
 ```bash
 curl "http://127.0.0.1:8000/api/v1/agent/report/task_xxxxx?max_chars=4000" \
   -H 'X-Actor-Id: qa_user' \
   -H 'X-Actor-Role: requester'
 ```
 
-### 4.5 Recent / Approval Detail
+### 4.6 Recent / Approval Detail
 ```bash
 curl "http://127.0.0.1:8000/api/v1/agent/recent?limit=5" \
   -H 'X-Actor-Id: qa_user' \
@@ -218,6 +292,22 @@ curl "http://127.0.0.1:8000/api/v1/approvals/aq_xxxxx" \
 ### 5.0 Capabilities
 ```bash
 python3 app/cli.py capabilities --actor-id qa_user --actor-role requester --json
+```
+
+### 5.1 Fixed Job
+```bash
+python3 -m app.cli job list --json
+python3 -m app.cli job describe --template readiness_check --profile local_ops_default --json
+python3 -m app.cli job run \
+  --template readiness_check \
+  --profile local_ops_default \
+  --input-file readiness.json \
+  --requested-by qa_user \
+  --actor-id qa_user \
+  --actor-role requester \
+  --include-bundle \
+  --include-handoff \
+  --json
 ```
 
 ### 5.1 Submit

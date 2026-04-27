@@ -40,7 +40,7 @@ class CapabilityManifestService:
         return {
             "manifest_version": "2026-04-04",
             "product_posture": "orchestration_backend_with_human_dashboard",
-            "primary_entrypoint": "agent.submit/status/events",
+            "primary_entrypoint": "job.list/describe/run + agent.submit/status/events",
             "workflow_families": [
                 {
                     "kind": "task",
@@ -84,6 +84,9 @@ class CapabilityManifestService:
                     "agent.report",
                     "agent.bundle",
                     "agent.handoff",
+                    "job.list",
+                    "job.describe",
+                    "job.run",
                     "approval.get",
                     "catalog.list",
                     "catalog.get",

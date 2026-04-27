@@ -2,7 +2,7 @@
 
 ## 1. 목적
 - 이 문서는 현재 NestClaw가 상위 에이전트와 인간 운영자에게 어떤 capability를 제공하는지 한 장에서 보여주는 canonical manifest다.
-- 현재 canonical machine-readable surface는 `GET /api/v1/capabilities`와 MCP `catalog.manifest`다.
+- 현재 canonical machine-readable surface는 `GET /api/v1/capabilities`, `GET /api/v1/jobs`, MCP `catalog.manifest`, MCP `job.list`다.
 
 ## 2. Product Posture
 - 제품 유형: local-first LLM job control plane + human approval/audit dashboard
@@ -141,9 +141,15 @@ Stage 12 roadmap:
 
 ## 11. Runtime Export Surface
 - HTTP: `GET /api/v1/capabilities`
+- HTTP: `GET /api/v1/jobs`
+- HTTP: `GET /api/v1/jobs/{template_id}`
+- HTTP: `POST /api/v1/jobs/run`
 - HTTP: `GET /api/v1/agent/bundle/{task_id}`
 - HTTP: `GET /api/v1/agent/handoff/{task_id}`
 - MCP: `catalog.manifest`
+- MCP: `job.list`
+- MCP: `job.describe`
+- MCP: `job.run`
 - MCP: `agent.bundle`
 - MCP: `agent.handoff`
 - CLI: `newclaw capabilities --json`

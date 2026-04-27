@@ -127,6 +127,9 @@ class TestMcpServerSmoke(unittest.TestCase):
                 "agent.report",
                 "agent.bundle",
                 "agent.handoff",
+                "job.list",
+                "job.describe",
+                "job.run",
                 "approval.list",
                 "approval.get",
                 "approval.approve",
@@ -156,11 +159,13 @@ class TestMcpServerSmoke(unittest.TestCase):
         )
         payload = response["result"]["structuredContent"]
         self.assertEqual(payload["product_posture"], "orchestration_backend_with_human_dashboard")
-        self.assertEqual(payload["primary_entrypoint"], "agent.submit/status/events")
+        self.assertIn("agent.submit/status/events", payload["primary_entrypoint"])
+        self.assertIn("job.list/describe/run", payload["primary_entrypoint"])
         self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
         self.assertEqual(payload["transport"]["mcp"]["remote_gateway"], "future_boundary")
         self.assertIn("requester", payload["roles"])
         self.assertIn("agent.handoff", payload["controls"]["safe_for_upper_agents"])
+        self.assertIn("job.run", payload["controls"]["safe_for_upper_agents"])
         self.assertGreaterEqual(int(payload["tool_catalog"]["count"]), 6)
         self.assertIn(
             payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
@@ -255,6 +260,79 @@ class TestMcpServerSmoke(unittest.TestCase):
         self.assertEqual(handoff_payload["task_id"], task_id)
         self.assertEqual(handoff_payload["packet_type"], "completed")
         self.assertIn("NestClaw Operator Handoff Packet", handoff_payload["markdown"])
+
+    def test_job_tools_discover_and_run_readiness_check(self) -> None:
+        list_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 20_6,
+                "method": "tools/call",
+                "params": {
+                    "name": "job.list",
+                    "arguments": {"actor_id": "qa_user"},
+                },
+            }
+        )
+        list_payload = list_response["result"]["structuredContent"]
+        by_id = {item["template_id"]: item for item in list_payload["items"]}
+        self.assertTrue(by_id["readiness_check"]["executable"])
+        self.assertIn("local_ops_default", by_id["readiness_check"]["compatible_profile_ids"])
+
+        describe_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 20_7,
+                "method": "tools/call",
+                "params": {
+                    "name": "job.describe",
+                    "arguments": {
+                        "template_id": "readiness_check",
+                        "profile_id": "local_ops_default",
+                        "actor_id": "qa_user",
+                    },
+                },
+            }
+        )
+        describe_payload = describe_response["result"]["structuredContent"]
+        self.assertEqual(describe_payload["template"]["template_id"], "readiness_check")
+        self.assertEqual(
+            describe_payload["template"]["required_capability_packs"],
+            ["readiness_probe_readonly", "core_status_readonly"],
+        )
+
+        run_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 20_8,
+                "method": "tools/call",
+                "params": {
+                    "name": "job.run",
+                    "arguments": {
+                        "template_id": "readiness_check",
+                        "profile_id": "local_ops_default",
+                        "requested_by": "qa_user",
+                        "actor_id": "qa_user",
+                        "input": {
+                            "check_set": "stage8-readiness",
+                            "target_stage": 8,
+                            "sensitivity": "internal",
+                            "env_profile": "local",
+                            "strict_gate": False,
+                            "timeout_seconds": 15,
+                        },
+                        "include_bundle": True,
+                        "include_handoff": True,
+                        "max_chars": 800,
+                    },
+                },
+            }
+        )
+        payload = run_response["result"]["structuredContent"]
+        self.assertEqual(payload["job_invocation"]["template_id"], "readiness_check")
+        self.assertEqual(payload["status"]["status"], "DONE")
+        self.assertTrue(payload["report"]["available"])
+        self.assertEqual(payload["bundle"]["bundle_version"], "v1")
+        self.assertEqual(payload["handoff"]["packet_type"], "completed")
 
     def test_catalog_tools_return_registered_capabilities(self) -> None:
         list_response = self._request(
