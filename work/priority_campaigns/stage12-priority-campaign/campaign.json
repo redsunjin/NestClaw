@@ -17,7 +17,7 @@
       "title": "Define Job Template spec",
       "unit_id": "stage12-w1-002",
       "goal": "Define repeatable job templates with input schema, capability pack binding, provider policy, schedule trigger, and output evidence",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "item_id": "g3-capability-pack-binding",

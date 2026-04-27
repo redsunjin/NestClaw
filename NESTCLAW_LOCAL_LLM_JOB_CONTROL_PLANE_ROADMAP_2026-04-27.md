@@ -47,7 +47,8 @@
 ### M2. Job Template Baseline
 - 목표: 반복 가능한 업무를 template으로 정의한다.
 - 산출물:
-  - `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-27.md`
+  - `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-28.md`
+  - `configs/job_templates.json`
   - 최소 sample job 3개
   - template validation smoke
 - sample jobs:
@@ -133,7 +134,8 @@
 - If UI comes first, the runtime contract may stay vague.
 
 ## Near-Term Definition of Done
-- Stage 12 campaign exists and has an active first MWU.
+- Stage 12 campaign exists and first two MWUs are completed.
 - Agent Profile spec is completed as `stage12-w1-001`.
+- Job Template spec is completed as `stage12-w1-002`.
 - Roadmap is linked from README and capability manifest.
 - Existing Stage 9-11 tests still pass.

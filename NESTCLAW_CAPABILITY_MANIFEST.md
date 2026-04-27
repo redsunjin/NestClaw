@@ -31,6 +31,8 @@
 Stage 12 roadmap:
 - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
 - `configs/agent_profiles.json`
+- `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-28.md`
+- `configs/job_templates.json`
 - `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
 

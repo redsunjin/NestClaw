@@ -1,0 +1,290 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "template_id": "daily_status_digest",
+      "display_name": "Daily status digest",
+      "description": "Summarize structured daily status inputs into an internal digest with explicit evidence.",
+      "enabled": true,
+      "workflow_family": "task",
+      "submit_contract": {
+        "surface": "agent.submit",
+        "task_kind": "task",
+        "default_title": "Daily status digest",
+        "status_surface": "agent.status",
+        "events_surface": "agent.events",
+        "report_surface": "agent.report"
+      },
+      "input_schema": {
+        "required_fields": [
+          "date",
+          "sources",
+          "audience",
+          "sensitivity"
+        ],
+        "optional_fields": [
+          "focus_areas",
+          "excluded_topics"
+        ],
+        "sensitivity_field": "sensitivity",
+        "max_payload_bytes": 32000,
+        "freeform_context_allowed": false
+      },
+      "allowed_profile_ids": [
+        "local_ops_default"
+      ],
+      "required_capability_packs": [
+        "internal_digest_basic"
+      ],
+      "provider_policy": {
+        "local_first": true,
+        "default_profile_id": "local_ops_default",
+        "allowed_provider_classes": [
+          "local_llm"
+        ],
+        "cloud_api_allowed_when": [],
+        "external_send_policy": "deny",
+        "fallback_profile_id": null
+      },
+      "schedule_trigger": {
+        "supported_triggers": [
+          "manual",
+          "cron",
+          "launchd"
+        ],
+        "invocation_surface": "agent.submit",
+        "idempotency_key_fields": [
+          "template_id",
+          "date",
+          "audience"
+        ],
+        "examples": [
+          "newclaw job run --template daily_status_digest --profile local_ops_default --input daily-status.json"
+        ]
+      },
+      "execution_budget_override": {
+        "max_tool_calls": 8,
+        "max_retries": 1,
+        "max_elapsed_seconds": 600,
+        "max_provider_tokens": 4000,
+        "max_context_bytes": 32000
+      },
+      "approval_requirements": {
+        "submit": "allow",
+        "tool_write": "blocked",
+        "external_send": "blocked",
+        "budget_override": "approver_required"
+      },
+      "output_evidence": {
+        "status_surface": "agent.status",
+        "events_surface": "agent.events",
+        "report_surface": "agent.report",
+        "handoff_included": true,
+        "audit_fields": [
+          "task_id",
+          "template_id",
+          "profile_id",
+          "provider_id",
+          "capability_packs",
+          "execution_budget",
+          "report_path"
+        ]
+      }
+    },
+    {
+      "template_id": "issue_triage",
+      "display_name": "Issue triage",
+      "description": "Classify incoming issue metadata, propose priority and next actions, and optionally draft ticket updates.",
+      "enabled": true,
+      "workflow_family": "incident",
+      "submit_contract": {
+        "surface": "agent.submit",
+        "task_kind": "incident",
+        "default_title": "Issue triage",
+        "status_surface": "agent.status",
+        "events_surface": "agent.events",
+        "report_surface": "agent.report"
+      },
+      "input_schema": {
+        "required_fields": [
+          "issue_id",
+          "summary",
+          "source_system",
+          "sensitivity"
+        ],
+        "optional_fields": [
+          "labels",
+          "service",
+          "recent_events",
+          "redacted_context"
+        ],
+        "sensitivity_field": "sensitivity",
+        "max_payload_bytes": 24000,
+        "freeform_context_allowed": false
+      },
+      "allowed_profile_ids": [
+        "local_ops_default",
+        "cloud_review_optional"
+      ],
+      "required_capability_packs": [
+        "issue_triage_readonly",
+        "ticket_draft_ops"
+      ],
+      "provider_policy": {
+        "local_first": true,
+        "default_profile_id": "local_ops_default",
+        "allowed_provider_classes": [
+          "local_llm",
+          "cloud_api_llm"
+        ],
+        "cloud_api_allowed_when": [
+          "sensitivity in public,low,redacted_metadata",
+          "redaction_required true",
+          "external_send approver_required"
+        ],
+        "external_send_policy": "approval_required",
+        "fallback_profile_id": null
+      },
+      "schedule_trigger": {
+        "supported_triggers": [
+          "manual",
+          "ci",
+          "external_agent"
+        ],
+        "invocation_surface": "agent.submit",
+        "idempotency_key_fields": [
+          "template_id",
+          "issue_id"
+        ],
+        "examples": [
+          "newclaw job run --template issue_triage --profile local_ops_default --input issue.json"
+        ]
+      },
+      "execution_budget_override": {
+        "max_tool_calls": 10,
+        "max_retries": 1,
+        "max_elapsed_seconds": 900,
+        "max_provider_tokens": 5000,
+        "max_context_bytes": 24000
+      },
+      "approval_requirements": {
+        "submit": "allow",
+        "tool_write": "approver_required",
+        "external_send": "approver_required",
+        "budget_override": "approver_required"
+      },
+      "output_evidence": {
+        "status_surface": "agent.status",
+        "events_surface": "agent.events",
+        "report_surface": "agent.report",
+        "handoff_included": true,
+        "audit_fields": [
+          "task_id",
+          "template_id",
+          "profile_id",
+          "provider_id",
+          "capability_packs",
+          "execution_budget",
+          "approval_queue_id",
+          "report_path"
+        ]
+      }
+    },
+    {
+      "template_id": "readiness_check",
+      "display_name": "Readiness check",
+      "description": "Run bounded readiness checks and summarize pass, skip, blocked, and next-action evidence.",
+      "enabled": true,
+      "workflow_family": "task",
+      "submit_contract": {
+        "surface": "agent.submit",
+        "task_kind": "task",
+        "default_title": "Readiness check",
+        "status_surface": "agent.status",
+        "events_surface": "agent.events",
+        "report_surface": "agent.report"
+      },
+      "input_schema": {
+        "required_fields": [
+          "check_set",
+          "target_stage",
+          "sensitivity"
+        ],
+        "optional_fields": [
+          "env_profile",
+          "strict_gate",
+          "timeout_seconds"
+        ],
+        "sensitivity_field": "sensitivity",
+        "max_payload_bytes": 12000,
+        "freeform_context_allowed": false
+      },
+      "allowed_profile_ids": [
+        "local_ops_default",
+        "upper_agent_control_readonly",
+        "deterministic_fallback_default"
+      ],
+      "required_capability_packs": [
+        "readiness_probe_readonly",
+        "core_status_readonly"
+      ],
+      "provider_policy": {
+        "local_first": true,
+        "default_profile_id": "local_ops_default",
+        "allowed_provider_classes": [
+          "local_llm",
+          "upper_agent_wrapper",
+          "deterministic_fallback"
+        ],
+        "cloud_api_allowed_when": [],
+        "external_send_policy": "deny",
+        "fallback_profile_id": "deterministic_fallback_default"
+      },
+      "schedule_trigger": {
+        "supported_triggers": [
+          "manual",
+          "cron",
+          "ci",
+          "external_agent"
+        ],
+        "invocation_surface": "agent.submit",
+        "idempotency_key_fields": [
+          "template_id",
+          "check_set",
+          "target_stage"
+        ],
+        "examples": [
+          "newclaw job run --template readiness_check --profile local_ops_default --input readiness.json"
+        ]
+      },
+      "execution_budget_override": {
+        "max_tool_calls": 6,
+        "max_retries": 0,
+        "max_elapsed_seconds": 300,
+        "max_provider_tokens": 2500,
+        "max_context_bytes": 12000
+      },
+      "approval_requirements": {
+        "submit": "allow",
+        "tool_write": "blocked",
+        "external_send": "blocked",
+        "budget_override": "approver_required"
+      },
+      "output_evidence": {
+        "status_surface": "agent.status",
+        "events_surface": "agent.events",
+        "report_surface": "agent.report",
+        "handoff_included": true,
+        "audit_fields": [
+          "task_id",
+          "template_id",
+          "profile_id",
+          "provider_id",
+          "capability_packs",
+          "execution_budget",
+          "report_path"
+        ]
+      }
+    }
+  ]
+}

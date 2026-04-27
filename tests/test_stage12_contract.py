@@ -68,6 +68,68 @@ class TestStage12Contract(unittest.TestCase):
         self.assertEqual(cloud_profile["sensitivity_boundary"]["external_send_policy"], "approval_required")
         self.assertEqual(cloud_profile["approval_policy"]["external_send"], "approver_required")
 
+    def test_job_template_spec_and_sample_registry_exist(self) -> None:
+        spec = Path("NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-28.md").read_text(encoding="utf-8")
+        jobs = json.loads(Path("configs/job_templates.json").read_text(encoding="utf-8"))
+        profiles = json.loads(Path("configs/agent_profiles.json").read_text(encoding="utf-8"))
+        profile_by_id = {profile["profile_id"]: profile for profile in profiles["profiles"]}
+
+        self.assertIn("Job Template is the Stage 12 contract", spec)
+        self.assertIn("input_schema", spec)
+        self.assertIn("provider_policy", spec)
+        self.assertIn("schedule_trigger", spec)
+        self.assertIn("output_evidence", spec)
+        self.assertEqual(jobs["version"], 1)
+
+        templates = jobs["templates"]
+        self.assertEqual(
+            {template["template_id"] for template in templates},
+            {"daily_status_digest", "issue_triage", "readiness_check"},
+        )
+
+        required_fields = {
+            "template_id",
+            "workflow_family",
+            "submit_contract",
+            "input_schema",
+            "allowed_profile_ids",
+            "required_capability_packs",
+            "provider_policy",
+            "schedule_trigger",
+            "execution_budget_override",
+            "approval_requirements",
+            "output_evidence",
+        }
+        for template in templates:
+            self.assertTrue(required_fields.issubset(template))
+            self.assertEqual(template["submit_contract"]["surface"], "agent.submit")
+            self.assertEqual(template["submit_contract"]["status_surface"], "agent.status")
+            self.assertEqual(template["submit_contract"]["events_surface"], "agent.events")
+            self.assertEqual(template["submit_contract"]["report_surface"], "agent.report")
+            self.assertTrue(template["input_schema"]["required_fields"])
+            self.assertIn("sensitivity", template["input_schema"]["required_fields"])
+            self.assertFalse(template["input_schema"]["freeform_context_allowed"])
+            self.assertTrue(template["allowed_profile_ids"])
+            self.assertTrue(template["required_capability_packs"])
+            self.assertNotIn("*", template["required_capability_packs"])
+            self.assertEqual(template["schedule_trigger"]["invocation_surface"], "agent.submit")
+            self.assertIn("task_id", template["output_evidence"]["audit_fields"])
+            self.assertIn("template_id", template["output_evidence"]["audit_fields"])
+            self.assertIn("profile_id", template["output_evidence"]["audit_fields"])
+
+            for profile_id in template["allowed_profile_ids"]:
+                self.assertIn(profile_id, profile_by_id)
+                self.assertIn(template["template_id"], profile_by_id[profile_id]["allowed_job_templates"])
+
+        issue_triage = next(template for template in templates if template["template_id"] == "issue_triage")
+        self.assertTrue(issue_triage["provider_policy"]["local_first"])
+        self.assertIn("cloud_api_llm", issue_triage["provider_policy"]["allowed_provider_classes"])
+        self.assertEqual(issue_triage["provider_policy"]["external_send_policy"], "approval_required")
+
+        readiness = next(template for template in templates if template["template_id"] == "readiness_check")
+        self.assertEqual(readiness["provider_policy"]["fallback_profile_id"], "deterministic_fallback_default")
+        self.assertIn("deterministic_fallback", readiness["provider_policy"]["allowed_provider_classes"])
+
     def test_stage12_priority_campaign_exists(self) -> None:
         data = json.loads(
             Path("work/priority_campaigns/stage12-priority-campaign/campaign.json").read_text(
@@ -87,6 +149,8 @@ class TestStage12Contract(unittest.TestCase):
         )
         self.assertEqual(data["items"][0]["unit_id"], "stage12-w1-001")
         self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+        self.assertEqual(data["items"][1]["unit_id"], "stage12-w1-002")
+        self.assertIn(data["items"][1]["status"], {"in_progress", "completed"})
 
     def test_cycle_scripts_support_stage12(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")

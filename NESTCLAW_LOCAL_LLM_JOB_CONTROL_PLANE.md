@@ -35,6 +35,9 @@
 
 ### Job Template
 - 반복 가능한 정해진 작업을 정의한다.
+- Stage 12 baseline spec:
+  - `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-28.md`
+  - `configs/job_templates.json`
 - 예:
   - daily status digest
   - issue triage
@@ -91,6 +94,7 @@
 
 Detailed roadmap:
 - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
+- `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-28.md`
 - `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
 - `work/priority_campaigns/stage12-priority-campaign/campaign.json`

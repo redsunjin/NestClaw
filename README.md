@@ -144,6 +144,8 @@
 - Local LLM job control plane roadmap: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Agent Profile baseline spec: `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
 - Agent Profile sample registry: `configs/agent_profiles.json`
+- Job Template baseline spec: `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-28.md`
+- Job Template sample registry: `configs/job_templates.json`
 - Stage 12 work groups: `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
 - Operator dashboard 원칙: `NESTCLAW_OPERATOR_DASHBOARD_PRINCIPLES.md`
 - 제품 포지셔닝: `NESTCLAW_PRODUCT_POSITIONING.md`

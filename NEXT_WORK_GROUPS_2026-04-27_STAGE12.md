@@ -22,6 +22,9 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 
 ### G2. Job Template Spec
 - Goal: 반복 가능한 작업 단위를 입력, capability, provider policy, schedule trigger, output evidence로 정의한다.
+- Current artifact:
+  - `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-28.md`
+  - `configs/job_templates.json`
 - Done when:
   - job template 문서 또는 schema가 존재한다.
   - 최소 3개 sample job이 정의된다.
@@ -57,4 +60,5 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Goal: turn NestClaw into a local-first LLM job control plane while preserving cloud/API provider optionality.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
-- Next focus: `G2 Job Template Spec`
+- Completed second unit: `stage12-w1-002`
+- Next focus: `G3 Capability Pack Binding`
