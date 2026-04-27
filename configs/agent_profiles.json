@@ -1,0 +1,169 @@
+{
+  "version": 1,
+  "profiles": [
+    {
+      "profile_id": "local_ops_default",
+      "display_name": "Local operations default",
+      "provider_id": "local_lmstudio",
+      "provider_class": "local_llm",
+      "enabled": true,
+      "owner_role": "admin",
+      "allowed_job_templates": [
+        "daily_status_digest",
+        "readiness_check"
+      ],
+      "allowed_capability_packs": [
+        "internal_digest_basic",
+        "readiness_probe_readonly"
+      ],
+      "execution_budget": {
+        "max_tool_calls": 12,
+        "max_retries": 1,
+        "max_elapsed_seconds": 900,
+        "max_provider_tokens": 6000,
+        "max_context_bytes": 64000,
+        "allow_network": false
+      },
+      "sensitivity_boundary": {
+        "allowed_sensitivity": [
+          "internal",
+          "sensitive_internal"
+        ],
+        "external_send_policy": "deny",
+        "redaction_required": false,
+        "data_residency": "local_only"
+      },
+      "approval_policy": {
+        "submit": "allow",
+        "tool_write": "approver_required",
+        "external_send": "blocked",
+        "budget_override": "approver_required",
+        "profile_change": "admin_required"
+      },
+      "audit_level": "full"
+    },
+    {
+      "profile_id": "cloud_review_optional",
+      "display_name": "Cloud/API review optional",
+      "provider_id": "api_general",
+      "provider_class": "cloud_api_llm",
+      "enabled": true,
+      "owner_role": "admin",
+      "allowed_job_templates": [
+        "spec_review",
+        "low_sensitivity_summary"
+      ],
+      "allowed_capability_packs": [
+        "doc_review_readonly"
+      ],
+      "execution_budget": {
+        "max_tool_calls": 6,
+        "max_retries": 1,
+        "max_elapsed_seconds": 600,
+        "max_provider_tokens": 8000,
+        "max_context_bytes": 48000,
+        "allow_network": true
+      },
+      "sensitivity_boundary": {
+        "allowed_sensitivity": [
+          "public",
+          "low",
+          "redacted_metadata"
+        ],
+        "external_send_policy": "approval_required",
+        "redaction_required": true,
+        "data_residency": "external_provider_allowed"
+      },
+      "approval_policy": {
+        "submit": "allow",
+        "tool_write": "approver_required",
+        "external_send": "approver_required",
+        "budget_override": "approver_required",
+        "profile_change": "admin_required"
+      },
+      "audit_level": "full"
+    },
+    {
+      "profile_id": "upper_agent_control_readonly",
+      "display_name": "Upper agent control readonly",
+      "provider_id": "upper_agent_wrapper",
+      "provider_class": "upper_agent_wrapper",
+      "enabled": true,
+      "owner_role": "admin",
+      "allowed_job_templates": [
+        "profile_design_review",
+        "readiness_check"
+      ],
+      "allowed_capability_packs": [
+        "nestclaw_control_readonly"
+      ],
+      "execution_budget": {
+        "max_tool_calls": 8,
+        "max_retries": 0,
+        "max_elapsed_seconds": 300,
+        "max_provider_tokens": 4000,
+        "max_context_bytes": 32000,
+        "allow_network": false
+      },
+      "sensitivity_boundary": {
+        "allowed_sensitivity": [
+          "public",
+          "low",
+          "internal_metadata"
+        ],
+        "external_send_policy": "deny",
+        "redaction_required": true,
+        "data_residency": "nestclaw_only"
+      },
+      "approval_policy": {
+        "submit": "allow",
+        "tool_write": "blocked",
+        "external_send": "blocked",
+        "budget_override": "approver_required",
+        "profile_change": "admin_required"
+      },
+      "audit_level": "full"
+    },
+    {
+      "profile_id": "deterministic_fallback_default",
+      "display_name": "Deterministic fallback default",
+      "provider_id": "deterministic_fallback",
+      "provider_class": "deterministic_fallback",
+      "enabled": true,
+      "owner_role": "admin",
+      "allowed_job_templates": [
+        "readiness_check"
+      ],
+      "allowed_capability_packs": [
+        "core_status_readonly"
+      ],
+      "execution_budget": {
+        "max_tool_calls": 4,
+        "max_retries": 0,
+        "max_elapsed_seconds": 120,
+        "max_provider_tokens": 0,
+        "max_context_bytes": 0,
+        "allow_network": false
+      },
+      "sensitivity_boundary": {
+        "allowed_sensitivity": [
+          "public",
+          "low",
+          "internal",
+          "sensitive_internal"
+        ],
+        "external_send_policy": "deny",
+        "redaction_required": false,
+        "data_residency": "local_only"
+      },
+      "approval_policy": {
+        "submit": "allow",
+        "tool_write": "blocked",
+        "external_send": "blocked",
+        "budget_override": "blocked",
+        "profile_change": "admin_required"
+      },
+      "audit_level": "full"
+    }
+  ]
+}

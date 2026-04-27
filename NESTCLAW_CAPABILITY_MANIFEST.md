@@ -5,18 +5,34 @@
 - 현재 canonical machine-readable surface는 `GET /api/v1/capabilities`와 MCP `catalog.manifest`다.
 
 ## 2. Product Posture
-- 제품 유형: orchestration backend + human approval/audit dashboard
-- 기본 사용자: 상위 대화형 에이전트, 운영 스크립트, approver/admin
+- 제품 유형: local-first LLM job control plane + human approval/audit dashboard
+- 기본 사용자: 로컬 LLM wrapper, 상위 대화형 에이전트, 운영 스크립트, approver/admin
 - 기본 진입점: `agent.submit/status/events`
 - 인간용 GUI 역할: 작업 생성 UI보다 상태/승인/감사 dashboard
 - 별도 human interactive TUI: 비목표
 - agent-facing non-interactive CLI: 핵심 표면
+- cloud/API LLM: 조직 정책과 sensitivity routing 안에서 선택 가능한 provider
 
 ## 3. Workflow Families
 | Family | 현재 상태 | 설명 |
 | --- | --- | --- |
 | `task` | `LLM planner baseline` | 자연어 요청을 받아 summary/ticket/slack 범위의 planner 루프를 수행 |
 | `incident` | `AI planner + deterministic fallback` | incident context를 바탕으로 provider-backed planning을 시도하고, 실패 시 deterministic fallback으로 approval/execution/report 흐름을 유지 |
+
+## 3.1 Stage 12 Candidate Concepts
+| Concept | 목표 |
+| --- | --- |
+| `agent_profile` | 로컬 LLM 또는 cloud/API provider가 사용할 수 있는 job/capability/budget/sensitivity boundary 정의 |
+| `job_template` | 반복 가능한 작업의 입력, capability, provider policy, output evidence 정의 |
+| `capability_pack` | curated tool bundle을 job/profile에 연결 |
+| `execution_budget` | max tool calls, retries, runtime, token/context 사용량 제한 |
+| `schedule_trigger` | cron/launchd/CI/external scheduler가 호출할 수 있는 비대화형 실행 계약 |
+
+Stage 12 roadmap:
+- `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
+- `configs/agent_profiles.json`
+- `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
+- `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
 
 ## 4. Delivery Surfaces
 | Surface | 현재 상태 | 주 용도 |
@@ -53,6 +69,12 @@
 
 비고:
 - 위 live capability는 외부 env가 비어 있으면 `BLOCKED`다.
+
+### 5.4 Provider Posture
+- 현재 model registry는 local provider와 cloud/API provider를 모두 표현한다.
+- local provider는 sensitive/internal 작업의 기본 경로다.
+- cloud/API provider는 low sensitivity 또는 general reasoning 작업에서 정책적으로 허용될 수 있다.
+- provider invocation provenance는 status/event/report 계층에 남겨야 한다.
 
 ## 6. Control Surface by Role
 | Capability | requester | reviewer | approver | admin |
@@ -96,6 +118,8 @@
 - incident AI planner는 현재 ticket/slack 범위의 제한된 tool set에서만 동작한다.
 - RAG/live provider는 readiness env에 의존한다.
 - GUI는 operator-first 방향이지만 아직 일부 governance 기능이 같은 화면에 섞여 있다.
+- agent profile, job template, capability pack은 아직 canonical runtime schema로 구현되지 않았다.
+- schedule trigger는 현재 core scheduler가 아니라 external scheduler가 HTTP/CLI/MCP를 호출하는 방식으로만 열려 있다.
 
 ## 10. Integration Guidance
 상위 에이전트는 이 manifest를 이렇게 사용한다.

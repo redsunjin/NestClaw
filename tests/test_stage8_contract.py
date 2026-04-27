@@ -129,7 +129,7 @@ class TestStage8Contract(unittest.TestCase):
 
     def test_dev_qa_cycle_supports_stage8(self) -> None:
         source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
-        self.assertIn("target-stage: 1..11", source)
+        self.assertIn("target-stage: 1..12", source)
         self.assertIn("check_stage_8", source)
         self.assertIn("check_stage_9", source)
         self.assertIn("check_stage_10", source)
@@ -159,8 +159,8 @@ class TestStage8Contract(unittest.TestCase):
 
     def test_auto_cycle_supports_stage8(self) -> None:
         source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
-        self.assertIn("target-stage:1..11", source)
-        self.assertIn("target-stage must be 1..11", source)
+        self.assertIn("target-stage:1..12", source)
+        self.assertIn("target-stage must be 1..12", source)
 
     def test_micro_cycle_supports_stage8_gate_flow(self) -> None:
         source = Path("scripts/run_micro_cycle.sh").read_text(encoding="utf-8")

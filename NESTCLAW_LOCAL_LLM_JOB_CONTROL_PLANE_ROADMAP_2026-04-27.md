@@ -1,0 +1,139 @@
+# NestClaw Local LLM Job Control Plane Roadmap
+
+## Roadmap Purpose
+- NestClaw의 다음 제품 버전을 `local-first LLM job control plane`으로 구체화한다.
+- 기존 `closed orchestration runtime + operator dashboard` 방향은 유지한다.
+- 새 목표는 로컬 LLM이 승인된 job template과 capability pack 안에서 반복 작업을 안전하게 실행하도록 관리하는 것이다.
+- cloud/API LLM은 local-first 원칙을 깨지 않는 선택 provider로 유지한다.
+
+## Versioning Decision
+- 기존 제품 문서를 폐기하지 않는다.
+- `NESTCLAW_PRODUCT_POSITIONING.md`는 canonical definition을 v2 방향으로 갱신한다.
+- 새 축은 `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE.md`와 이 roadmap 문서에 분리해서 관리한다.
+- 실제 개발 단위는 `stage12-priority-campaign`으로 연동한다.
+
+## Product Thesis
+로컬 LLM은 범용 에이전트처럼 모든 도구와 컨텍스트를 직접 다루기 어렵다. NestClaw는 로컬 LLM에게 무제한 자율성을 주는 대신, 사람이 승인한 job, capability, budget, provider policy 안에서 일을 실행하게 만드는 관리 계층이 된다.
+
+## Roadmap Principles
+- Local-first: 내부 데이터와 반복 작업은 로컬 provider를 기본 경로로 둔다.
+- Provider-optional: cloud/API provider는 sensitivity와 policy routing이 허용할 때만 쓴다.
+- Job-oriented: agent persona가 아니라 반복 가능한 job template을 중심 단위로 둔다.
+- Capability-scoped: LLM은 job에 연결된 capability pack만 쓴다.
+- Evidence-first: 모든 실행은 status, events, report, audit, handoff packet으로 남긴다.
+- Dashboard-as-operator: GUI는 관리/승인/감사/상태 확인용이며 main chat app이 아니다.
+
+## Stage 12 Milestones
+### M1. Agent Profile Baseline
+- 목표: 로컬 LLM, 상위 agent, cloud/API provider를 같은 profile vocabulary로 표현한다.
+- 산출물:
+  - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
+  - sample profile registry 또는 schema draft
+  - contract test
+- 핵심 필드:
+  - `profile_id`
+  - `provider_id`
+  - `provider_class`
+  - `allowed_job_templates`
+  - `allowed_capability_packs`
+  - `execution_budget`
+  - `sensitivity_boundary`
+  - `approval_policy`
+  - `audit_level`
+- 완료 기준:
+  - local provider와 cloud/API provider가 같은 schema로 표현된다.
+  - sensitive/internal 작업은 local-first로 라우팅된다는 정책이 명시된다.
+
+### M2. Job Template Baseline
+- 목표: 반복 가능한 업무를 template으로 정의한다.
+- 산출물:
+  - `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-27.md`
+  - 최소 sample job 3개
+  - template validation smoke
+- sample jobs:
+  - `daily_status_digest`
+  - `issue_triage`
+  - `readiness_check`
+- 완료 기준:
+  - job template이 input schema, capability pack, provider policy, schedule trigger, output evidence를 포함한다.
+  - 기존 `agent.submit/status/events/report`와 연결되는 실행 경로가 설명된다.
+
+### M3. Capability Pack Binding
+- 목표: curated tool registry를 job/profile에 연결한다.
+- 산출물:
+  - `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-27.md`
+  - sample capability pack registry 또는 schema draft
+  - approval requirements mapping
+- 완료 기준:
+  - pack이 allowed tools, denied tools, approval requirements, data boundary를 표현한다.
+  - marketplace가 아니라 curated pack이라는 guardrail이 유지된다.
+
+### M4. Execution Budget and Schedule Trigger
+- 목표: 로컬 LLM의 context/tool overuse를 제한하고 외부 scheduler 호출 계약을 고정한다.
+- 산출물:
+  - budget fields in profile/job spec
+  - `newclaw job run` 또는 equivalent non-interactive invocation plan
+  - cron/launchd/CI 호출 예시
+- 완료 기준:
+  - max tool calls, max retries, max elapsed seconds, max provider tokens가 실행 전 policy로 해석된다.
+  - schedule trigger는 core runtime을 우회하지 않고 `agent.submit` 또는 job run wrapper를 호출한다.
+
+### M5. Local LLM Job Invocation PoC
+- 목표: 로컬 LLM provider가 제한된 job 하나를 실행하고 evidence를 남기는 end-to-end PoC를 만든다.
+- 산출물:
+  - one runnable job template
+  - one local agent profile
+  - one capability pack
+  - status/events/report/audit evidence
+- 완료 기준:
+  - local provider가 기본 경로로 선택된다.
+  - cloud/API provider는 low sensitivity 또는 explicit policy에서만 선택된다.
+  - job 실행이 bundle/handoff에서 확인 가능하다.
+
+## Stage 12 Priority Campaign
+| Group | Item | Unit | Outcome |
+| --- | --- | --- | --- |
+| G1 | Agent Profile Spec | `stage12-w1-001` | local/cloud provider profile vocabulary |
+| G2 | Job Template Spec | `stage12-w1-002` | repeatable job schema and samples |
+| G3 | Capability Pack Binding | `stage12-w1-003` | curated pack to job/profile mapping |
+| G4 | Local Job Invocation PoC | `stage12-w1-004` | constrained local LLM job execution evidence |
+
+## Implementation Order
+1. Spec first: agent profile, job template, capability pack.
+2. Registry second: machine-readable sample configs.
+3. Runtime third: validation and invocation surfaces.
+4. Dashboard later: only after runtime payloads are stable.
+
+## UI/UX Position
+- No large UI rewrite is required for Stage 12.
+- Existing console can absorb new data as lists/details:
+  - agent profiles
+  - job templates
+  - capability packs
+  - scheduled runs
+  - execution budgets
+  - run history
+- Quickstart may receive copy updates later, but should not become a main chat app.
+
+## Cloud/API Provider Policy
+- Cloud/API provider support remains open.
+- Use cases:
+  - low sensitivity summarization
+  - template/spec review
+  - high-quality reasoning over non-sensitive metadata
+- Restrictions:
+  - no automatic sensitive payload transfer
+  - provenance required
+  - external send still requires approval when policy says so
+
+## Risks
+- If the product is described as agent management, it may drift toward an agent hub.
+- If cloud/API provider routing is too easy, local-first positioning becomes cosmetic.
+- If job templates are too flexible, they recreate general-purpose agent complexity.
+- If UI comes first, the runtime contract may stay vague.
+
+## Near-Term Definition of Done
+- Stage 12 campaign exists and has an active first MWU.
+- Agent Profile spec is completed as `stage12-w1-001`.
+- Roadmap is linked from README and capability manifest.
+- Existing Stage 9-11 tests still pass.

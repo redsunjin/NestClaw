@@ -2,13 +2,14 @@
 set -euo pipefail
 
 TARGET_STAGE="${1:-4}"
-if ! [[ "$TARGET_STAGE" =~ ^11$|^10$|^[1-9]$ ]]; then
-  echo "Usage: $0 <target-stage: 1..11>"
+if ! [[ "$TARGET_STAGE" =~ ^12$|^11$|^10$|^[1-9]$ ]]; then
+  echo "Usage: $0 <target-stage: 1..12>"
   exit 2
 fi
 
 STRICT_GATE="${NEWCLAW_STRICT_GATE:-0}"
 SKIP_STAGE8_SELF_EVAL="${NEWCLAW_SKIP_STAGE8_SELF_EVAL:-0}"
+CHECK_TIMEOUT_SECONDS="${NEWCLAW_CYCLE_CHECK_TIMEOUT_SECONDS:-180}"
 is_truthy() {
   local value
   value="$(printf "%s" "$1" | tr '[:upper:]' '[:lower:]')"
@@ -56,18 +57,31 @@ skip() {
 run_check() {
   local name="$1"
   shift
-  if "$@" >/tmp/cycle_check.out 2>/tmp/cycle_check.err; then
+  if run_check_command "$@"; then
     pass "$name"
   else
+    local rc=$?
     fail "$name"
-    echo "  - stderr: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+    if [[ "$rc" -eq 124 ]]; then
+      echo "  - stderr: check timed out after ${CHECK_TIMEOUT_SECONDS}s" | tee -a "$REPORT_FILE"
+    else
+      echo "  - stderr: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+    fi
   fi
+}
+
+run_check_command() {
+  python3 scripts/run_with_timeout.py \
+    --timeout-seconds "${CHECK_TIMEOUT_SECONDS}" \
+    --stdout /tmp/cycle_check.out \
+    --stderr /tmp/cycle_check.err \
+    -- "$@"
 }
 
 run_optional_check() {
   local name="$1"
   shift
-  if "$@" >/tmp/cycle_check.out 2>/tmp/cycle_check.err; then
+  if run_check_command "$@"; then
     if rg -q "skipped=[1-9]" /tmp/cycle_check.out || rg -q "skipped=[1-9]" /tmp/cycle_check.err; then
       if is_truthy "${STRICT_GATE}"; then
         fail "$name"
@@ -80,12 +94,21 @@ run_optional_check() {
       pass "$name"
     fi
   else
+    local rc=$?
     if is_truthy "${STRICT_GATE}"; then
       fail "$name"
-      echo "  - stderr: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+      if [[ "$rc" -eq 124 ]]; then
+        echo "  - stderr: strict gate enabled and optional check timed out after ${CHECK_TIMEOUT_SECONDS}s" | tee -a "$REPORT_FILE"
+      else
+        echo "  - stderr: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+      fi
     else
       skip "$name"
-      echo "  - reason: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+      if [[ "$rc" -eq 124 ]]; then
+        echo "  - reason: optional check timed out after ${CHECK_TIMEOUT_SECONDS}s" | tee -a "$REPORT_FILE"
+      else
+        echo "  - reason: $(tr '\n' ' ' </tmp/cycle_check.err)" | tee -a "$REPORT_FILE"
+      fi
     fi
   fi
 }
@@ -93,7 +116,7 @@ run_optional_check() {
 run_optional_dep_check() {
   local name="$1"
   shift
-  if "$@" >/tmp/cycle_check.out 2>/tmp/cycle_check.err; then
+  if run_check_command "$@"; then
     pass "$name"
   else
     local rc=$?
@@ -109,6 +132,14 @@ run_optional_dep_check() {
       else
         skip "$name"
         echo "  - reason: ${reason}" | tee -a "$REPORT_FILE"
+      fi
+    elif [[ "$rc" -eq 124 ]]; then
+      if is_truthy "${STRICT_GATE}"; then
+        fail "$name"
+        echo "  - stderr: strict gate enabled and dependency-gated check timed out after ${CHECK_TIMEOUT_SECONDS}s" | tee -a "$REPORT_FILE"
+      else
+        skip "$name"
+        echo "  - reason: dependency-gated check timed out after ${CHECK_TIMEOUT_SECONDS}s" | tee -a "$REPORT_FILE"
       fi
     else
       fail "$name"
@@ -223,6 +254,10 @@ check_stage_11() {
   run_check "stage11 env handoff validator smoke tests" python3 -m unittest tests.test_stage11_env_handoff_smoke
   run_check "stage11 deployment bootstrap profile smoke tests" python3 -m unittest tests.test_stage11_deployment_bootstrap_smoke
   run_check "stage11 pilot acceptance cycle smoke tests" python3 -m unittest tests.test_stage11_pilot_acceptance_smoke
+}
+
+check_stage_12() {
+  run_check "stage12 static contract tests" python3 -m unittest tests.test_stage12_contract
 }
 
 write_header

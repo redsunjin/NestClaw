@@ -1,0 +1,39 @@
+{
+  "campaign_id": "stage12-priority-campaign",
+  "goal": "Turn NestClaw into a local-first LLM job control plane while preserving cloud/API provider optionality",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-agent-profile-spec",
+      "group": "G1",
+      "title": "Define Agent Profile spec",
+      "unit_id": "stage12-w1-001",
+      "goal": "Define local/cloud provider agent profiles with allowed jobs, capability packs, execution budgets, sensitivity boundaries, and approval policy",
+      "status": "completed"
+    },
+    {
+      "item_id": "g2-job-template-spec",
+      "group": "G2",
+      "title": "Define Job Template spec",
+      "unit_id": "stage12-w1-002",
+      "goal": "Define repeatable job templates with input schema, capability pack binding, provider policy, schedule trigger, and output evidence",
+      "status": "pending"
+    },
+    {
+      "item_id": "g3-capability-pack-binding",
+      "group": "G3",
+      "title": "Bind capability packs to jobs and profiles",
+      "unit_id": "stage12-w1-003",
+      "goal": "Define curated capability packs and connect them to allowed tools, approval requirements, job templates, and agent profiles",
+      "status": "pending"
+    },
+    {
+      "item_id": "g4-local-job-invocation-poc",
+      "group": "G4",
+      "title": "Run local LLM job invocation PoC",
+      "unit_id": "stage12-w1-004",
+      "goal": "Run one constrained local LLM job through existing CLI/MCP/HTTP surfaces and capture status, events, report, and audit evidence",
+      "status": "pending"
+    }
+  ]
+}

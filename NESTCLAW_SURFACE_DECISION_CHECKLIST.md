@@ -23,6 +23,8 @@
 ## 5. Product Fit
 - 이 표면이 NestClaw를 `control plane`으로 강화하는가?
 - 아니면 `chat app`, `marketplace`, `agent hub`처럼 보이게 만드는가?
+- 로컬 LLM이 승인된 job/capability 안에서 안전하게 실행되는 구조를 강화하는가?
+- cloud/API LLM 사용이 policy routing과 sensitivity boundary 안에 남는가?
 
 ## 6. UI / UX Fit
 - 인간용 표면이면 operator dashboard 역할을 강화하는가?
@@ -34,6 +36,7 @@
 - 기존 contract 재사용
 - approval/audit 유지
 - control plane 정체성 강화
+- local-first job execution 또는 provider-governed optional cloud/API execution 강화
 
 ### Review More
 - 새 chat panel

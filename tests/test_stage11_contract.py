@@ -38,14 +38,14 @@ class TestStage11Contract(unittest.TestCase):
     def test_cycle_scripts_support_stage11(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
-        self.assertIn("target-stage: 1..11", cycle_source)
+        self.assertIn("target-stage: 1..12", cycle_source)
         self.assertIn("check_stage_11", cycle_source)
         self.assertIn("tests.test_stage11_contract", cycle_source)
         self.assertIn("tests.test_stage11_env_handoff_smoke", cycle_source)
         self.assertIn("tests.test_stage11_deployment_bootstrap_smoke", cycle_source)
         self.assertIn("tests.test_stage11_pilot_acceptance_smoke", cycle_source)
-        self.assertIn("target-stage:1..11", auto_source)
-        self.assertIn("target-stage must be 1..11", auto_source)
+        self.assertIn("target-stage:1..12", auto_source)
+        self.assertIn("target-stage must be 1..12", auto_source)
 
     def test_stage11_first_micro_unit_is_initialized(self) -> None:
         work_unit = Path("work/micro_units/stage11-w1-001/WORK_UNIT.md").read_text(encoding="utf-8")

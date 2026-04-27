@@ -9,9 +9,11 @@
 
 ## 1) 프로젝트 목적
 ### 1.1 핵심 목적
-- 로컬 환경에서 안전하게 동작하는 **정책·승인·감사를 갖춘 조직용 orchestration runtime/control plane**을 구현한다.
+- 로컬 환경에서 안전하게 동작하는 **정책·승인·감사를 갖춘 local-first LLM job control plane**을 구현한다.
+- 조직 배치에서는 이를 **조직용 orchestration runtime/control plane**으로 사용한다.
 - NestClaw는 하나의 요청을 받아 다양한 도구를 계획적으로 사용하고, 필요한 승인과 감사로그를 남기면서 실제 업무 처리까지 이어지는 것을 목표로 한다.
-- 사용자는 목표를 주고, NestClaw는 계획/도구선택/실행/검토/보고를 수행하며, 상위 대화형 에이전트나 스크립트는 같은 runtime을 호출한다.
+- 사용자는 목표 또는 정해진 job template을 주고, NestClaw는 계획/도구선택/실행/검토/보고를 수행하며, 로컬 LLM, 상위 대화형 에이전트, 운영 스크립트는 같은 runtime을 호출한다.
+- 로컬 LLM은 기본 실행 경로로 두되, 외부 cloud/API LLM은 조직 정책과 sensitivity routing이 허용하는 경우 선택 가능한 provider로 유지한다.
 - heuristic/template 경로는 주 경로가 아니라 운영 연속성을 위한 `degraded mode`로만 유지한다.
 
 ### 1.2 운영 원칙
@@ -25,6 +27,8 @@
 - 사적 영역 기본 접근(개인 파일/메신저/사진 등)
 - 정책 우회 자동 실행
 - 설명 불가능한 블랙박스 실행
+- 무제한 로컬 에이전트 런처
+- 공개형 agent/plugin marketplace
 
 ## 2) 전문가 그룹 검토 요약
 기준 문서: `AGENT_EXPERT_GROUP.md`  
@@ -136,6 +140,11 @@
 - Agent tool surface 방향: `AGENT_TOOL_SURFACE_DIRECTION_2026-03-12.md`
 - Agent 통합 명세: `NESTCLAW_AGENT_INTEGRATION_SPEC.md`
 - Capability manifest: `NESTCLAW_CAPABILITY_MANIFEST.md`
+- Local LLM job control plane: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE.md`
+- Local LLM job control plane roadmap: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
+- Agent Profile baseline spec: `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
+- Agent Profile sample registry: `configs/agent_profiles.json`
+- Stage 12 work groups: `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
 - Operator dashboard 원칙: `NESTCLAW_OPERATOR_DASHBOARD_PRINCIPLES.md`
 - 제품 포지셔닝: `NESTCLAW_PRODUCT_POSITIONING.md`
 - 거버넌스 가드레일: `NESTCLAW_GOVERNANCE_GUARDRAILS.md`

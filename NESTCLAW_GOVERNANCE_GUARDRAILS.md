@@ -1,14 +1,16 @@
 # NestClaw Governance Guardrails
 
 ## 1. Purpose
-- 이 문서는 NestClaw가 `조직용 orchestration control plane`이라는 제품 정체성을 벗어나지 않도록 확장 허용선과 금지선을 고정한다.
+- 이 문서는 NestClaw가 `local-first LLM job control plane`과 `조직용 orchestration control plane`이라는 제품 정체성을 벗어나지 않도록 확장 허용선과 금지선을 고정한다.
 
 ## 2. Must Preserve
 - 상위 agent가 호출하는 backend 계층 구조
+- 로컬 LLM이 승인된 job/capability 안에서 실행되는 구조
 - 인간 승인과 감사 이력
 - role-based control policy
 - curated capability registry
 - deterministic blocked / approval / report contract
+- provider routing에서 local-first와 cloud/API optionality의 구분
 
 ## 3. Explicitly Disallowed
 - 별도 human interactive TUI를 새 primary surface로 키우는 것
@@ -16,6 +18,8 @@
 - tool catalog를 marketplace처럼 무제한 확장하는 것
 - requester 권한으로 고위험 admin/approval action을 노출하는 것
 - `DONE` 이전에 결과를 추정해 완료처럼 응답하는 UX
+- 로컬 LLM에게 unrestricted filesystem/tool access를 주는 것
+- cloud/API LLM으로 민감 데이터를 자동 전송하는 것
 
 ## 4. High-Risk Surfaces
 - `approve`
@@ -39,6 +43,13 @@
 - catalog는 curated registry다.
 - draft -> validate -> apply -> rollback 흐름을 유지한다.
 - 공개 plugin 생태계, self-serve marketplace, 무제한 agent pack 노출은 비목표다.
+- capability pack은 job/profile에 연결된 curated bundle이어야 한다.
+
+## 6.1 Provider Rule
+- local LLM은 sensitive/internal 작업의 기본 경로다.
+- cloud/API LLM은 policy routing, sensitivity classification, approval/audit 조건 안에서 선택 가능하다.
+- provider 선택은 status/events/report 또는 execution bundle에 provenance로 남아야 한다.
+- 민감 데이터가 cloud/API provider로 나가는 경우에는 명시 정책이나 approval 조건이 있어야 한다.
 
 ## 7. Surface Rule
 - 새 표면은 기존 runtime contract를 재사용해야 한다.
