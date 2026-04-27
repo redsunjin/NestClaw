@@ -62,8 +62,8 @@
 ### M3. Capability Pack Binding
 - 목표: curated tool registry를 job/profile에 연결한다.
 - 산출물:
-  - `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-27.md`
-  - sample capability pack registry 또는 schema draft
+  - `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
+  - `configs/capability_packs.json`
   - approval requirements mapping
 - 완료 기준:
   - pack이 allowed tools, denied tools, approval requirements, data boundary를 표현한다.
@@ -134,8 +134,9 @@
 - If UI comes first, the runtime contract may stay vague.
 
 ## Near-Term Definition of Done
-- Stage 12 campaign exists and first two MWUs are completed.
+- Stage 12 campaign exists and first three MWUs are completed.
 - Agent Profile spec is completed as `stage12-w1-001`.
 - Job Template spec is completed as `stage12-w1-002`.
+- Capability Pack spec is completed as `stage12-w1-003`.
 - Roadmap is linked from README and capability manifest.
 - Existing Stage 9-11 tests still pass.

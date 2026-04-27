@@ -50,6 +50,9 @@
 - 전문가/상위 agent가 설계하고 검토한 tool 묶음이다.
 - 공개 marketplace가 아니라 curated registry다.
 - pack은 job template과 agent profile에 연결된다.
+- Stage 12 baseline spec:
+  - `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
+  - `configs/capability_packs.json`
 
 ### Schedule Trigger
 - cron, launchd, CI, external scheduler가 NestClaw job을 비대화형으로 호출하는 진입점이다.
@@ -95,6 +98,7 @@
 Detailed roadmap:
 - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
 - `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-28.md`
+- `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
 - `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
 - `work/priority_campaigns/stage12-priority-campaign/campaign.json`

@@ -15,7 +15,10 @@
       ],
       "allowed_capability_packs": [
         "internal_digest_basic",
-        "readiness_probe_readonly"
+        "readiness_probe_readonly",
+        "core_status_readonly",
+        "issue_triage_readonly",
+        "ticket_draft_ops"
       ],
       "execution_budget": {
         "max_tool_calls": 12,
@@ -56,7 +59,9 @@
         "low_sensitivity_summary"
       ],
       "allowed_capability_packs": [
-        "doc_review_readonly"
+        "doc_review_readonly",
+        "issue_triage_readonly",
+        "ticket_draft_ops"
       ],
       "execution_budget": {
         "max_tool_calls": 6,
@@ -97,7 +102,9 @@
         "readiness_check"
       ],
       "allowed_capability_packs": [
-        "nestclaw_control_readonly"
+        "nestclaw_control_readonly",
+        "readiness_probe_readonly",
+        "core_status_readonly"
       ],
       "execution_budget": {
         "max_tool_calls": 8,
@@ -137,7 +144,8 @@
         "readiness_check"
       ],
       "allowed_capability_packs": [
-        "core_status_readonly"
+        "core_status_readonly",
+        "readiness_probe_readonly"
       ],
       "execution_budget": {
         "max_tool_calls": 4,

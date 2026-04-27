@@ -1,0 +1,398 @@
+{
+  "version": 1,
+  "packs": [
+    {
+      "pack_id": "internal_digest_basic",
+      "display_name": "Internal digest basic",
+      "description": "Generate internal summaries from structured status inputs without external send.",
+      "enabled": true,
+      "pack_type": "tool_allowlist",
+      "risk_level": "low",
+      "allowed_tool_ids": [
+        "internal.summary.generate"
+      ],
+      "denied_tool_ids": [
+        "redmine.issue.create",
+        "slack.message.send"
+      ],
+      "runtime_read_surfaces": [
+        "agent.status",
+        "agent.events",
+        "agent.report"
+      ],
+      "approval_requirements": {
+        "tool_read": "allow",
+        "tool_write": "blocked",
+        "external_send": "blocked",
+        "dry_run_required": false,
+        "pack_change": "admin_required"
+      },
+      "data_boundary": {
+        "allowed_sensitivity": [
+          "internal",
+          "sensitive_internal"
+        ],
+        "external_systems": [
+          "internal"
+        ],
+        "external_send_policy": "deny",
+        "redaction_required": false,
+        "data_residency": "local_only"
+      },
+      "allowed_profile_ids": [
+        "local_ops_default"
+      ],
+      "allowed_template_ids": [
+        "daily_status_digest"
+      ],
+      "audit_fields": [
+        "task_id",
+        "template_id",
+        "profile_id",
+        "pack_id",
+        "allowed_tool_ids",
+        "report_path"
+      ]
+    },
+    {
+      "pack_id": "readiness_probe_readonly",
+      "display_name": "Readiness probe readonly",
+      "description": "Read readiness evidence and summarize pass, skip, blocked, and next-action state.",
+      "enabled": true,
+      "pack_type": "runtime_readonly",
+      "risk_level": "low",
+      "allowed_tool_ids": [
+        "internal.summary.generate"
+      ],
+      "denied_tool_ids": [
+        "redmine.issue.create",
+        "slack.message.send"
+      ],
+      "runtime_read_surfaces": [
+        "agent.status",
+        "agent.events",
+        "agent.report",
+        "agent.bundle",
+        "agent.handoff"
+      ],
+      "approval_requirements": {
+        "tool_read": "allow",
+        "tool_write": "blocked",
+        "external_send": "blocked",
+        "dry_run_required": false,
+        "pack_change": "admin_required"
+      },
+      "data_boundary": {
+        "allowed_sensitivity": [
+          "internal",
+          "sensitive_internal"
+        ],
+        "external_systems": [
+          "internal"
+        ],
+        "external_send_policy": "deny",
+        "redaction_required": false,
+        "data_residency": "local_only"
+      },
+      "allowed_profile_ids": [
+        "local_ops_default",
+        "upper_agent_control_readonly",
+        "deterministic_fallback_default"
+      ],
+      "allowed_template_ids": [
+        "readiness_check"
+      ],
+      "audit_fields": [
+        "task_id",
+        "template_id",
+        "profile_id",
+        "pack_id",
+        "runtime_read_surfaces",
+        "report_path"
+      ]
+    },
+    {
+      "pack_id": "doc_review_readonly",
+      "display_name": "Document review readonly",
+      "description": "Review low-sensitivity or redacted documents with no external tool writes.",
+      "enabled": true,
+      "pack_type": "tool_allowlist",
+      "risk_level": "low",
+      "allowed_tool_ids": [
+        "internal.summary.generate"
+      ],
+      "denied_tool_ids": [
+        "redmine.issue.create",
+        "slack.message.send"
+      ],
+      "runtime_read_surfaces": [
+        "agent.status",
+        "agent.events",
+        "agent.report"
+      ],
+      "approval_requirements": {
+        "tool_read": "allow",
+        "tool_write": "blocked",
+        "external_send": "approver_required",
+        "dry_run_required": false,
+        "pack_change": "admin_required"
+      },
+      "data_boundary": {
+        "allowed_sensitivity": [
+          "public",
+          "low",
+          "redacted_metadata"
+        ],
+        "external_systems": [
+          "internal"
+        ],
+        "external_send_policy": "approval_required",
+        "redaction_required": true,
+        "data_residency": "external_provider_allowed"
+      },
+      "allowed_profile_ids": [
+        "cloud_review_optional"
+      ],
+      "allowed_template_ids": [
+        "issue_triage"
+      ],
+      "audit_fields": [
+        "task_id",
+        "template_id",
+        "profile_id",
+        "pack_id",
+        "provider_id",
+        "approval_queue_id",
+        "report_path"
+      ]
+    },
+    {
+      "pack_id": "nestclaw_control_readonly",
+      "display_name": "NestClaw control readonly",
+      "description": "Allow upper agents to inspect NestClaw status and handoff evidence without tool writes.",
+      "enabled": true,
+      "pack_type": "runtime_readonly",
+      "risk_level": "low",
+      "allowed_tool_ids": [],
+      "denied_tool_ids": [
+        "redmine.issue.create",
+        "slack.message.send"
+      ],
+      "runtime_read_surfaces": [
+        "catalog.manifest",
+        "agent.status",
+        "agent.events",
+        "agent.report",
+        "agent.bundle",
+        "agent.handoff"
+      ],
+      "approval_requirements": {
+        "tool_read": "allow",
+        "tool_write": "blocked",
+        "external_send": "blocked",
+        "dry_run_required": false,
+        "pack_change": "admin_required"
+      },
+      "data_boundary": {
+        "allowed_sensitivity": [
+          "public",
+          "low",
+          "internal_metadata"
+        ],
+        "external_systems": [
+          "internal"
+        ],
+        "external_send_policy": "deny",
+        "redaction_required": true,
+        "data_residency": "nestclaw_only"
+      },
+      "allowed_profile_ids": [
+        "upper_agent_control_readonly"
+      ],
+      "allowed_template_ids": [
+        "readiness_check"
+      ],
+      "audit_fields": [
+        "task_id",
+        "template_id",
+        "profile_id",
+        "pack_id",
+        "runtime_read_surfaces",
+        "report_path"
+      ]
+    },
+    {
+      "pack_id": "core_status_readonly",
+      "display_name": "Core status readonly",
+      "description": "Read core run status, event, and report evidence with no LLM or external tool requirement.",
+      "enabled": true,
+      "pack_type": "runtime_readonly",
+      "risk_level": "low",
+      "allowed_tool_ids": [],
+      "denied_tool_ids": [
+        "redmine.issue.create",
+        "slack.message.send"
+      ],
+      "runtime_read_surfaces": [
+        "agent.status",
+        "agent.events",
+        "agent.report"
+      ],
+      "approval_requirements": {
+        "tool_read": "allow",
+        "tool_write": "blocked",
+        "external_send": "blocked",
+        "dry_run_required": false,
+        "pack_change": "admin_required"
+      },
+      "data_boundary": {
+        "allowed_sensitivity": [
+          "public",
+          "low",
+          "internal",
+          "sensitive_internal"
+        ],
+        "external_systems": [
+          "internal"
+        ],
+        "external_send_policy": "deny",
+        "redaction_required": false,
+        "data_residency": "local_only"
+      },
+      "allowed_profile_ids": [
+        "local_ops_default",
+        "upper_agent_control_readonly",
+        "deterministic_fallback_default"
+      ],
+      "allowed_template_ids": [
+        "readiness_check"
+      ],
+      "audit_fields": [
+        "task_id",
+        "template_id",
+        "profile_id",
+        "pack_id",
+        "runtime_read_surfaces",
+        "report_path"
+      ]
+    },
+    {
+      "pack_id": "issue_triage_readonly",
+      "display_name": "Issue triage readonly",
+      "description": "Classify issue metadata and propose triage recommendations without external writes.",
+      "enabled": true,
+      "pack_type": "tool_allowlist",
+      "risk_level": "medium",
+      "allowed_tool_ids": [
+        "internal.summary.generate"
+      ],
+      "denied_tool_ids": [
+        "redmine.issue.create",
+        "redmine.issue.update",
+        "slack.message.send"
+      ],
+      "runtime_read_surfaces": [
+        "agent.status",
+        "agent.events",
+        "agent.report"
+      ],
+      "approval_requirements": {
+        "tool_read": "allow",
+        "tool_write": "blocked",
+        "external_send": "approval_required",
+        "dry_run_required": false,
+        "pack_change": "admin_required"
+      },
+      "data_boundary": {
+        "allowed_sensitivity": [
+          "public",
+          "low",
+          "internal",
+          "redacted_metadata"
+        ],
+        "external_systems": [
+          "internal"
+        ],
+        "external_send_policy": "approval_required",
+        "redaction_required": true,
+        "data_residency": "policy_routed"
+      },
+      "allowed_profile_ids": [
+        "local_ops_default",
+        "cloud_review_optional"
+      ],
+      "allowed_template_ids": [
+        "issue_triage"
+      ],
+      "audit_fields": [
+        "task_id",
+        "template_id",
+        "profile_id",
+        "pack_id",
+        "provider_id",
+        "approval_queue_id",
+        "report_path"
+      ]
+    },
+    {
+      "pack_id": "ticket_draft_ops",
+      "display_name": "Ticket draft ops",
+      "description": "Draft ticket create/update/comment actions under approval or dry-run policy.",
+      "enabled": true,
+      "pack_type": "draft_ops",
+      "risk_level": "medium",
+      "allowed_tool_ids": [
+        "redmine.issue.create",
+        "redmine.issue.update",
+        "redmine.issue.add_comment",
+        "redmine.issue.assign",
+        "redmine.issue.transition"
+      ],
+      "denied_tool_ids": [
+        "slack.message.send"
+      ],
+      "runtime_read_surfaces": [
+        "agent.status",
+        "agent.events",
+        "agent.report"
+      ],
+      "approval_requirements": {
+        "tool_read": "allow",
+        "tool_write": "approver_required",
+        "external_send": "approver_required",
+        "dry_run_required": true,
+        "pack_change": "admin_required"
+      },
+      "data_boundary": {
+        "allowed_sensitivity": [
+          "public",
+          "low",
+          "internal",
+          "redacted_metadata"
+        ],
+        "external_systems": [
+          "redmine"
+        ],
+        "external_send_policy": "approver_required",
+        "redaction_required": true,
+        "data_residency": "external_system_allowed_after_approval"
+      },
+      "allowed_profile_ids": [
+        "local_ops_default",
+        "cloud_review_optional"
+      ],
+      "allowed_template_ids": [
+        "issue_triage"
+      ],
+      "audit_fields": [
+        "task_id",
+        "template_id",
+        "profile_id",
+        "pack_id",
+        "allowed_tool_ids",
+        "approval_queue_id",
+        "report_path"
+      ]
+    }
+  ]
+}

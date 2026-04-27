@@ -2,6 +2,8 @@ import json
 import unittest
 from pathlib import Path
 
+from app.tool_registry import load_tool_registry
+
 
 class TestStage12Contract(unittest.TestCase):
     def test_stage12_positioning_docs_exist(self) -> None:
@@ -130,6 +132,85 @@ class TestStage12Contract(unittest.TestCase):
         self.assertEqual(readiness["provider_policy"]["fallback_profile_id"], "deterministic_fallback_default")
         self.assertIn("deterministic_fallback", readiness["provider_policy"]["allowed_provider_classes"])
 
+    def test_capability_pack_spec_and_registry_bind_profiles_jobs_and_tools(self) -> None:
+        spec = Path("NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md").read_text(encoding="utf-8")
+        packs = json.loads(Path("configs/capability_packs.json").read_text(encoding="utf-8"))
+        profiles = json.loads(Path("configs/agent_profiles.json").read_text(encoding="utf-8"))
+        jobs = json.loads(Path("configs/job_templates.json").read_text(encoding="utf-8"))
+        tool_registry = load_tool_registry(overlay_path=None)
+
+        self.assertIn("Capability Pack is the Stage 12 allowlist boundary", spec)
+        self.assertIn("allowed_tool_ids", spec)
+        self.assertIn("denied_tool_ids", spec)
+        self.assertIn("approval_requirements", spec)
+        self.assertIn("data_boundary", spec)
+        self.assertEqual(packs["version"], 1)
+
+        profile_by_id = {profile["profile_id"]: profile for profile in profiles["profiles"]}
+        template_by_id = {template["template_id"]: template for template in jobs["templates"]}
+        pack_by_id = {pack["pack_id"]: pack for pack in packs["packs"]}
+        tool_ids = {tool.tool_id for tool in tool_registry.tools}
+
+        referenced_pack_ids = {
+            pack_id
+            for profile in profile_by_id.values()
+            for pack_id in profile["allowed_capability_packs"]
+        } | {
+            pack_id
+            for template in template_by_id.values()
+            for pack_id in template["required_capability_packs"]
+        }
+        self.assertTrue(referenced_pack_ids.issubset(pack_by_id))
+
+        required_fields = {
+            "pack_id",
+            "pack_type",
+            "risk_level",
+            "allowed_tool_ids",
+            "denied_tool_ids",
+            "runtime_read_surfaces",
+            "approval_requirements",
+            "data_boundary",
+            "allowed_profile_ids",
+            "allowed_template_ids",
+            "audit_fields",
+        }
+        for pack in packs["packs"]:
+            self.assertTrue(required_fields.issubset(pack))
+            self.assertIn(pack["pack_type"], {"tool_allowlist", "runtime_readonly", "draft_ops"})
+            self.assertIn(pack["risk_level"], {"low", "medium", "high", "critical"})
+            self.assertNotIn("*", pack["allowed_tool_ids"])
+            self.assertNotIn("*", pack["denied_tool_ids"])
+            self.assertTrue(set(pack["allowed_tool_ids"]).issubset(tool_ids))
+            self.assertTrue(set(pack["denied_tool_ids"]).issubset(tool_ids))
+            self.assertTrue(pack["runtime_read_surfaces"] or pack["allowed_tool_ids"])
+            self.assertIn("tool_write", pack["approval_requirements"])
+            self.assertIn("external_send", pack["approval_requirements"])
+            self.assertIn("external_send_policy", pack["data_boundary"])
+            self.assertIn("task_id", pack["audit_fields"])
+            self.assertIn("pack_id", pack["audit_fields"])
+            for profile_id in pack["allowed_profile_ids"]:
+                self.assertIn(profile_id, profile_by_id)
+                self.assertIn(pack["pack_id"], profile_by_id[profile_id]["allowed_capability_packs"])
+            for template_id in pack["allowed_template_ids"]:
+                self.assertIn(template_id, template_by_id)
+
+        for template in template_by_id.values():
+            for pack_id in template["required_capability_packs"]:
+                pack = pack_by_id[pack_id]
+                self.assertIn(template["template_id"], pack["allowed_template_ids"])
+                for profile_id in template["allowed_profile_ids"]:
+                    self.assertIn(pack_id, profile_by_id[profile_id]["allowed_capability_packs"])
+
+        ticket_pack = pack_by_id["ticket_draft_ops"]
+        self.assertEqual(ticket_pack["approval_requirements"]["tool_write"], "approver_required")
+        self.assertTrue(ticket_pack["approval_requirements"]["dry_run_required"])
+        self.assertIn("redmine.issue.create", ticket_pack["allowed_tool_ids"])
+
+        core_status = pack_by_id["core_status_readonly"]
+        self.assertEqual(core_status["allowed_tool_ids"], [])
+        self.assertIn("agent.status", core_status["runtime_read_surfaces"])
+
     def test_stage12_priority_campaign_exists(self) -> None:
         data = json.loads(
             Path("work/priority_campaigns/stage12-priority-campaign/campaign.json").read_text(
@@ -151,6 +232,8 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
         self.assertEqual(data["items"][1]["unit_id"], "stage12-w1-002")
         self.assertIn(data["items"][1]["status"], {"in_progress", "completed"})
+        self.assertEqual(data["items"][2]["unit_id"], "stage12-w1-003")
+        self.assertIn(data["items"][2]["status"], {"in_progress", "completed"})
 
     def test_cycle_scripts_support_stage12(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")

@@ -32,6 +32,9 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 
 ### G3. Capability Pack Binding
 - Goal: curated capability registry를 job/profile과 연결한다.
+- Current artifact:
+  - `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
+  - `configs/capability_packs.json`
 - Done when:
   - capability pack spec이 존재한다.
   - pack이 allowed tools와 approval requirements를 표현한다.
@@ -61,4 +64,5 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
-- Next focus: `G3 Capability Pack Binding`
+- Completed third unit: `stage12-w1-003`
+- Next focus: `G4 Local LLM Job Invocation PoC`

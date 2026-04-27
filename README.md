@@ -146,6 +146,8 @@
 - Agent Profile sample registry: `configs/agent_profiles.json`
 - Job Template baseline spec: `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-28.md`
 - Job Template sample registry: `configs/job_templates.json`
+- Capability Pack baseline spec: `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
+- Capability Pack sample registry: `configs/capability_packs.json`
 - Stage 12 work groups: `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
 - Operator dashboard 원칙: `NESTCLAW_OPERATOR_DASHBOARD_PRINCIPLES.md`
 - 제품 포지셔닝: `NESTCLAW_PRODUCT_POSITIONING.md`

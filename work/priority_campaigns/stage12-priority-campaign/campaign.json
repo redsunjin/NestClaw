@@ -25,7 +25,7 @@
       "title": "Bind capability packs to jobs and profiles",
       "unit_id": "stage12-w1-003",
       "goal": "Define curated capability packs and connect them to allowed tools, approval requirements, job templates, and agent profiles",
-      "status": "pending"
+      "status": "completed"
     },
     {
       "item_id": "g4-local-job-invocation-poc",
