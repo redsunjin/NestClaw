@@ -24,9 +24,13 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("newclaw job run", local_control)
         self.assertIn("Local Job Invocation PoC", poc)
         self.assertIn("daily_status_digest", poc)
+        self.assertIn("readiness_check", poc)
+        self.assertIn("newclaw job list", poc)
+        self.assertIn("newclaw job describe", poc)
         self.assertIn("agent.bundle", poc)
         self.assertIn("Stage 12 Priority Campaign", roadmap)
         self.assertIn("stage12-priority-campaign", work_groups)
+        self.assertIn("stage12-job-surface-campaign", work_groups)
 
     def test_agent_profile_spec_and_sample_registry_exist(self) -> None:
         spec = Path("NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md").read_text(encoding="utf-8")
@@ -242,6 +246,26 @@ class TestStage12Contract(unittest.TestCase):
         self.assertEqual(data["items"][3]["unit_id"], "stage12-w1-004")
         self.assertIn(data["items"][3]["status"], {"in_progress", "completed"})
 
+    def test_stage12_job_surface_campaign_exists(self) -> None:
+        data = json.loads(
+            Path("work/priority_campaigns/stage12-job-surface-campaign/campaign.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(data["campaign_id"], "stage12-job-surface-campaign")
+        self.assertEqual(data["target_stage"], 12)
+        self.assertEqual(
+            [item["item_id"] for item in data["items"]],
+            [
+                "g1-job-discovery-surface",
+                "g2-readiness-check-adapter",
+            ],
+        )
+        self.assertEqual(data["items"][0]["unit_id"], "stage12-w2-001")
+        self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+        self.assertEqual(data["items"][1]["unit_id"], "stage12-w2-002")
+        self.assertIn(data["items"][1]["status"], {"pending", "in_progress", "completed"})
+
     def test_cycle_scripts_support_stage12(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
@@ -254,8 +278,11 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("NEWCLAW_CYCLE_CHECK_TIMEOUT_SECONDS", cycle_source)
         self.assertIn("run_with_timeout.py", cycle_source)
         self.assertIn("run_check_command", cycle_source)
+        self.assertIn("app.cli job list", poc_script)
+        self.assertIn("app.cli job describe", poc_script)
         self.assertIn("app.cli job run", poc_script)
         self.assertIn("--template daily_status_digest", poc_script)
+        self.assertIn("--template readiness_check", poc_script)
         self.assertIn("--include-handoff", poc_script)
         self.assertIn("target-stage:1..12", auto_source)
         self.assertIn("target-stage must be 1..12", auto_source)
@@ -268,15 +295,23 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("execution_budget", source)
         self.assertIn("schedule_trigger", source)
         self.assertIn("job_invocation", source)
+        self.assertIn("job_discovery", source)
+        self.assertIn("newclaw job list", source)
+        self.assertIn("newclaw job describe", source)
         self.assertIn("newclaw job run", source)
 
     def test_stage12_job_run_cli_surface_exists(self) -> None:
         cli_source = Path("app/cli.py").read_text(encoding="utf-8")
         self.assertIn('subparsers.add_parser("job"', cli_source)
+        self.assertIn('job_subparsers.add_parser("list"', cli_source)
+        self.assertIn('job_subparsers.add_parser("describe"', cli_source)
         self.assertIn('job_subparsers.add_parser("run"', cli_source)
+        self.assertIn("_job_list_payload", cli_source)
+        self.assertIn("_job_describe_payload", cli_source)
         self.assertIn("_job_run_payload", cli_source)
         self.assertIn("_resolve_job_contract", cli_source)
         self.assertIn("daily_status_digest", cli_source)
+        self.assertIn("readiness_check", cli_source)
         self.assertIn("agent.bundle", cli_source)
 
     def test_governance_guardrails_cover_provider_boundaries(self) -> None:

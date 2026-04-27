@@ -9,6 +9,8 @@ mkdir -p "$WORK_DIR"
 
 INPUT_FILE="$WORK_DIR/daily-status-input.json"
 OUTPUT_FILE="$WORK_DIR/daily-status-output.json"
+READINESS_INPUT_FILE="$WORK_DIR/readiness-input.json"
+READINESS_OUTPUT_FILE="$WORK_DIR/readiness-output.json"
 
 cat >"$INPUT_FILE" <<'JSON'
 {
@@ -37,6 +39,23 @@ cat >"$INPUT_FILE" <<'JSON'
 }
 JSON
 
+cat >"$READINESS_INPUT_FILE" <<'JSON'
+{
+  "check_set": "stage8-readiness",
+  "target_stage": 8,
+  "sensitivity": "internal",
+  "env_profile": "local",
+  "strict_gate": false,
+  "timeout_seconds": 15
+}
+JSON
+
+python3 -m app.cli job list --json >"$WORK_DIR/job-list.json"
+python3 -m app.cli job describe \
+  --template readiness_check \
+  --profile local_ops_default \
+  --json >"$WORK_DIR/readiness-describe.json"
+
 python3 -m app.cli job run \
   --template daily_status_digest \
   --profile local_ops_default \
@@ -49,26 +68,60 @@ python3 -m app.cli job run \
   --max-chars 2400 \
   --json >"$OUTPUT_FILE"
 
-python3 - "$OUTPUT_FILE" <<'PY'
+python3 -m app.cli job run \
+  --template readiness_check \
+  --profile local_ops_default \
+  --input-file "$READINESS_INPUT_FILE" \
+  --requested-by stage12_poc \
+  --actor-id stage12_poc \
+  --actor-role requester \
+  --include-bundle \
+  --include-handoff \
+  --max-chars 2400 \
+  --json >"$READINESS_OUTPUT_FILE"
+
+python3 - "$OUTPUT_FILE" "$READINESS_OUTPUT_FILE" "$WORK_DIR/job-list.json" "$WORK_DIR/readiness-describe.json" <<'PY'
 from __future__ import annotations
 
 import json
 from pathlib import Path
 import sys
 
-payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-status = payload["status"]
-invocation = payload["job_invocation"]
-if status["status"] != "DONE":
-    raise SystemExit(f"expected DONE, got {status['status']}")
-if invocation["template_id"] != "daily_status_digest":
-    raise SystemExit(f"unexpected template: {invocation['template_id']}")
-if payload["events"]["count"] < 4:
-    raise SystemExit("expected at least four runtime events")
-report_path = Path(str(status["result"]["report_path"]))
-if not report_path.is_file():
-    raise SystemExit(f"report missing: {report_path}")
-if payload["handoff"]["packet_type"] != "completed":
-    raise SystemExit(f"unexpected handoff packet: {payload['handoff']['packet_type']}")
-print(f"[OK] stage12 local job poc task_id={status['task_id']} output={sys.argv[1]}")
+daily_payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+readiness_payload = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+job_list = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+readiness_describe = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
+
+listed = {item["template_id"]: item for item in job_list["items"]}
+if not listed["daily_status_digest"]["executable"]:
+    raise SystemExit("daily_status_digest should be executable")
+if not listed["readiness_check"]["executable"]:
+    raise SystemExit("readiness_check should be executable")
+if readiness_describe["template"]["required_capability_packs"] != ["readiness_probe_readonly", "core_status_readonly"]:
+    raise SystemExit("unexpected readiness capability pack binding")
+
+for expected_template, payload in [
+    ("daily_status_digest", daily_payload),
+    ("readiness_check", readiness_payload),
+]:
+    status = payload["status"]
+    invocation = payload["job_invocation"]
+    if status["status"] != "DONE":
+        raise SystemExit(f"{expected_template}: expected DONE, got {status['status']}")
+    if invocation["template_id"] != expected_template:
+        raise SystemExit(f"unexpected template: {invocation['template_id']}")
+    if payload["events"]["count"] < 4:
+        raise SystemExit(f"{expected_template}: expected at least four runtime events")
+    report_path = Path(str(status["result"]["report_path"]))
+    if not report_path.is_file():
+        raise SystemExit(f"{expected_template}: report missing: {report_path}")
+    if payload["handoff"]["packet_type"] != "completed":
+        raise SystemExit(f"{expected_template}: unexpected handoff packet: {payload['handoff']['packet_type']}")
+
+print(
+    "[OK] stage12 local job poc "
+    f"daily_task_id={daily_payload['status']['task_id']} "
+    f"readiness_task_id={readiness_payload['status']['task_id']} "
+    f"work_dir={Path(sys.argv[1]).parent}"
+)
 PY

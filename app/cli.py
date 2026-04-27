@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import sys
 from pathlib import Path
@@ -28,6 +29,7 @@ VALID_INCIDENT_RUN_MODES = ("dry-run", "mcp-live", "live")
 AGENT_PROFILES_PATH = Path("configs/agent_profiles.json")
 JOB_TEMPLATES_PATH = Path("configs/job_templates.json")
 CAPABILITY_PACKS_PATH = Path("configs/capability_packs.json")
+IMPLEMENTED_JOB_TEMPLATE_IDS = {"daily_status_digest", "readiness_check"}
 
 CLI_ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=True)
 CLI_APPROVAL_SERVICE = build_approval_service(sync_execution=True)
@@ -118,6 +120,14 @@ def _registry_items_by_id(path: Path, collection_key: str, id_key: str) -> dict[
     return by_id
 
 
+def _load_stage12_job_registries() -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    return (
+        _registry_items_by_id(JOB_TEMPLATES_PATH, "templates", "template_id"),
+        _registry_items_by_id(AGENT_PROFILES_PATH, "profiles", "profile_id"),
+        _registry_items_by_id(CAPABILITY_PACKS_PATH, "packs", "pack_id"),
+    )
+
+
 def _job_input_payload(input_json: str | None, input_file: str | None) -> tuple[dict[str, Any], int]:
     if input_json and input_file:
         return _error_payload("INVALID_REQUEST", "use only one of --input-json or --input-file"), 1
@@ -195,52 +205,28 @@ def _daily_status_notes(input_payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _readiness_check_notes(input_payload: dict[str, Any]) -> str:
+    lines = [
+        f"check_set: {input_payload.get('check_set')}",
+        f"target_stage: {input_payload.get('target_stage')}",
+        f"sensitivity: {input_payload.get('sensitivity')}",
+        f"env_profile: {input_payload.get('env_profile', 'local')}",
+        f"strict_gate: {input_payload.get('strict_gate', False)}",
+        f"timeout_seconds: {input_payload.get('timeout_seconds', 'default')}",
+        "readiness intent:",
+        "- Summarize pass, skip, blocked, and next-action evidence for the requested check set.",
+        "- Preserve external sandbox/live blockers as explicit readiness state rather than treating them as solved.",
+    ]
+    return "\n".join(lines)
+
+
 def _job_template_task_kind(template: dict[str, Any]) -> str:
     submit_contract = dict(template.get("submit_contract") or {})
     return str(submit_contract.get("task_kind") or "task").strip().lower() or "task"
 
 
-def _validate_job_input_against_contract(
-    *,
-    template: dict[str, Any],
-    profile: dict[str, Any],
-    packs: list[dict[str, Any]],
-    input_payload: dict[str, Any],
-) -> None:
-    schema = dict(template.get("input_schema") or {})
-    required_fields = [str(item).strip() for item in schema.get("required_fields") or [] if str(item).strip()]
-    missing = [field for field in required_fields if input_payload.get(field) in (None, "", [])]
-    if missing:
-        raise ValueError(f"job input missing required fields: {', '.join(missing)}")
-
-    max_payload_bytes = int(schema.get("max_payload_bytes") or 0)
-    if max_payload_bytes > 0:
-        payload_bytes = len(json.dumps(input_payload, ensure_ascii=False).encode("utf-8"))
-        if payload_bytes > max_payload_bytes:
-            raise ValueError(f"job input exceeds max_payload_bytes: {payload_bytes} > {max_payload_bytes}")
-
-    sensitivity_field = str(schema.get("sensitivity_field") or "sensitivity")
-    sensitivity = str(input_payload.get(sensitivity_field) or "").strip()
-    profile_sensitivity = dict(profile.get("sensitivity_boundary") or {})
-    profile_allowed = {str(item) for item in profile_sensitivity.get("allowed_sensitivity") or []}
-    if sensitivity and profile_allowed and sensitivity not in profile_allowed:
-        raise ValueError(f"profile {profile.get('profile_id')} does not allow sensitivity: {sensitivity}")
-    for pack in packs:
-        pack_boundary = dict(pack.get("data_boundary") or {})
-        pack_allowed = {str(item) for item in pack_boundary.get("allowed_sensitivity") or []}
-        if sensitivity and pack_allowed and sensitivity not in pack_allowed:
-            raise ValueError(f"capability pack {pack.get('pack_id')} does not allow sensitivity: {sensitivity}")
-
-
-def _resolve_job_contract(
-    *,
-    template_id: str,
-    profile_id: str,
-    input_payload: dict[str, Any],
-) -> dict[str, Any]:
-    templates_by_id = _registry_items_by_id(JOB_TEMPLATES_PATH, "templates", "template_id")
-    profiles_by_id = _registry_items_by_id(AGENT_PROFILES_PATH, "profiles", "profile_id")
-    packs_by_id = _registry_items_by_id(CAPABILITY_PACKS_PATH, "packs", "pack_id")
+def _resolve_job_static_contract(*, template_id: str, profile_id: str) -> dict[str, Any]:
+    templates_by_id, profiles_by_id, packs_by_id = _load_stage12_job_registries()
 
     template = templates_by_id.get(template_id)
     if template is None:
@@ -284,12 +270,6 @@ def _resolve_job_contract(
             raise ValueError(f"capability pack {pack_id} does not allow template: {template_id}")
         packs.append(pack)
 
-    _validate_job_input_against_contract(
-        template=template,
-        profile=profile,
-        packs=packs,
-        input_payload=input_payload,
-    )
     return {
         "template": template,
         "profile": profile,
@@ -298,17 +278,64 @@ def _resolve_job_contract(
     }
 
 
-def _job_runtime_metadata(contract: dict[str, Any], input_payload: dict[str, Any]) -> dict[str, Any]:
-    template = dict(contract["template"])
-    template_id = str(template.get("template_id") or "")
-    if template_id != "daily_status_digest":
-        raise ValueError(f"job template is not implemented in this PoC: {template_id}")
+def _validate_job_input_against_contract(
+    *,
+    template: dict[str, Any],
+    profile: dict[str, Any],
+    packs: list[dict[str, Any]],
+    input_payload: dict[str, Any],
+) -> None:
+    schema = dict(template.get("input_schema") or {})
+    required_fields = [str(item).strip() for item in schema.get("required_fields") or [] if str(item).strip()]
+    missing = [field for field in required_fields if input_payload.get(field) in (None, "", [])]
+    if missing:
+        raise ValueError(f"job input missing required fields: {', '.join(missing)}")
 
-    audience = _coerce_string_list(input_payload.get("audience"), fallback=["operator"])
+    max_payload_bytes = int(schema.get("max_payload_bytes") or 0)
+    if max_payload_bytes > 0:
+        payload_bytes = len(json.dumps(input_payload, ensure_ascii=False).encode("utf-8"))
+        if payload_bytes > max_payload_bytes:
+            raise ValueError(f"job input exceeds max_payload_bytes: {payload_bytes} > {max_payload_bytes}")
+
+    sensitivity_field = str(schema.get("sensitivity_field") or "sensitivity")
+    sensitivity = str(input_payload.get(sensitivity_field) or "").strip()
+    profile_sensitivity = dict(profile.get("sensitivity_boundary") or {})
+    profile_allowed = {str(item) for item in profile_sensitivity.get("allowed_sensitivity") or []}
+    if sensitivity and profile_allowed and sensitivity not in profile_allowed:
+        raise ValueError(f"profile {profile.get('profile_id')} does not allow sensitivity: {sensitivity}")
+    for pack in packs:
+        pack_boundary = dict(pack.get("data_boundary") or {})
+        pack_allowed = {str(item) for item in pack_boundary.get("allowed_sensitivity") or []}
+        if sensitivity and pack_allowed and sensitivity not in pack_allowed:
+            raise ValueError(f"capability pack {pack.get('pack_id')} does not allow sensitivity: {sensitivity}")
+
+
+def _resolve_job_contract(
+    *,
+    template_id: str,
+    profile_id: str,
+    input_payload: dict[str, Any],
+) -> dict[str, Any]:
+    contract = _resolve_job_static_contract(template_id=template_id, profile_id=profile_id)
+    template = dict(contract["template"])
     profile = dict(contract["profile"])
     packs = [dict(item) for item in contract["packs"]]
-    stage12_job = {
-        "template_id": template_id,
+
+    _validate_job_input_against_contract(
+        template=template,
+        profile=profile,
+        packs=packs,
+        input_payload=input_payload,
+    )
+    return contract
+
+
+def _stage12_job_metadata(contract: dict[str, Any]) -> dict[str, Any]:
+    template = dict(contract["template"])
+    profile = dict(contract["profile"])
+    packs = [dict(item) for item in contract["packs"]]
+    return {
+        "template_id": template.get("template_id"),
         "profile_id": profile.get("profile_id"),
         "provider_id": profile.get("provider_id"),
         "provider_class": profile.get("provider_class"),
@@ -327,16 +354,151 @@ def _job_runtime_metadata(contract: dict[str, Any], input_payload: dict[str, Any
             for pack in packs
         ],
     }
+
+
+def _job_runtime_metadata(contract: dict[str, Any], input_payload: dict[str, Any]) -> dict[str, Any]:
+    template = dict(contract["template"])
+    template_id = str(template.get("template_id") or "")
+    stage12_job = _stage12_job_metadata(contract)
+    if template_id == "daily_status_digest":
+        audience = _coerce_string_list(input_payload.get("audience"), fallback=["operator"])
+        return {
+            "template_type": "meeting_summary",
+            "meeting_title": str(template.get("display_name") or "Daily status digest"),
+            "meeting_date": str(input_payload.get("date") or ""),
+            "participants": audience,
+            "notes": _daily_status_notes(input_payload),
+            "sensitivity": str(input_payload.get("sensitivity") or ""),
+            "stage12_job": stage12_job,
+            "stage12_job_input": dict(input_payload),
+        }
+    if template_id == "readiness_check":
+        return {
+            "template_type": "meeting_summary",
+            "meeting_title": str(template.get("display_name") or "Readiness check"),
+            "meeting_date": datetime.now(timezone.utc).date().isoformat(),
+            "participants": [str(input_payload.get("requested_by") or "operator")],
+            "notes": _readiness_check_notes(input_payload),
+            "sensitivity": str(input_payload.get("sensitivity") or ""),
+            "stage12_job": stage12_job,
+            "stage12_job_input": dict(input_payload),
+        }
+    raise ValueError(f"job template is not implemented in this PoC: {template_id}")
+
+
+def _profile_compatibility(template_id: str, profile_id: str) -> dict[str, Any]:
+    try:
+        contract = _resolve_job_static_contract(template_id=template_id, profile_id=profile_id)
+    except ValueError as exc:
+        return {"profile_id": profile_id, "compatible": False, "reason": str(exc)}
+    profile = dict(contract["profile"])
     return {
-        "template_type": "meeting_summary",
-        "meeting_title": str(template.get("display_name") or "Daily status digest"),
-        "meeting_date": str(input_payload.get("date") or ""),
-        "participants": audience,
-        "notes": _daily_status_notes(input_payload),
-        "sensitivity": str(input_payload.get("sensitivity") or ""),
-        "stage12_job": stage12_job,
-        "stage12_job_input": dict(input_payload),
+        "profile_id": profile_id,
+        "compatible": True,
+        "provider_id": profile.get("provider_id"),
+        "provider_class": profile.get("provider_class"),
+        "capability_pack_ids": list(contract["capability_pack_ids"]),
     }
+
+
+def _job_template_discovery_item(template: dict[str, Any], *, profile_id: str | None = None) -> dict[str, Any]:
+    template_id = str(template.get("template_id") or "")
+    candidate_profile_ids = [str(item) for item in template.get("allowed_profile_ids") or []]
+    if profile_id:
+        candidate_profile_ids = [profile_id]
+    compatibility = [_profile_compatibility(template_id, item) for item in candidate_profile_ids]
+    compatible_profile_ids = [item["profile_id"] for item in compatibility if item.get("compatible")]
+    submit_contract = dict(template.get("submit_contract") or {})
+    return {
+        "template_id": template_id,
+        "display_name": template.get("display_name"),
+        "description": template.get("description"),
+        "enabled": bool(template.get("enabled", True)),
+        "workflow_family": template.get("workflow_family"),
+        "executable": template_id in IMPLEMENTED_JOB_TEMPLATE_IDS,
+        "implemented_adapter": template_id if template_id in IMPLEMENTED_JOB_TEMPLATE_IDS else None,
+        "task_kind": submit_contract.get("task_kind"),
+        "required_capability_packs": list(template.get("required_capability_packs") or []),
+        "compatible_profile_ids": compatible_profile_ids,
+        "profile_compatibility": compatibility,
+        "runtime_surfaces": {
+            "submit": submit_contract.get("surface", "agent.submit"),
+            "status": submit_contract.get("status_surface", "agent.status"),
+            "events": submit_contract.get("events_surface", "agent.events"),
+            "report": submit_contract.get("report_surface", "agent.report"),
+            "bundle": "agent.bundle",
+            "handoff": "agent.handoff",
+        },
+    }
+
+
+def _job_list_payload(*, profile_id: str | None = None, include_disabled: bool = False) -> tuple[dict[str, Any], int]:
+    try:
+        templates_by_id, profiles_by_id, _ = _load_stage12_job_registries()
+        if profile_id and profile_id not in profiles_by_id:
+            raise ValueError(f"unknown agent profile: {profile_id}")
+        items = []
+        for template in templates_by_id.values():
+            if not include_disabled and not bool(template.get("enabled", True)):
+                continue
+            item = _job_template_discovery_item(template, profile_id=profile_id)
+            if profile_id and not item["profile_compatibility"]:
+                continue
+            items.append(item)
+    except ValueError as exc:
+        return _error_payload("INVALID_JOB_DISCOVERY", str(exc)), 1
+    items.sort(key=lambda item: str(item.get("template_id") or ""))
+    return {
+        "surface": "newclaw job list",
+        "items": items,
+        "count": len(items),
+        "profile_filter": profile_id,
+        "implemented_job_template_ids": sorted(IMPLEMENTED_JOB_TEMPLATE_IDS),
+    }, 0
+
+
+def _job_describe_payload(*, template_id: str, profile_id: str | None = None) -> tuple[dict[str, Any], int]:
+    try:
+        templates_by_id, profiles_by_id, packs_by_id = _load_stage12_job_registries()
+        template = templates_by_id.get(template_id)
+        if template is None:
+            raise ValueError(f"unknown job template: {template_id}")
+        if profile_id and profile_id not in profiles_by_id:
+            raise ValueError(f"unknown agent profile: {profile_id}")
+        item = _job_template_discovery_item(template, profile_id=profile_id)
+        required_pack_ids = [str(pack_id) for pack_id in template.get("required_capability_packs") or []]
+        packs = [packs_by_id[pack_id] for pack_id in required_pack_ids if pack_id in packs_by_id]
+        examples = list((template.get("schedule_trigger") or {}).get("examples") or [])
+        if not examples:
+            examples = [
+                f"newclaw job run --template {template_id} --profile <profile_id> --input-file <input.json> --json"
+            ]
+    except ValueError as exc:
+        return _error_payload("INVALID_JOB_DISCOVERY", str(exc)), 1
+    return {
+        "surface": "newclaw job describe",
+        "template": item,
+        "input_schema": dict(template.get("input_schema") or {}),
+        "provider_policy": dict(template.get("provider_policy") or {}),
+        "execution_budget_override": dict(template.get("execution_budget_override") or {}),
+        "approval_requirements": dict(template.get("approval_requirements") or {}),
+        "schedule_trigger": dict(template.get("schedule_trigger") or {}),
+        "output_evidence": dict(template.get("output_evidence") or {}),
+        "capability_packs": [
+            {
+                "pack_id": pack.get("pack_id"),
+                "display_name": pack.get("display_name"),
+                "risk_level": pack.get("risk_level"),
+                "pack_type": pack.get("pack_type"),
+                "allowed_tool_ids": list(pack.get("allowed_tool_ids") or []),
+                "runtime_read_surfaces": list(pack.get("runtime_read_surfaces") or []),
+                "approval_requirements": dict(pack.get("approval_requirements") or {}),
+                "data_boundary": dict(pack.get("data_boundary") or {}),
+            }
+            for pack in packs
+        ],
+        "examples": examples,
+    }, 0
 
 
 def _job_invocation_summary(
@@ -873,6 +1035,35 @@ def _print_job_run(payload: dict[str, Any]) -> None:
     print()
 
 
+def _print_job_list(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    print("\n[Stage 12 Job Templates]")
+    for item in payload.get("items", []):
+        status = "executable" if item.get("executable") else "planned"
+        profiles = ", ".join(item.get("compatible_profile_ids") or []) or "-"
+        print(f"- {item.get('template_id', '-')}: {status} / profiles={profiles}")
+    print()
+
+
+def _print_job_describe(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    template = payload.get("template") or {}
+    print("\n[Stage 12 Job Template]")
+    print(f"- Template: {template.get('template_id', '-')}")
+    print(f"- Display: {template.get('display_name', '-')}")
+    print(f"- Executable: {template.get('executable', False)}")
+    print(f"- Required packs: {', '.join(template.get('required_capability_packs') or []) or '-'}")
+    print(f"- Compatible profiles: {', '.join(template.get('compatible_profile_ids') or []) or '-'}")
+    examples = payload.get("examples") or []
+    if examples:
+        print(f"- Example: {examples[0]}")
+    print()
+
+
 def _print_tools(payload: dict[str, Any]) -> None:
     if "error" in payload:
         _print_status(payload)
@@ -956,6 +1147,12 @@ def _emit_payload(payload: dict[str, Any], *, as_json: bool, command: str) -> No
         return
     if command == "job-run":
         _print_job_run(payload)
+        return
+    if command == "job-list":
+        _print_job_list(payload)
+        return
+    if command == "job-describe":
+        _print_job_describe(payload)
         return
     if command == "approvals":
         _print_approvals(payload)
@@ -1104,6 +1301,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     job_parser = subparsers.add_parser("job", help="run Stage 12 job templates")
     job_subparsers = job_parser.add_subparsers(dest="job_command")
+    job_list_parser = job_subparsers.add_parser("list", help="list Stage 12 job templates")
+    job_list_parser.add_argument("--profile", dest="profile_id")
+    job_list_parser.add_argument("--include-disabled", action="store_true")
+    job_list_parser.add_argument("--json", action="store_true")
+
+    job_describe_parser = job_subparsers.add_parser("describe", help="describe one Stage 12 job template")
+    job_describe_parser.add_argument("--template", dest="template_id", required=True)
+    job_describe_parser.add_argument("--profile", dest="profile_id")
+    job_describe_parser.add_argument("--json", action="store_true")
+
     job_run_parser = job_subparsers.add_parser("run", help="run one bounded job template")
     job_run_parser.add_argument("--template", dest="template_id", required=True)
     job_run_parser.add_argument("--profile", dest="profile_id", required=True)
@@ -1269,6 +1476,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_menu(actor_id=args.actor_id, actor_role=args.actor_role)
 
     if args.command == "job":
+        if args.job_command == "list":
+            payload, exit_code = _job_list_payload(
+                profile_id=args.profile_id,
+                include_disabled=args.include_disabled,
+            )
+            _emit_payload(payload, as_json=args.json, command="job-list")
+            return exit_code
+        if args.job_command == "describe":
+            payload, exit_code = _job_describe_payload(
+                template_id=args.template_id,
+                profile_id=args.profile_id,
+            )
+            _emit_payload(payload, as_json=args.json, command="job-describe")
+            return exit_code
         if args.job_command != "run":
             parser.print_help()
             return 2

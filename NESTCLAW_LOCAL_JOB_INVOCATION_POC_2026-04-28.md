@@ -6,6 +6,15 @@ This document records the Stage 12 G4 PoC for running one constrained local-firs
 The goal is not to add a human TUI or a second runtime. The goal is to let upper agents, schedulers, and scripts invoke a bounded job template while NestClaw keeps the canonical status, events, report, bundle, and handoff evidence.
 
 ## Implemented Surface
+Discovery:
+
+```bash
+newclaw job list --json
+newclaw job describe --template readiness_check --profile local_ops_default --json
+python3 -m app.cli job list --json
+python3 -m app.cli job describe --template readiness_check --profile local_ops_default --json
+```
+
 CLI:
 
 ```bash
@@ -54,6 +63,16 @@ The JSON response includes:
 
 This is the shape expected by Claude/Codex/MCP wrappers, cron/launchd jobs, or other upper agents.
 
+## Executable Job Adapters
+Current executable adapters:
+
+- `daily_status_digest`: internal daily status digest through the existing task runtime.
+- `readiness_check`: bounded readiness summary through the existing task runtime, preserving blocked/skipped external env evidence as report content rather than treating readiness as solved.
+
+Planned but not yet executable:
+
+- `issue_triage`: still requires a separate incident-oriented adapter decision because it may involve ticket draft governance.
+
 ## Current Boundary
 - Local-first policy is represented by `local_ops_default` and `internal_digest_basic`.
 - No cloud/API provider is used for the PoC path.
@@ -77,4 +96,4 @@ env PATH=../nestclaw-ideation-qa/.venv/bin:$PATH \
 ```
 
 ## Next Step
-The next natural step is to extend the same contract adapter to `readiness_check` or `issue_triage`, then decide whether dashboard chat should call this same job surface rather than inventing a separate chat runtime.
+The next natural step is to expose the same discovery payload through MCP/HTTP, then decide whether dashboard chat should call this same job surface rather than inventing a separate chat runtime.

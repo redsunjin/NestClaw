@@ -106,6 +106,12 @@
 3. Runtime third: validation and invocation surfaces.
 4. Dashboard later: only after runtime payloads are stable.
 
+## Stage 12 Follow-Up Campaign
+`stage12-job-surface-campaign` extends the completed priority campaign with two practical surfaces:
+
+- `stage12-w2-001`: `newclaw job list/describe` discovery for upper agents and operators.
+- `stage12-w2-002`: `readiness_check` executable adapter using the same status/events/report/bundle/handoff evidence contract.
+
 ## UI/UX Position
 - No large UI rewrite is required for Stage 12.
 - Existing console can absorb new data as lists/details:
@@ -141,6 +147,8 @@
 - Capability Pack spec is completed as `stage12-w1-003`.
 - Local Job Invocation PoC is completed as `stage12-w1-004`.
 - `newclaw job run` validates template/profile/capability pack boundaries before runtime submission.
+- `newclaw job list/describe` exposes read-only discovery before invocation.
+- `readiness_check` is executable through the same local-first job contract.
 - Stage 12 cycle includes local job invocation smoke coverage.
 - Roadmap is linked from README and capability manifest.
 - Existing Stage 9-11 tests still pass.

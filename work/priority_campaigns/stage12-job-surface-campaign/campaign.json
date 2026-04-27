@@ -1,0 +1,23 @@
+{
+  "campaign_id": "stage12-job-surface-campaign",
+  "goal": "Make Stage 12 job templates discoverable and extend the executable local-first job set",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-job-discovery-surface",
+      "group": "G1",
+      "title": "Expose job list and describe surfaces",
+      "unit_id": "stage12-w2-001",
+      "goal": "Let upper agents and operators discover available job templates, compatible profiles, capability packs, and invocation examples before running a job",
+      "status": "completed"
+    },
+    {
+      "item_id": "g2-readiness-check-adapter",
+      "group": "G2",
+      "title": "Add readiness_check job adapter",
+      "unit_id": "stage12-w2-002",
+      "goal": "Run readiness_check through the same job invocation contract and capture status, events, report, bundle, and handoff evidence",
+      "status": "completed"
+    }
+  ]
+}

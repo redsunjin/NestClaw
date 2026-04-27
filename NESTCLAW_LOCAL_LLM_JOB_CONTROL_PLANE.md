@@ -58,8 +58,11 @@
 - cron, launchd, CI, external scheduler가 NestClaw job을 비대화형으로 호출하는 진입점이다.
 - NestClaw 자체는 execution contract와 audit를 보장하고, scheduler는 호출 타이밍을 담당한다.
 - Stage 12 PoC surface:
+  - `python3 -m app.cli job list --json`
+  - `python3 -m app.cli job describe --template <template_id> --profile <profile_id> --json`
   - `newclaw job run`
   - `python3 -m app.cli job run --template daily_status_digest --profile local_ops_default --input-file <json> --json`
+  - `python3 -m app.cli job run --template readiness_check --profile local_ops_default --input-file <json> --json`
   - `scripts/run_stage12_local_job_poc.sh`
 
 ### Execution Budget

@@ -151,6 +151,7 @@
 - Local Job Invocation PoC: `NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md`
 - Local Job Invocation PoC script: `scripts/run_stage12_local_job_poc.sh`
 - Stage 12 work groups: `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
+- Stage 12 job discovery/adapter campaign: `work/priority_campaigns/stage12-job-surface-campaign/campaign.json`
 - Operator dashboard 원칙: `NESTCLAW_OPERATOR_DASHBOARD_PRINCIPLES.md`
 - 제품 포지셔닝: `NESTCLAW_PRODUCT_POSITIONING.md`
 - 거버넌스 가드레일: `NESTCLAW_GOVERNANCE_GUARDRAILS.md`
