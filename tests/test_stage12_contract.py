@@ -13,6 +13,7 @@ class TestStage12Contract(unittest.TestCase):
             encoding="utf-8"
         )
         work_groups = Path("NEXT_WORK_GROUPS_2026-04-27_STAGE12.md").read_text(encoding="utf-8")
+        poc = Path("NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md").read_text(encoding="utf-8")
         self.assertIn("local-first LLM job control plane", positioning)
         self.assertIn("cloud/API LLM", positioning)
         self.assertIn("Agent Profile", local_control)
@@ -20,6 +21,10 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("Capability Pack", local_control)
         self.assertIn("Execution Budget", local_control)
         self.assertIn("Schedule Trigger", local_control)
+        self.assertIn("newclaw job run", local_control)
+        self.assertIn("Local Job Invocation PoC", poc)
+        self.assertIn("daily_status_digest", poc)
+        self.assertIn("agent.bundle", poc)
         self.assertIn("Stage 12 Priority Campaign", roadmap)
         self.assertIn("stage12-priority-campaign", work_groups)
 
@@ -234,16 +239,24 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn(data["items"][1]["status"], {"in_progress", "completed"})
         self.assertEqual(data["items"][2]["unit_id"], "stage12-w1-003")
         self.assertIn(data["items"][2]["status"], {"in_progress", "completed"})
+        self.assertEqual(data["items"][3]["unit_id"], "stage12-w1-004")
+        self.assertIn(data["items"][3]["status"], {"in_progress", "completed"})
 
     def test_cycle_scripts_support_stage12(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
+        poc_script = Path("scripts/run_stage12_local_job_poc.sh").read_text(encoding="utf-8")
         self.assertIn("target-stage: 1..12", cycle_source)
         self.assertIn("check_stage_12", cycle_source)
         self.assertIn("tests.test_stage12_contract", cycle_source)
+        self.assertIn("tests.test_stage12_job_invocation_smoke", cycle_source)
+        self.assertIn("scripts/run_stage12_local_job_poc.sh", cycle_source)
         self.assertIn("NEWCLAW_CYCLE_CHECK_TIMEOUT_SECONDS", cycle_source)
         self.assertIn("run_with_timeout.py", cycle_source)
         self.assertIn("run_check_command", cycle_source)
+        self.assertIn("app.cli job run", poc_script)
+        self.assertIn("--template daily_status_digest", poc_script)
+        self.assertIn("--include-handoff", poc_script)
         self.assertIn("target-stage:1..12", auto_source)
         self.assertIn("target-stage must be 1..12", auto_source)
 
@@ -254,6 +267,17 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("capability_pack", source)
         self.assertIn("execution_budget", source)
         self.assertIn("schedule_trigger", source)
+        self.assertIn("job_invocation", source)
+        self.assertIn("newclaw job run", source)
+
+    def test_stage12_job_run_cli_surface_exists(self) -> None:
+        cli_source = Path("app/cli.py").read_text(encoding="utf-8")
+        self.assertIn('subparsers.add_parser("job"', cli_source)
+        self.assertIn('job_subparsers.add_parser("run"', cli_source)
+        self.assertIn("_job_run_payload", cli_source)
+        self.assertIn("_resolve_job_contract", cli_source)
+        self.assertIn("daily_status_digest", cli_source)
+        self.assertIn("agent.bundle", cli_source)
 
     def test_governance_guardrails_cover_provider_boundaries(self) -> None:
         source = Path("NESTCLAW_GOVERNANCE_GUARDRAILS.md").read_text(encoding="utf-8")

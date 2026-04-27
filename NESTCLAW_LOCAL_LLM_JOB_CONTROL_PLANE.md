@@ -57,6 +57,10 @@
 ### Schedule Trigger
 - cron, launchd, CI, external scheduler가 NestClaw job을 비대화형으로 호출하는 진입점이다.
 - NestClaw 자체는 execution contract와 audit를 보장하고, scheduler는 호출 타이밍을 담당한다.
+- Stage 12 PoC surface:
+  - `newclaw job run`
+  - `python3 -m app.cli job run --template daily_status_digest --profile local_ops_default --input-file <json> --json`
+  - `scripts/run_stage12_local_job_poc.sh`
 
 ### Execution Budget
 - 로컬 LLM의 과도한 tool use와 context 낭비를 막는 실행 제한이다.
@@ -99,6 +103,7 @@ Detailed roadmap:
 - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
 - `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-28.md`
 - `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
+- `NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md`
 - `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
 - `work/priority_campaigns/stage12-priority-campaign/campaign.json`

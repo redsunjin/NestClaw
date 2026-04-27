@@ -25,6 +25,9 @@ DEFAULT_ACTOR_ID = "user_cli"
 DEFAULT_ACTOR_ROLE = "requester"
 VALID_TASK_KINDS = ("auto", "task", "incident")
 VALID_INCIDENT_RUN_MODES = ("dry-run", "mcp-live", "live")
+AGENT_PROFILES_PATH = Path("configs/agent_profiles.json")
+JOB_TEMPLATES_PATH = Path("configs/job_templates.json")
+CAPABILITY_PACKS_PATH = Path("configs/capability_packs.json")
 
 CLI_ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=True)
 CLI_APPROVAL_SERVICE = build_approval_service(sync_execution=True)
@@ -83,6 +86,401 @@ def _load_metadata(metadata_json: str | None, metadata_file: str | None) -> tupl
     if not isinstance(payload, dict):
         return _error_payload("INVALID_REQUEST", "metadata must be a JSON object"), 1
     return payload, 0
+
+
+def _load_json_document(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValueError(f"registry file not found: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid json registry {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"registry must be a JSON object: {path}")
+    return payload
+
+
+def _registry_items_by_id(path: Path, collection_key: str, id_key: str) -> dict[str, dict[str, Any]]:
+    document = _load_json_document(path)
+    items = document.get(collection_key)
+    if not isinstance(items, list):
+        raise ValueError(f"registry {path} missing list: {collection_key}")
+    by_id: dict[str, dict[str, Any]] = {}
+    for raw_item in items:
+        if not isinstance(raw_item, dict):
+            raise ValueError(f"registry {path} contains non-object item")
+        item_id = str(raw_item.get(id_key) or "").strip()
+        if not item_id:
+            raise ValueError(f"registry {path} item missing id field: {id_key}")
+        if item_id in by_id:
+            raise ValueError(f"registry {path} has duplicate id: {item_id}")
+        by_id[item_id] = dict(raw_item)
+    return by_id
+
+
+def _job_input_payload(input_json: str | None, input_file: str | None) -> tuple[dict[str, Any], int]:
+    if input_json and input_file:
+        return _error_payload("INVALID_REQUEST", "use only one of --input-json or --input-file"), 1
+    if not input_json and not input_file:
+        return _error_payload("INVALID_REQUEST", "one of --input-json or --input-file is required"), 1
+    raw = input_json
+    if input_file:
+        try:
+            raw = Path(input_file).read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return _error_payload("INVALID_REQUEST", f"input file not found: {input_file}"), 1
+    try:
+        payload = json.loads(str(raw or ""))
+    except json.JSONDecodeError as exc:
+        return _error_payload("INVALID_REQUEST", f"invalid input json: {exc}"), 1
+    if not isinstance(payload, dict):
+        return _error_payload("INVALID_REQUEST", "job input must be a JSON object"), 1
+    return payload, 0
+
+
+def _coerce_string_list(value: Any, *, fallback: list[str] | None = None) -> list[str]:
+    if isinstance(value, list):
+        items = [str(item).strip() for item in value if str(item).strip()]
+    elif isinstance(value, str):
+        items = [item.strip() for item in value.split(",") if item.strip()]
+    elif value is None:
+        items = []
+    else:
+        items = [str(value).strip()]
+    return items or list(fallback or [])
+
+
+def _source_line(source: Any) -> str:
+    if isinstance(source, dict):
+        name = str(source.get("name") or source.get("source") or source.get("id") or "source").strip()
+        status = str(source.get("status") or "").strip()
+        summary = str(source.get("summary") or source.get("note") or source.get("text") or "").strip()
+        parts = [name]
+        if status:
+            parts.append(f"status={status}")
+        if summary:
+            parts.append(summary)
+        return ": ".join([parts[0], " / ".join(parts[1:])]) if len(parts) > 1 else parts[0]
+    return str(source).strip()
+
+
+def _daily_status_notes(input_payload: dict[str, Any]) -> str:
+    lines = [
+        f"date: {input_payload.get('date')}",
+        f"audience: {input_payload.get('audience')}",
+        f"sensitivity: {input_payload.get('sensitivity')}",
+        "sources:",
+    ]
+    sources = input_payload.get("sources")
+    if isinstance(sources, list):
+        source_lines = []
+        for item in sources:
+            line = _source_line(item)
+            if line:
+                source_lines.append(line)
+    else:
+        line = _source_line(sources)
+        source_lines = [line] if line else []
+    lines.extend(f"- {item}" for item in source_lines)
+
+    focus_areas = _coerce_string_list(input_payload.get("focus_areas"))
+    if focus_areas:
+        lines.append("focus areas:")
+        lines.extend(f"- {item}" for item in focus_areas)
+
+    excluded_topics = _coerce_string_list(input_payload.get("excluded_topics"))
+    if excluded_topics:
+        lines.append("excluded topics:")
+        lines.extend(f"- {item}" for item in excluded_topics)
+    return "\n".join(lines)
+
+
+def _job_template_task_kind(template: dict[str, Any]) -> str:
+    submit_contract = dict(template.get("submit_contract") or {})
+    return str(submit_contract.get("task_kind") or "task").strip().lower() or "task"
+
+
+def _validate_job_input_against_contract(
+    *,
+    template: dict[str, Any],
+    profile: dict[str, Any],
+    packs: list[dict[str, Any]],
+    input_payload: dict[str, Any],
+) -> None:
+    schema = dict(template.get("input_schema") or {})
+    required_fields = [str(item).strip() for item in schema.get("required_fields") or [] if str(item).strip()]
+    missing = [field for field in required_fields if input_payload.get(field) in (None, "", [])]
+    if missing:
+        raise ValueError(f"job input missing required fields: {', '.join(missing)}")
+
+    max_payload_bytes = int(schema.get("max_payload_bytes") or 0)
+    if max_payload_bytes > 0:
+        payload_bytes = len(json.dumps(input_payload, ensure_ascii=False).encode("utf-8"))
+        if payload_bytes > max_payload_bytes:
+            raise ValueError(f"job input exceeds max_payload_bytes: {payload_bytes} > {max_payload_bytes}")
+
+    sensitivity_field = str(schema.get("sensitivity_field") or "sensitivity")
+    sensitivity = str(input_payload.get(sensitivity_field) or "").strip()
+    profile_sensitivity = dict(profile.get("sensitivity_boundary") or {})
+    profile_allowed = {str(item) for item in profile_sensitivity.get("allowed_sensitivity") or []}
+    if sensitivity and profile_allowed and sensitivity not in profile_allowed:
+        raise ValueError(f"profile {profile.get('profile_id')} does not allow sensitivity: {sensitivity}")
+    for pack in packs:
+        pack_boundary = dict(pack.get("data_boundary") or {})
+        pack_allowed = {str(item) for item in pack_boundary.get("allowed_sensitivity") or []}
+        if sensitivity and pack_allowed and sensitivity not in pack_allowed:
+            raise ValueError(f"capability pack {pack.get('pack_id')} does not allow sensitivity: {sensitivity}")
+
+
+def _resolve_job_contract(
+    *,
+    template_id: str,
+    profile_id: str,
+    input_payload: dict[str, Any],
+) -> dict[str, Any]:
+    templates_by_id = _registry_items_by_id(JOB_TEMPLATES_PATH, "templates", "template_id")
+    profiles_by_id = _registry_items_by_id(AGENT_PROFILES_PATH, "profiles", "profile_id")
+    packs_by_id = _registry_items_by_id(CAPABILITY_PACKS_PATH, "packs", "pack_id")
+
+    template = templates_by_id.get(template_id)
+    if template is None:
+        raise ValueError(f"unknown job template: {template_id}")
+    if not bool(template.get("enabled", True)):
+        raise ValueError(f"job template is disabled: {template_id}")
+
+    profile = profiles_by_id.get(profile_id)
+    if profile is None:
+        raise ValueError(f"unknown agent profile: {profile_id}")
+    if not bool(profile.get("enabled", True)):
+        raise ValueError(f"agent profile is disabled: {profile_id}")
+
+    if profile_id not in list(template.get("allowed_profile_ids") or []):
+        raise ValueError(f"job template {template_id} does not allow profile: {profile_id}")
+    if template_id not in list(profile.get("allowed_job_templates") or []):
+        raise ValueError(f"profile {profile_id} does not allow job template: {template_id}")
+
+    provider_policy = dict(template.get("provider_policy") or {})
+    provider_class = str(profile.get("provider_class") or "").strip()
+    allowed_provider_classes = {str(item) for item in provider_policy.get("allowed_provider_classes") or []}
+    if allowed_provider_classes and provider_class not in allowed_provider_classes:
+        raise ValueError(f"template {template_id} does not allow provider class: {provider_class}")
+
+    required_pack_ids = [str(item).strip() for item in template.get("required_capability_packs") or [] if str(item).strip()]
+    if not required_pack_ids:
+        raise ValueError(f"job template {template_id} has no required capability packs")
+    profile_pack_ids = {str(item) for item in profile.get("allowed_capability_packs") or []}
+    packs: list[dict[str, Any]] = []
+    for pack_id in required_pack_ids:
+        pack = packs_by_id.get(pack_id)
+        if pack is None:
+            raise ValueError(f"job template {template_id} references unknown capability pack: {pack_id}")
+        if not bool(pack.get("enabled", True)):
+            raise ValueError(f"capability pack is disabled: {pack_id}")
+        if pack_id not in profile_pack_ids:
+            raise ValueError(f"profile {profile_id} does not allow capability pack: {pack_id}")
+        if profile_id not in list(pack.get("allowed_profile_ids") or []):
+            raise ValueError(f"capability pack {pack_id} does not allow profile: {profile_id}")
+        if template_id not in list(pack.get("allowed_template_ids") or []):
+            raise ValueError(f"capability pack {pack_id} does not allow template: {template_id}")
+        packs.append(pack)
+
+    _validate_job_input_against_contract(
+        template=template,
+        profile=profile,
+        packs=packs,
+        input_payload=input_payload,
+    )
+    return {
+        "template": template,
+        "profile": profile,
+        "packs": packs,
+        "capability_pack_ids": required_pack_ids,
+    }
+
+
+def _job_runtime_metadata(contract: dict[str, Any], input_payload: dict[str, Any]) -> dict[str, Any]:
+    template = dict(contract["template"])
+    template_id = str(template.get("template_id") or "")
+    if template_id != "daily_status_digest":
+        raise ValueError(f"job template is not implemented in this PoC: {template_id}")
+
+    audience = _coerce_string_list(input_payload.get("audience"), fallback=["operator"])
+    profile = dict(contract["profile"])
+    packs = [dict(item) for item in contract["packs"]]
+    stage12_job = {
+        "template_id": template_id,
+        "profile_id": profile.get("profile_id"),
+        "provider_id": profile.get("provider_id"),
+        "provider_class": profile.get("provider_class"),
+        "capability_pack_ids": list(contract["capability_pack_ids"]),
+        "provider_policy": dict(template.get("provider_policy") or {}),
+        "execution_budget": dict(template.get("execution_budget_override") or profile.get("execution_budget") or {}),
+        "output_evidence": dict(template.get("output_evidence") or {}),
+        "capability_packs": [
+            {
+                "pack_id": pack.get("pack_id"),
+                "risk_level": pack.get("risk_level"),
+                "allowed_tool_ids": list(pack.get("allowed_tool_ids") or []),
+                "runtime_read_surfaces": list(pack.get("runtime_read_surfaces") or []),
+                "external_send_policy": (pack.get("data_boundary") or {}).get("external_send_policy"),
+            }
+            for pack in packs
+        ],
+    }
+    return {
+        "template_type": "meeting_summary",
+        "meeting_title": str(template.get("display_name") or "Daily status digest"),
+        "meeting_date": str(input_payload.get("date") or ""),
+        "participants": audience,
+        "notes": _daily_status_notes(input_payload),
+        "sensitivity": str(input_payload.get("sensitivity") or ""),
+        "stage12_job": stage12_job,
+        "stage12_job_input": dict(input_payload),
+    }
+
+
+def _job_invocation_summary(
+    *,
+    contract: dict[str, Any],
+    input_payload: dict[str, Any],
+    requested_by: str,
+    auto_run: bool,
+) -> dict[str, Any]:
+    template = dict(contract["template"])
+    profile = dict(contract["profile"])
+    packs = [dict(item) for item in contract["packs"]]
+    status_contract = dict(template.get("submit_contract") or {})
+    return {
+        "command_surface": "newclaw job run",
+        "template_id": template.get("template_id"),
+        "template_display_name": template.get("display_name"),
+        "profile_id": profile.get("profile_id"),
+        "provider_id": profile.get("provider_id"),
+        "provider_class": profile.get("provider_class"),
+        "requested_by": requested_by,
+        "auto_run": auto_run,
+        "task_kind": _job_template_task_kind(template),
+        "capability_pack_ids": list(contract["capability_pack_ids"]),
+        "allowed_tool_ids": sorted(
+            {
+                str(tool_id)
+                for pack in packs
+                for tool_id in list(pack.get("allowed_tool_ids") or [])
+                if str(tool_id).strip()
+            }
+        ),
+        "runtime_surfaces": {
+            "submit": status_contract.get("surface", "agent.submit"),
+            "status": status_contract.get("status_surface", "agent.status"),
+            "events": status_contract.get("events_surface", "agent.events"),
+            "report": status_contract.get("report_surface", "agent.report"),
+            "bundle": "agent.bundle",
+            "handoff": "agent.handoff",
+        },
+        "input_schema": dict(template.get("input_schema") or {}),
+        "input_keys": sorted(str(key) for key in input_payload.keys()),
+        "provider_policy": dict(template.get("provider_policy") or {}),
+        "execution_budget": dict(template.get("execution_budget_override") or profile.get("execution_budget") or {}),
+    }
+
+
+def _job_run_payload(
+    *,
+    template_id: str,
+    profile_id: str,
+    input_payload: dict[str, Any],
+    requested_by: str,
+    actor_id: str | None = None,
+    actor_role: str = DEFAULT_ACTOR_ROLE,
+    include_bundle: bool = False,
+    include_handoff: bool = False,
+    max_chars: int = 4000,
+    auto_run: bool = True,
+) -> tuple[dict[str, Any], int]:
+    try:
+        contract = _resolve_job_contract(
+            template_id=template_id,
+            profile_id=profile_id,
+            input_payload=input_payload,
+        )
+        metadata = _job_runtime_metadata(contract, input_payload)
+        invocation = _job_invocation_summary(
+            contract=contract,
+            input_payload=input_payload,
+            requested_by=requested_by,
+            auto_run=auto_run,
+        )
+    except ValueError as exc:
+        return _error_payload("INVALID_JOB_CONTRACT", str(exc)), 1
+
+    template = dict(contract["template"])
+    description = str(template.get("description") or template.get("display_name") or template_id)
+    request_text = f"Run Stage 12 job `{template_id}` for `{requested_by}`. {description}"
+    status_payload, submit_rc = _submit_payload(
+        request_text=request_text,
+        requested_by=requested_by,
+        task_kind=_job_template_task_kind(template),
+        title=str(template.get("display_name") or template_id),
+        metadata=metadata,
+        auto_run=auto_run,
+        incident_run_mode="dry-run",
+        actor_id=actor_id or requested_by,
+        actor_role=actor_role,
+    )
+    if submit_rc != 0:
+        return {"job_invocation": invocation, "status": status_payload}, submit_rc
+
+    task_id = str(status_payload.get("task_id") or "")
+    invocation["task_id"] = task_id
+    evidence_actor_id = actor_id or requested_by
+    events_payload, events_rc = _events_payload(task_id, actor_id=evidence_actor_id, actor_role=actor_role)
+
+    report_payload: dict[str, Any] = {
+        "available": False,
+        "reason": "not_requested_until_done",
+    }
+    report_rc = 0
+    if status_payload.get("status") == "DONE":
+        report_payload, report_rc = _report_payload(
+            task_id,
+            max_chars=max_chars,
+            actor_id=evidence_actor_id,
+            actor_role=actor_role,
+        )
+
+    bundle_payload: dict[str, Any] | None = None
+    bundle_rc = 0
+    if include_bundle:
+        bundle_payload, bundle_rc = _bundle_payload(
+            task_id,
+            max_chars=max_chars,
+            actor_id=evidence_actor_id,
+            actor_role=actor_role,
+        )
+
+    handoff_payload: dict[str, Any] | None = None
+    handoff_rc = 0
+    if include_handoff:
+        handoff_payload, handoff_rc = _handoff_payload(
+            task_id,
+            max_chars=max_chars,
+            actor_id=evidence_actor_id,
+            actor_role=actor_role,
+        )
+
+    payload: dict[str, Any] = {
+        "job_invocation": invocation,
+        "status": status_payload,
+        "events": events_payload,
+        "report": report_payload,
+    }
+    if bundle_payload is not None:
+        payload["bundle"] = bundle_payload
+    if handoff_payload is not None:
+        payload["handoff"] = handoff_payload
+
+    exit_code = 1 if any(rc != 0 for rc in (events_rc, report_rc, bundle_rc, handoff_rc)) else 0
+    return payload, exit_code
 
 
 def _submit_payload(
@@ -454,6 +852,27 @@ def _print_handoff(payload: dict[str, Any]) -> None:
     print()
 
 
+def _print_job_run(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    invocation = payload.get("job_invocation") or {}
+    status = payload.get("status") or {}
+    events = payload.get("events") or {}
+    report = payload.get("report") or {}
+    print("\n[Stage 12 Job Run]")
+    print(f"- Template: {invocation.get('template_id', '-')}")
+    print(f"- Profile: {invocation.get('profile_id', '-')}")
+    print(f"- Provider: {invocation.get('provider_id', '-')} ({invocation.get('provider_class', '-')})")
+    print(f"- Task ID: {invocation.get('task_id', status.get('task_id', '-'))}")
+    print(f"- Status: {status.get('status', '-')}")
+    print(f"- Events: {events.get('count', 0)}")
+    if report.get("available"):
+        print(f"- Report: {report.get('report_path', '-')}")
+    print(f"- Capability Packs: {', '.join(invocation.get('capability_pack_ids') or []) or '-'}")
+    print()
+
+
 def _print_tools(payload: dict[str, Any]) -> None:
     if "error" in payload:
         _print_status(payload)
@@ -534,6 +953,9 @@ def _emit_payload(payload: dict[str, Any], *, as_json: bool, command: str) -> No
         return
     if command == "handoff":
         _print_handoff(payload)
+        return
+    if command == "job-run":
+        _print_job_run(payload)
         return
     if command == "approvals":
         _print_approvals(payload)
@@ -679,6 +1101,23 @@ def build_parser() -> argparse.ArgumentParser:
     menu_parser = subparsers.add_parser("menu", help="run interactive menu mode")
     menu_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
     menu_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+
+    job_parser = subparsers.add_parser("job", help="run Stage 12 job templates")
+    job_subparsers = job_parser.add_subparsers(dest="job_command")
+    job_run_parser = job_subparsers.add_parser("run", help="run one bounded job template")
+    job_run_parser.add_argument("--template", dest="template_id", required=True)
+    job_run_parser.add_argument("--profile", dest="profile_id", required=True)
+    job_input_group = job_run_parser.add_mutually_exclusive_group(required=True)
+    job_input_group.add_argument("--input-json")
+    job_input_group.add_argument("--input-file", "--input", dest="input_file")
+    job_run_parser.add_argument("--requested-by", required=True)
+    job_run_parser.add_argument("--actor-id")
+    job_run_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    job_run_parser.add_argument("--include-bundle", action="store_true")
+    job_run_parser.add_argument("--include-handoff", action="store_true")
+    job_run_parser.add_argument("--max-chars", type=int, default=4000)
+    job_run_parser.add_argument("--no-auto-run", action="store_true")
+    job_run_parser.add_argument("--json", action="store_true")
 
     submit_parser = subparsers.add_parser("submit", help="submit an agent request")
     submit_parser.add_argument("--request-text", required=True)
@@ -828,6 +1267,29 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "menu":
         return run_menu(actor_id=args.actor_id, actor_role=args.actor_role)
+
+    if args.command == "job":
+        if args.job_command != "run":
+            parser.print_help()
+            return 2
+        input_payload, input_rc = _job_input_payload(args.input_json, args.input_file)
+        if input_rc != 0:
+            _emit_payload(input_payload, as_json=args.json, command="job-run")
+            return input_rc
+        payload, exit_code = _job_run_payload(
+            template_id=args.template_id,
+            profile_id=args.profile_id,
+            input_payload=input_payload,
+            requested_by=args.requested_by,
+            actor_id=args.actor_id or args.requested_by,
+            actor_role=args.actor_role,
+            include_bundle=args.include_bundle,
+            include_handoff=args.include_handoff,
+            max_chars=args.max_chars,
+            auto_run=not args.no_auto_run,
+        )
+        _emit_payload(payload, as_json=args.json, command="job-run")
+        return exit_code
 
     if args.command == "submit":
         metadata, metadata_rc = _load_metadata(args.metadata_json, args.metadata_file)

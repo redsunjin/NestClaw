@@ -33,7 +33,7 @@
       "title": "Run local LLM job invocation PoC",
       "unit_id": "stage12-w1-004",
       "goal": "Run one constrained local LLM job through existing CLI/MCP/HTTP surfaces and capture status, events, report, and audit evidence",
-      "status": "pending"
+      "status": "completed"
     }
   ]
 }

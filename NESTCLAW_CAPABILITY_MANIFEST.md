@@ -27,6 +27,7 @@
 | `capability_pack` | curated tool bundle을 job/profile에 연결 |
 | `execution_budget` | max tool calls, retries, runtime, token/context 사용량 제한 |
 | `schedule_trigger` | cron/launchd/CI/external scheduler가 호출할 수 있는 비대화형 실행 계약 |
+| `job_invocation` | `newclaw job run`이 template/profile/pack을 검증하고 기존 agent runtime으로 제출하는 실행 wrapper |
 
 Stage 12 roadmap:
 - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
@@ -35,6 +36,8 @@ Stage 12 roadmap:
 - `configs/job_templates.json`
 - `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
 - `configs/capability_packs.json`
+- `NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md`
+- `scripts/run_stage12_local_job_poc.sh`
 - `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
 
@@ -122,8 +125,8 @@ Stage 12 roadmap:
 - incident AI planner는 현재 ticket/slack 범위의 제한된 tool set에서만 동작한다.
 - RAG/live provider는 readiness env에 의존한다.
 - GUI는 operator-first 방향이지만 아직 일부 governance 기능이 같은 화면에 섞여 있다.
-- agent profile, job template, capability pack은 아직 canonical runtime schema로 구현되지 않았다.
-- schedule trigger는 현재 core scheduler가 아니라 external scheduler가 HTTP/CLI/MCP를 호출하는 방식으로만 열려 있다.
+- agent profile, job template, capability pack은 Stage 12 registry와 `newclaw job run` preflight에서 사용되지만, 아직 모든 runtime family에 일반화되지는 않았다.
+- schedule trigger는 현재 core scheduler가 아니라 external scheduler가 HTTP/CLI/MCP 또는 `newclaw job run`을 호출하는 방식으로 열려 있다.
 
 ## 10. Integration Guidance
 상위 에이전트는 이 manifest를 이렇게 사용한다.
@@ -142,5 +145,6 @@ Stage 12 roadmap:
 - MCP: `agent.bundle`
 - MCP: `agent.handoff`
 - CLI: `newclaw capabilities --json`
+- CLI: `newclaw job run --template <template_id> --profile <profile_id> --input-file <json> --json`
 - CLI: `newclaw bundle --task-id <task_id> --json`
 - CLI: `newclaw handoff --task-id <task_id> --json`

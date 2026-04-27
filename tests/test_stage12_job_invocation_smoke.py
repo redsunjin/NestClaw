@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+
+
+try:
+    from app import cli as cli_module
+    from app import main as main_module
+    from tests.runtime_test_utils import reset_runtime_state
+except Exception as exc:  # pragma: no cover - environment dependent
+    cli_module = None
+    main_module = None
+    IMPORT_ERROR = exc
+else:
+    IMPORT_ERROR = None
+
+
+@unittest.skipIf(cli_module is None, f"runtime dependencies unavailable: {IMPORT_ERROR}")
+class TestStage12JobInvocationSmoke(unittest.TestCase):
+    def setUp(self) -> None:
+        reset_runtime_state(main_module)
+
+    def _daily_status_input(self) -> dict[str, object]:
+        return {
+            "date": "2026-04-28",
+            "audience": "ops_team",
+            "sensitivity": "internal",
+            "sources": [
+                {
+                    "name": "standup",
+                    "status": "on_track",
+                    "summary": "Stage 12 job runner contract is ready for a bounded PoC.",
+                },
+                {
+                    "name": "qa",
+                    "status": "watch",
+                    "summary": "Local model availability is not required because fallback evidence is captured.",
+                },
+            ],
+            "focus_areas": ["job invocation", "audit evidence"],
+            "excluded_topics": ["cloud relay"],
+        }
+
+    def test_daily_status_digest_job_runs_and_captures_evidence(self) -> None:
+        payload, exit_code = cli_module._job_run_payload(
+            template_id="daily_status_digest",
+            profile_id="local_ops_default",
+            input_payload=self._daily_status_input(),
+            requested_by="qa_user",
+            actor_id="qa_user",
+            actor_role="requester",
+            include_bundle=True,
+            include_handoff=True,
+            max_chars=2400,
+        )
+
+        self.assertEqual(exit_code, 0, payload)
+        invocation = payload["job_invocation"]
+        self.assertEqual(invocation["template_id"], "daily_status_digest")
+        self.assertEqual(invocation["profile_id"], "local_ops_default")
+        self.assertEqual(invocation["provider_class"], "local_llm")
+        self.assertEqual(invocation["capability_pack_ids"], ["internal_digest_basic"])
+        self.assertEqual(invocation["runtime_surfaces"]["submit"], "agent.submit")
+        self.assertEqual(invocation["runtime_surfaces"]["bundle"], "agent.bundle")
+        self.assertEqual(invocation["runtime_surfaces"]["handoff"], "agent.handoff")
+
+        status = payload["status"]
+        self.assertEqual(status["resolved_kind"], "task")
+        self.assertEqual(status["status"], "DONE")
+        self.assertEqual(status["state_summary"]["canonical_state"], "done")
+        self.assertIn(status["state_summary"]["canonical_reason_code"], {"completed", "planner_degraded"})
+        self.assertTrue(status.get("planning_provenance"))
+        self.assertTrue(status.get("provider_invocation"))
+        self.assertEqual(status["result"]["actions_executed"], 1)
+
+        report_path = Path(str(status["result"]["report_path"]))
+        self.assertTrue(report_path.is_file())
+        self.assertIn("Stage 12 job runner contract", report_path.read_text(encoding="utf-8"))
+
+        event_types = {item["event_type"] for item in payload["events"]["items"]}
+        self.assertIn("TASK_CREATED", event_types)
+        self.assertIn("AGENT_ROUTED", event_types)
+        self.assertIn("TASK_ACTIONS_PLANNED", event_types)
+        self.assertIn("PLANNED_ACTION_EXECUTED", event_types)
+
+        self.assertTrue(payload["report"]["available"])
+        self.assertEqual(payload["bundle"]["bundle_version"], "v1")
+        self.assertEqual(payload["bundle"]["status"]["task_id"], invocation["task_id"])
+        self.assertEqual(payload["handoff"]["packet_type"], "completed")
+        self.assertEqual(payload["handoff"]["bundle_ref"]["mcp"], "agent.bundle")
+
+    def test_job_contract_rejects_disallowed_profile_before_submission(self) -> None:
+        payload, exit_code = cli_module._job_run_payload(
+            template_id="daily_status_digest",
+            profile_id="cloud_review_optional",
+            input_payload=self._daily_status_input(),
+            requested_by="qa_user",
+            actor_id="qa_user",
+            actor_role="requester",
+        )
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(payload["error"]["code"], "INVALID_JOB_CONTRACT")
+        self.assertIn("does not allow profile", payload["error"]["message"])
+
+
+if __name__ == "__main__":
+    unittest.main()

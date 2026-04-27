@@ -148,6 +148,8 @@
 - Job Template sample registry: `configs/job_templates.json`
 - Capability Pack baseline spec: `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
 - Capability Pack sample registry: `configs/capability_packs.json`
+- Local Job Invocation PoC: `NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md`
+- Local Job Invocation PoC script: `scripts/run_stage12_local_job_poc.sh`
 - Stage 12 work groups: `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
 - Operator dashboard 원칙: `NESTCLAW_OPERATOR_DASHBOARD_PRINCIPLES.md`
 - 제품 포지셔닝: `NESTCLAW_PRODUCT_POSITIONING.md`

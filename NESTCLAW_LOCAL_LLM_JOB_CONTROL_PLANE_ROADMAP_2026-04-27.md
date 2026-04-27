@@ -82,10 +82,11 @@
 ### M5. Local LLM Job Invocation PoC
 - 목표: 로컬 LLM provider가 제한된 job 하나를 실행하고 evidence를 남기는 end-to-end PoC를 만든다.
 - 산출물:
-  - one runnable job template
-  - one local agent profile
-  - one capability pack
-  - status/events/report/audit evidence
+  - `newclaw job run` compatible CLI wrapper
+  - `scripts/run_stage12_local_job_poc.sh`
+  - `NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md`
+  - one runnable job template/profile/pack path: `daily_status_digest` + `local_ops_default` + `internal_digest_basic`
+  - status/events/report/bundle/handoff evidence
 - 완료 기준:
   - local provider가 기본 경로로 선택된다.
   - cloud/API provider는 low sensitivity 또는 explicit policy에서만 선택된다.
@@ -134,9 +135,12 @@
 - If UI comes first, the runtime contract may stay vague.
 
 ## Near-Term Definition of Done
-- Stage 12 campaign exists and first three MWUs are completed.
+- Stage 12 campaign exists and all four MWUs are completed.
 - Agent Profile spec is completed as `stage12-w1-001`.
 - Job Template spec is completed as `stage12-w1-002`.
 - Capability Pack spec is completed as `stage12-w1-003`.
+- Local Job Invocation PoC is completed as `stage12-w1-004`.
+- `newclaw job run` validates template/profile/capability pack boundaries before runtime submission.
+- Stage 12 cycle includes local job invocation smoke coverage.
 - Roadmap is linked from README and capability manifest.
 - Existing Stage 9-11 tests still pass.

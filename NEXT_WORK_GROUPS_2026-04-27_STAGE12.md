@@ -42,10 +42,14 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 
 ### G4. Local LLM Job Invocation PoC
 - Goal: local LLM provider가 job template 하나를 제한된 capability pack으로 실행하고 evidence를 남기는 최소 흐름을 구현한다.
+- Current artifact:
+  - `NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md`
+  - `scripts/run_stage12_local_job_poc.sh`
+  - `tests/test_stage12_job_invocation_smoke.py`
 - Done when:
   - non-interactive CLI 또는 MCP flow로 PoC job을 실행할 수 있다.
   - execution budget과 provider routing이 기록된다.
-  - status/events/report/audit에 trace가 남는다.
+  - status/events/report/bundle/handoff에 trace가 남는다.
 
 ## Recommended Order
 1. G1 Agent Profile Spec
@@ -65,4 +69,5 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
 - Completed third unit: `stage12-w1-003`
-- Next focus: `G4 Local LLM Job Invocation PoC`
+- Completed fourth unit: `stage12-w1-004`
+- Next focus: extend the job invocation adapter to another template or plan the next Stage 12 campaign.
