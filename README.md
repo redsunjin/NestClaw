@@ -148,6 +148,7 @@
 - Job Template sample registry: `configs/job_templates.json`
 - Capability Pack baseline spec: `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
 - Capability Pack sample registry: `configs/capability_packs.json`
+- LLM harness configuration guide: `NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md`
 - Local Job Invocation PoC: `NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md`
 - Local Job Invocation PoC script: `scripts/run_stage12_local_job_poc.sh`
 - Stage 12 scheduler invocation guide: `NESTCLAW_STAGE12_SCHEDULER_INVOCATION_GUIDE_2026-04-28.md`
@@ -159,6 +160,7 @@
 - Stage 12 agent-facing job API campaign: `work/priority_campaigns/stage12-agent-facing-job-api-campaign/campaign.json`
 - Stage 12 scheduler invocation campaign: `work/priority_campaigns/stage12-scheduler-invocation-campaign/campaign.json`
 - Stage 12 scheduler dedupe campaign: `work/priority_campaigns/stage12-scheduler-dedupe-campaign/campaign.json`
+- Stage 12 LLM harness configuration campaign: `work/priority_campaigns/stage12-llm-harness-configuration-campaign/campaign.json`
 - Operator dashboard 원칙: `NESTCLAW_OPERATOR_DASHBOARD_PRINCIPLES.md`
 - 제품 포지셔닝: `NESTCLAW_PRODUCT_POSITIONING.md`
 - 거버넌스 가드레일: `NESTCLAW_GOVERNANCE_GUARDRAILS.md`

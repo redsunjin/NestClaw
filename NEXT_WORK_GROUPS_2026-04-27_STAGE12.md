@@ -73,6 +73,16 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
   - scheduler wrapper가 `--duplicate-policy run|skip|fail`을 지원한다.
   - Stage 12 dev-QA cycle이 dedupe smoke를 포함한다.
 
+### G7. LLM Harness Configuration
+- Goal: 로컬 LLM, cloud/API LLM, 상위 agent wrapper를 provider/profile/job/capability/invocation/QA harness로 설정하는 표준 절차를 고정한다.
+- Current artifact:
+  - `NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md`
+  - `stage12-llm-harness-configuration-campaign`
+- Done when:
+  - 새 local LLM 추가 순서가 명시된다.
+  - cloud/API provider 제한과 sensitivity boundary가 명시된다.
+  - contract tests가 guide와 campaign을 확인한다.
+
 ## Recommended Order
 1. G1 Agent Profile Spec
 2. G2 Job Template Spec
@@ -80,6 +90,7 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 4. G4 Local LLM Job Invocation PoC
 5. G5 Scheduler Invocation Wrapper
 6. G6 Scheduled Job Dedupe
+7. G7 LLM Harness Configuration
 
 ## Operating Track
 - Stage 8 live readiness는 external env handoff가 들어오는 즉시 별도로 재실행한다.
@@ -101,6 +112,8 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Scheduler invocation goal: let external schedulers invoke bounded Stage 12 jobs and verify run history evidence.
 - Scheduler dedupe campaign: `stage12-scheduler-dedupe-campaign`
 - Scheduler dedupe goal: add idempotency keys, input fingerprints, and duplicate run/skip/fail policy.
+- LLM harness configuration campaign: `stage12-llm-harness-configuration-campaign`
+- LLM harness configuration goal: define how local/cloud LLMs are configured through provider/profile/job/capability/invocation/QA harness layers.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
@@ -111,4 +124,5 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Completed job history/dashboard unit: `stage12-w5-001`
 - Completed scheduler invocation unit: `stage12-w6-001`
 - Completed scheduler dedupe unit: `stage12-w7-001`
-- Current focus: next Stage 12 work should consider explicit idempotency key examples per job template and scheduled-run policy review.
+- Completed LLM harness configuration unit: `stage12-w8-001`
+- Current focus: next Stage 12 work should consider a machine-readable harness policy schema or explicit idempotency key examples per job template.

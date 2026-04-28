@@ -32,6 +32,7 @@
 | `job_history` | `newclaw job history`, `job.history`, `/api/v1/jobs/runs`가 실행된 job의 상태/증적을 읽는 audit surface |
 | `scheduled_job_wrapper` | `scripts/run_stage12_scheduled_job.sh`가 외부 스케줄러 호출 후 history 증적을 검증하는 표준 wrapper |
 | `scheduled_job_dedupe` | `idempotency_key`와 `input_fingerprint`로 external scheduler 중복 호출을 run/skip/fail 처리 |
+| `llm_harness_configuration` | provider/profile/job/capability/invocation/QA harness를 함께 설정하는 운영 기준 |
 
 Stage 12 roadmap:
 - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
@@ -40,6 +41,7 @@ Stage 12 roadmap:
 - `configs/job_templates.json`
 - `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
 - `configs/capability_packs.json`
+- `NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md`
 - `NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md`
 - `scripts/run_stage12_local_job_poc.sh`
 - `NESTCLAW_STAGE12_SCHEDULER_INVOCATION_GUIDE_2026-04-28.md`
@@ -91,6 +93,7 @@ Stage 12 roadmap:
 - local provider는 sensitive/internal 작업의 기본 경로다.
 - cloud/API provider는 low sensitivity 또는 general reasoning 작업에서 정책적으로 허용될 수 있다.
 - provider invocation provenance는 status/event/report 계층에 남겨야 한다.
+- LLM harness setup은 `configs/model_registry.yaml` -> `configs/agent_profiles.json` -> `configs/job_templates.json` -> `configs/capability_packs.json` -> invocation surface -> QA gate 순서로 검토한다.
 
 ## 6. Control Surface by Role
 | Capability | requester | reviewer | approver | admin |
@@ -147,6 +150,7 @@ Stage 12 roadmap:
 3. approval-required action을 자동으로 우회하지 않도록 guardrail 설정
 4. live/sandbox capability를 env readiness와 함께 해석
 5. planner 가능 범위를 넘는 요청은 사용자에게 명확히 제약 설명
+6. 새 LLM을 붙일 때는 `NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md`의 순서대로 provider/profile/job/capability/invocation/QA를 확인
 
 ## 11. Runtime Export Surface
 - HTTP: `GET /api/v1/capabilities`

@@ -17,6 +17,9 @@ class TestStage12Contract(unittest.TestCase):
         scheduler = Path("NESTCLAW_STAGE12_SCHEDULER_INVOCATION_GUIDE_2026-04-28.md").read_text(
             encoding="utf-8"
         )
+        harness = Path("NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("local-first LLM job control plane", positioning)
         self.assertIn("cloud/API LLM", positioning)
         self.assertIn("Agent Profile", local_control)
@@ -40,6 +43,19 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("GitHub Actions", scheduler)
         self.assertIn("idempotency_key", scheduler)
         self.assertIn("duplicate-policy", scheduler)
+        self.assertIn("LLM Harness Configuration Guide", harness)
+        self.assertIn("Provider Harness", harness)
+        self.assertIn("Agent Profile Harness", harness)
+        self.assertIn("Job Template Harness", harness)
+        self.assertIn("Capability Pack Harness", harness)
+        self.assertIn("Invocation Harness", harness)
+        self.assertIn("QA Harness", harness)
+        self.assertIn("configs/model_registry.yaml", harness)
+        self.assertIn("configs/agent_profiles.json", harness)
+        self.assertIn("configs/job_templates.json", harness)
+        self.assertIn("configs/capability_packs.json", harness)
+        self.assertIn("scripts/run_stage12_scheduled_job.sh", harness)
+        self.assertIn("scripts/run_dev_qa_cycle.sh", harness)
         self.assertIn("Stage 12 Priority Campaign", roadmap)
         self.assertIn("stage12-priority-campaign", work_groups)
         self.assertIn("stage12-job-surface-campaign", work_groups)
@@ -48,6 +64,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("stage12-job-history-dashboard-campaign", work_groups)
         self.assertIn("stage12-scheduler-invocation-campaign", work_groups)
         self.assertIn("stage12-scheduler-dedupe-campaign", work_groups)
+        self.assertIn("stage12-llm-harness-configuration-campaign", work_groups)
 
     def test_agent_profile_spec_and_sample_registry_exist(self) -> None:
         spec = Path("NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md").read_text(encoding="utf-8")
@@ -371,6 +388,23 @@ class TestStage12Contract(unittest.TestCase):
         self.assertEqual(data["items"][0]["unit_id"], "stage12-w7-001")
         self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
 
+    def test_stage12_llm_harness_configuration_campaign_exists(self) -> None:
+        data = json.loads(
+            Path("work/priority_campaigns/stage12-llm-harness-configuration-campaign/campaign.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(data["campaign_id"], "stage12-llm-harness-configuration-campaign")
+        self.assertEqual(data["target_stage"], 12)
+        self.assertEqual(
+            [item["item_id"] for item in data["items"]],
+            [
+                "g1-llm-harness-configuration-guide",
+            ],
+        )
+        self.assertEqual(data["items"][0]["unit_id"], "stage12-w8-001")
+        self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+
     def test_cycle_scripts_support_stage12(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
@@ -427,8 +461,10 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("newclaw job run", source)
         self.assertIn("scheduled_job_wrapper", source)
         self.assertIn("scheduled_job_dedupe", source)
+        self.assertIn("llm_harness_configuration", source)
         self.assertIn("idempotency_key", source)
         self.assertIn("scripts/run_stage12_scheduled_job.sh", source)
+        self.assertIn("NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md", source)
 
     def test_stage12_job_run_cli_surface_exists(self) -> None:
         cli_source = Path("app/cli.py").read_text(encoding="utf-8")

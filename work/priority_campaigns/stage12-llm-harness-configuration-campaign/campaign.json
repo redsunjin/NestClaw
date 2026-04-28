@@ -1,0 +1,17 @@
+{
+  "campaign_id": "stage12-llm-harness-configuration-campaign",
+  "goal": "Define the canonical harness setup for managing local and cloud LLMs through Stage 12 job contracts",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-llm-harness-configuration-guide",
+      "group": "G1",
+      "title": "Document LLM harness configuration policy",
+      "unit_id": "stage12-w8-001",
+      "goal": "Make provider/profile/job/capability/invocation/QA harness responsibilities explicit for future local LLM additions",
+      "status": "completed",
+      "completed_unit_id": "stage12-w8-001",
+      "completed_at": "2026-04-28T11:11:15Z"
+    }
+  ]
+}

@@ -76,6 +76,19 @@
   - max provider tokens
   - human approval required on external send
 
+### LLM Harness Configuration
+- 하네스는 provider, profile, job template, capability pack, invocation, QA gate를 묶는 설정 경계다.
+- Stage 12 configuration guide:
+  - `NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md`
+- 기본 순서:
+  1. `configs/model_registry.yaml`에 provider를 등록한다.
+  2. `configs/agent_profiles.json`에 policy profile을 둔다.
+  3. `configs/job_templates.json`에 반복 가능한 job을 정의한다.
+  4. `configs/capability_packs.json`에 tool allowlist를 연결한다.
+  5. CLI/HTTP/MCP/scheduler wrapper로만 호출한다.
+  6. Stage 12 dev-QA cycle로 회귀 검증한다.
+- 이 하네스는 에이전트 persona 관리가 아니라 LLM 작업 실행 권한 관리다.
+
 ## 5. Provider Policy
 | Provider Class | 기본 용도 | 정책 |
 | --- | --- | --- |
@@ -108,6 +121,7 @@ Detailed roadmap:
 - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
 - `NESTCLAW_JOB_TEMPLATE_SPEC_2026-04-28.md`
 - `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
+- `NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md`
 - `NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md`
 - `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`

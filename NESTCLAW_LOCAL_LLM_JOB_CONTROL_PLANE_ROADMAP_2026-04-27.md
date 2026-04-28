@@ -115,6 +115,16 @@
   - 같은 idempotency key로 두 번째 호출 시 `skip` 정책이 새 job 실행 없이 `SKIPPED_DUPLICATE` 증적을 남긴다.
   - Stage 12 dev-QA cycle이 dedupe smoke를 포함한다.
 
+### M8. LLM Harness Configuration Guide
+- 목표: 로컬 LLM, cloud/API LLM, 상위 agent wrapper가 어떤 설정 경계를 통해 NestClaw job을 실행해야 하는지 표준화한다.
+- 산출물:
+  - `NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md`
+  - `stage12-llm-harness-configuration-campaign`
+- 완료 기준:
+  - provider/profile/job/capability/invocation/QA harness의 책임이 명시된다.
+  - 새 local LLM 추가 순서와 cloud/API provider 제한이 문서화된다.
+  - contract tests가 guide와 campaign 존재를 확인한다.
+
 ## Stage 12 Priority Campaign
 | Group | Item | Unit | Outcome |
 | --- | --- | --- | --- |
@@ -155,6 +165,10 @@
 `stage12-scheduler-dedupe-campaign` adds safe repeat invocation semantics for external schedulers:
 
 - `stage12-w7-001`: idempotency keys, input fingerprints, duplicate `run/skip/fail` policy, and dedupe smoke coverage.
+
+`stage12-llm-harness-configuration-campaign` documents how LLMs are managed through the Stage 12 harness:
+
+- `stage12-w8-001`: provider/profile/job/capability/invocation/QA harness guide for local and cloud LLM setup.
 
 ## UI/UX Position
 - No large UI rewrite is required for Stage 12.
@@ -198,6 +212,7 @@
 - `newclaw job history`, MCP `job.history`, and HTTP `/api/v1/jobs/runs` expose completed and in-flight job evidence.
 - `scripts/run_stage12_scheduled_job.sh` lets cron, launchd, CI, and upper agents invoke Stage 12 jobs while preserving job history evidence.
 - Stage 12 job runs expose `idempotency_key` and `input_fingerprint` through run and history surfaces.
+- `NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md` defines how providers, profiles, jobs, capability packs, invocation, and QA gates are configured together.
 - Stage 12 cycle includes local job invocation smoke coverage.
 - Stage 12 cycle includes scheduler invocation smoke coverage.
 - Stage 12 cycle includes scheduler duplicate detection smoke coverage.
