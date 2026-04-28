@@ -1,0 +1,17 @@
+{
+  "campaign_id": "stage12-llm-harness-warning-cleanup-campaign",
+  "goal": "Require zero-warning production Stage 12 LLM harness validation",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-llm-harness-warning-cleanup",
+      "group": "G1",
+      "title": "Clean production harness validator warnings",
+      "unit_id": "stage12-w10-003",
+      "goal": "Remove future placeholder job references and non-reciprocal pack/template references, then enforce strict warning-free validation in the Stage 12 QA cycle",
+      "status": "completed",
+      "completed_unit_id": "stage12-w10-003",
+      "completed_at": "2026-04-29T00:10:00Z"
+    }
+  ]
+}

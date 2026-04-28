@@ -153,9 +153,7 @@
       "allowed_profile_ids": [
         "cloud_review_optional"
       ],
-      "allowed_template_ids": [
-        "issue_triage"
-      ],
+      "allowed_template_ids": [],
       "audit_fields": [
         "task_id",
         "template_id",
@@ -209,9 +207,7 @@
       "allowed_profile_ids": [
         "upper_agent_control_readonly"
       ],
-      "allowed_template_ids": [
-        "readiness_check"
-      ],
+      "allowed_template_ids": [],
       "audit_fields": [
         "task_id",
         "template_id",

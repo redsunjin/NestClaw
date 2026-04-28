@@ -554,6 +554,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("check_stage_12", cycle_source)
         self.assertIn("tests.test_stage12_contract", cycle_source)
         self.assertIn("validate_stage12_llm_harness.py", cycle_source)
+        self.assertIn("--strict-warnings", cycle_source)
         self.assertIn("tests.test_stage12_job_invocation_smoke", cycle_source)
         self.assertIn("scripts/run_stage12_local_job_poc.sh", cycle_source)
         self.assertIn("scripts/run_stage12_scheduler_smoke.sh", cycle_source)

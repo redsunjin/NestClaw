@@ -54,9 +54,7 @@
       "enabled": true,
       "owner_role": "admin",
       "allowed_job_templates": [
-        "issue_triage",
-        "spec_review",
-        "low_sensitivity_summary"
+        "issue_triage"
       ],
       "allowed_capability_packs": [
         "doc_review_readonly",
@@ -98,7 +96,6 @@
       "enabled": true,
       "owner_role": "admin",
       "allowed_job_templates": [
-        "profile_design_review",
         "readiness_check"
       ],
       "allowed_capability_packs": [

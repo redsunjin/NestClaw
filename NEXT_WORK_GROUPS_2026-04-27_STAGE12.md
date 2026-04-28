@@ -114,6 +114,16 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
   - validator가 scheduled job의 key format, examples, recommended duplicate policy를 검증한다.
   - scheduler examples가 concrete `stage12:` key와 duplicate policy를 사용한다.
 
+### G11. LLM Harness Warning Cleanup
+- Goal: production harness registry가 warning 없이 strict validator를 통과하도록 미래 placeholder 참조와 비상호 pack-template 참조를 제거한다.
+- Current artifact:
+  - `scripts/validate_stage12_llm_harness.py --strict-warnings`
+  - `stage12-llm-harness-warning-cleanup-campaign`
+- Done when:
+  - production validator 결과가 `errors=0`, `warnings=0`이다.
+  - Stage 12 dev-QA cycle이 validator를 `--strict-warnings`로 실행한다.
+  - 미래 job/pack 후보는 production allowlist가 아니라 별도 roadmap으로만 남긴다.
+
 ## Recommended Order
 1. G1 Agent Profile Spec
 2. G2 Job Template Spec
@@ -125,6 +135,7 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 8. G8 LLM Harness Policy Validator
 9. G9 LLM Harness Negative Validator Fixtures
 10. G10 Job Template Idempotency Examples
+11. G11 LLM Harness Warning Cleanup
 
 ## Operating Track
 - Stage 8 live readiness는 external env handoff가 들어오는 즉시 별도로 재실행한다.
@@ -154,6 +165,8 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - LLM harness negative fixtures goal: prove the validator rejects broken local/cloud/sensitivity/allowlist/idempotency policy fixtures.
 - Job idempotency examples campaign: `stage12-job-idempotency-examples-campaign`
 - Job idempotency examples goal: pin concrete template-level idempotency keys and duplicate policies for scheduler and upper-agent callers.
+- LLM harness warning cleanup campaign: `stage12-llm-harness-warning-cleanup-campaign`
+- LLM harness warning cleanup goal: require zero-warning production harness validation in Stage 12 QA.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
@@ -168,4 +181,5 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Completed LLM harness validator unit: `stage12-w9-001`
 - Completed LLM harness negative fixture unit: `stage12-w10-001`
 - Completed job idempotency examples unit: `stage12-w10-002`
-- Current focus: next Stage 12 work should consider validator warning cleanup or first real local LLM provider onboarding.
+- Completed LLM harness warning cleanup unit: `stage12-w10-003`
+- Current focus: next Stage 12 work should consider first real local LLM provider onboarding or dashboard harness visibility.
