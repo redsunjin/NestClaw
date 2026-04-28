@@ -16,6 +16,8 @@ bash scripts/run_stage12_scheduled_job.sh \
   --requested-by stage12_scheduler \
   --actor-id stage12_scheduler \
   --actor-role requester \
+  --idempotency-key readiness-2026-04-28 \
+  --duplicate-policy skip \
   --expect-status DONE \
   --include-handoff
 ```
@@ -24,9 +26,19 @@ The wrapper performs the same actions every external scheduler should perform:
 
 - call `python3 -m app.cli job run`
 - call `python3 -m app.cli job history`
+- preserve `idempotency_key` and `input_fingerprint` in run/history evidence
 - verify the returned `task_id` appears in history
 - verify the job reached the expected status, usually `DONE`
 - write `input.json`, `job-run.json`, `job-history.json`, and `summary.json` under `reports/stage12-scheduled-runs/`
+
+## Duplicate Policy
+The wrapper supports three duplicate policies:
+
+- `run`: always run a new job and record idempotency evidence. This is the default for backwards-compatible manual use.
+- `skip`: check `job.history` first; if the same `idempotency_key` already exists, write `summary.json` with `SKIPPED_DUPLICATE` and exit successfully.
+- `fail`: check `job.history` first; if the same `idempotency_key` already exists, fail the scheduler command.
+
+If `--idempotency-key` is omitted, the wrapper derives one from template, profile, and canonical input JSON. For real business schedules, prefer an explicit key such as `daily-status-2026-04-28` or `readiness-stage12-2026-04-28`.
 
 ## Supported External Schedulers
 Examples for cron, launchd, and GitHub Actions live in `examples/stage12_scheduler/`:
@@ -57,6 +69,7 @@ Smoke check:
 
 ```bash
 bash scripts/run_stage12_scheduler_smoke.sh
+bash scripts/run_stage12_scheduler_dedupe_smoke.sh
 ```
 
 Stage 12 cycle:

@@ -63,12 +63,23 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
   - cron, launchd, GitHub Actions 예제가 같은 wrapper를 호출한다.
   - Stage 12 dev-QA cycle이 scheduler smoke를 포함한다.
 
+### G6. Scheduled Job Dedupe
+- Goal: 외부 scheduler가 같은 job을 반복 호출할 때 idempotency key로 중복 실행을 감지하고 정책적으로 run/skip/fail을 선택한다.
+- Current artifact:
+  - `scripts/run_stage12_scheduler_dedupe_smoke.sh`
+  - `stage12-scheduler-dedupe-campaign`
+- Done when:
+  - `job.run`과 `job.history`가 `idempotency_key`, `input_fingerprint`를 노출한다.
+  - scheduler wrapper가 `--duplicate-policy run|skip|fail`을 지원한다.
+  - Stage 12 dev-QA cycle이 dedupe smoke를 포함한다.
+
 ## Recommended Order
 1. G1 Agent Profile Spec
 2. G2 Job Template Spec
 3. G3 Capability Pack Binding
 4. G4 Local LLM Job Invocation PoC
 5. G5 Scheduler Invocation Wrapper
+6. G6 Scheduled Job Dedupe
 
 ## Operating Track
 - Stage 8 live readiness는 external env handoff가 들어오는 즉시 별도로 재실행한다.
@@ -88,6 +99,8 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Job history/dashboard goal: expose Stage 12 job run history to upper agents and the operator dashboard.
 - Scheduler invocation campaign: `stage12-scheduler-invocation-campaign`
 - Scheduler invocation goal: let external schedulers invoke bounded Stage 12 jobs and verify run history evidence.
+- Scheduler dedupe campaign: `stage12-scheduler-dedupe-campaign`
+- Scheduler dedupe goal: add idempotency keys, input fingerprints, and duplicate run/skip/fail policy.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
@@ -97,4 +110,5 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Completed execution hardening unit: `stage12-w4-001`
 - Completed job history/dashboard unit: `stage12-w5-001`
 - Completed scheduler invocation unit: `stage12-w6-001`
-- Current focus: next Stage 12 work should consider idempotency keys, duplicate-run detection, and scheduled-run policy review.
+- Completed scheduler dedupe unit: `stage12-w7-001`
+- Current focus: next Stage 12 work should consider explicit idempotency key examples per job template and scheduled-run policy review.

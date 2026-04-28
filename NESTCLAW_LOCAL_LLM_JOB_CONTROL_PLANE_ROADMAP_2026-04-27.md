@@ -104,6 +104,17 @@
   - 실행 결과, history, input, summary 증적이 `reports/stage12-scheduled-runs/`에 남는다.
   - schedule trigger는 core runtime을 우회하지 않고 Stage 12 job surface를 호출한다.
 
+### M7. Scheduled Job Idempotency
+- 목표: 외부 scheduler가 같은 job을 반복 호출할 때 중복 실행 여부를 machine-readable하게 판단할 수 있게 한다.
+- 산출물:
+  - `idempotency_key` and `input_fingerprint` in `job.run`
+  - same fields in `job.history`
+  - `--duplicate-policy run|skip|fail` in `scripts/run_stage12_scheduled_job.sh`
+  - `scripts/run_stage12_scheduler_dedupe_smoke.sh`
+- 완료 기준:
+  - 같은 idempotency key로 두 번째 호출 시 `skip` 정책이 새 job 실행 없이 `SKIPPED_DUPLICATE` 증적을 남긴다.
+  - Stage 12 dev-QA cycle이 dedupe smoke를 포함한다.
+
 ## Stage 12 Priority Campaign
 | Group | Item | Unit | Outcome |
 | --- | --- | --- | --- |
@@ -140,6 +151,10 @@
 `stage12-scheduler-invocation-campaign` makes those jobs callable by external schedulers without adding a second runtime:
 
 - `stage12-w6-001`: scheduler-safe wrapper, cron/launchd/GitHub Actions examples, and Stage 12 cycle smoke coverage.
+
+`stage12-scheduler-dedupe-campaign` adds safe repeat invocation semantics for external schedulers:
+
+- `stage12-w7-001`: idempotency keys, input fingerprints, duplicate `run/skip/fail` policy, and dedupe smoke coverage.
 
 ## UI/UX Position
 - No large UI rewrite is required for Stage 12.
@@ -182,7 +197,9 @@
 - `newclaw job run` rejects budget overrides and timeout overruns before `agent.submit`.
 - `newclaw job history`, MCP `job.history`, and HTTP `/api/v1/jobs/runs` expose completed and in-flight job evidence.
 - `scripts/run_stage12_scheduled_job.sh` lets cron, launchd, CI, and upper agents invoke Stage 12 jobs while preserving job history evidence.
+- Stage 12 job runs expose `idempotency_key` and `input_fingerprint` through run and history surfaces.
 - Stage 12 cycle includes local job invocation smoke coverage.
 - Stage 12 cycle includes scheduler invocation smoke coverage.
+- Stage 12 cycle includes scheduler duplicate detection smoke coverage.
 - Roadmap is linked from README and capability manifest.
 - Existing Stage 9-11 tests still pass.

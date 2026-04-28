@@ -465,6 +465,8 @@ class OrchestrationService:
             "provider_class": stage12_job.get("provider_class"),
             "capability_pack_ids": list(stage12_job.get("capability_pack_ids") or []),
             "budget_enforcement": dict(stage12_job.get("budget_enforcement") or {}),
+            "input_fingerprint": stage12_job.get("input_fingerprint"),
+            "idempotency_key": stage12_job.get("idempotency_key"),
             "status": task.get("status"),
             "resolved_kind": str(task.get("agent_route") or self._resolved_kind_for_task(task)),
             "title": task.get("title"),

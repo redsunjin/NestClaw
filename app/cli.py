@@ -519,6 +519,7 @@ def _job_run_payload(
     include_handoff: bool = False,
     max_chars: int = 4000,
     auto_run: bool = True,
+    idempotency_key: str | None = None,
 ) -> tuple[dict[str, Any], int]:
     try:
         actor = _actor_context(actor_id or requested_by, actor_role)
@@ -533,6 +534,7 @@ def _job_run_payload(
             include_handoff=include_handoff,
             max_chars=max_chars,
             auto_run=auto_run,
+            idempotency_key=idempotency_key,
         )
         return payload, 0
     except HTTPException as exc:
@@ -1253,6 +1255,7 @@ def build_parser() -> argparse.ArgumentParser:
     job_run_parser.add_argument("--include-bundle", action="store_true")
     job_run_parser.add_argument("--include-handoff", action="store_true")
     job_run_parser.add_argument("--max-chars", type=int, default=4000)
+    job_run_parser.add_argument("--idempotency-key")
     job_run_parser.add_argument("--no-auto-run", action="store_true")
     job_run_parser.add_argument("--json", action="store_true")
 
@@ -1447,6 +1450,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             include_handoff=args.include_handoff,
             max_chars=args.max_chars,
             auto_run=not args.no_auto_run,
+            idempotency_key=args.idempotency_key,
         )
         _emit_payload(payload, as_json=args.json, command="job-run")
         return exit_code

@@ -66,6 +66,8 @@ bash scripts/run_stage12_scheduled_job.sh \
   --requested-by stage12_scheduler \
   --actor-id stage12_scheduler \
   --actor-role requester \
+  --idempotency-key readiness-2026-04-28 \
+  --duplicate-policy skip \
   --expect-status DONE \
   --include-handoff
 ```
@@ -103,6 +105,8 @@ After execution, callers can use `job.history` or `GET /api/v1/jobs/runs` to rea
 
 External schedulers should use `scripts/run_stage12_scheduled_job.sh` or an equivalent wrapper that runs the job and then verifies the resulting `task_id` through job history.
 
+Scheduled callers can pass `--idempotency-key` plus `--duplicate-policy skip` to avoid re-running the same scheduled job. The run payload and history payload both expose `idempotency_key` and `input_fingerprint`.
+
 ## Executable Job Adapters
 Current executable adapters:
 
@@ -134,4 +138,4 @@ env PATH=../nestclaw-ideation-qa/.venv/bin:$PATH \
 ```
 
 ## Next Step
-The completed scheduled invocation wrapper still leaves one natural follow-up: idempotency keys and duplicate-run detection for repeated external scheduler calls.
+The completed scheduled invocation wrapper now includes duplicate detection. The next natural follow-up is explicit idempotency key examples per job template and scheduled-run policy review.

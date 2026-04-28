@@ -192,9 +192,12 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
             include_bundle=False,
             include_handoff=False,
             max_chars=1200,
+            idempotency_key="qa-daily-status-2026-04-28",
         )
         self.assertEqual(run_exit_code, 0, run_payload)
         task_id = run_payload["status"]["task_id"]
+        self.assertEqual(run_payload["job_invocation"]["idempotency_key"], "qa-daily-status-2026-04-28")
+        self.assertTrue(run_payload["job_invocation"]["input_fingerprint"].startswith("sha256:"))
 
         history_payload, history_exit_code = cli_module._job_history_payload(
             limit=10,
@@ -211,6 +214,8 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
         self.assertEqual(item["template_id"], "daily_status_digest")
         self.assertEqual(item["profile_id"], "local_ops_default")
         self.assertTrue(item["budget_enforcement"]["enforced"])
+        self.assertEqual(item["idempotency_key"], "qa-daily-status-2026-04-28")
+        self.assertEqual(item["input_fingerprint"], run_payload["job_invocation"]["input_fingerprint"])
         self.assertEqual(item["state_summary"]["canonical_state"], "done")
 
     def test_issue_triage_job_runs_as_dry_run_incident(self) -> None:
@@ -276,6 +281,7 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
                 "template_id": "readiness_check",
                 "profile_id": "local_ops_default",
                 "requested_by": "qa_user",
+                "idempotency_key": "qa-http-readiness-2026-04-28",
                 "input": {
                     "check_set": "stage8-readiness",
                     "target_stage": 8,
@@ -293,6 +299,7 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
         self.assertEqual(run_response.status_code, 202)
         payload = run_response.json()
         self.assertEqual(payload["job_invocation"]["template_id"], "readiness_check")
+        self.assertEqual(payload["job_invocation"]["idempotency_key"], "qa-http-readiness-2026-04-28")
         self.assertEqual(payload["status"]["status"], "DONE")
         self.assertGreaterEqual(payload["events"]["count"], 4)
         self.assertTrue(payload["report"]["available"])
@@ -311,6 +318,10 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
             payload["status"]["task_id"],
             {item["task_id"] for item in history_payload["items"]},
         )
+        history_item = next(
+            item for item in history_payload["items"] if item["task_id"] == payload["status"]["task_id"]
+        )
+        self.assertEqual(history_item["idempotency_key"], "qa-http-readiness-2026-04-28")
 
     def test_job_contract_rejects_disallowed_profile_before_submission(self) -> None:
         payload, exit_code = cli_module._job_run_payload(

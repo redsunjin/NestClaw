@@ -261,6 +261,7 @@ check_stage_12() {
   run_optional_check "stage12 local job invocation smoke tests (requires fastapi stack)" python3 -m unittest tests.test_stage12_job_invocation_smoke
   run_optional_check "stage12 local job poc script (requires fastapi stack)" bash scripts/run_stage12_local_job_poc.sh
   run_optional_check "stage12 scheduler invocation smoke script (requires fastapi stack)" bash scripts/run_stage12_scheduler_smoke.sh
+  run_optional_check "stage12 scheduler dedupe smoke script (requires fastapi stack)" bash scripts/run_stage12_scheduler_dedupe_smoke.sh
 }
 
 write_header

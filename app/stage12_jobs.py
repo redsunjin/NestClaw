@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -70,6 +71,33 @@ def coerce_string_list(value: Any, *, fallback: list[str] | None = None) -> list
 
 def payload_size_bytes(payload: dict[str, Any]) -> int:
     return len(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8"))
+
+
+def canonical_job_input_json(input_payload: dict[str, Any]) -> str:
+    return json.dumps(input_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def job_input_fingerprint(input_payload: dict[str, Any]) -> str:
+    digest = hashlib.sha256(canonical_job_input_json(input_payload).encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
+
+
+def default_job_idempotency_key(template_id: str, profile_id: str, input_payload: dict[str, Any]) -> str:
+    fingerprint = job_input_fingerprint(input_payload).split(":", 1)[1]
+    return f"stage12:{template_id}:{profile_id}:{fingerprint[:24]}"
+
+
+def effective_job_idempotency_key(
+    *,
+    template_id: str,
+    profile_id: str,
+    input_payload: dict[str, Any],
+    idempotency_key: str | None = None,
+) -> str:
+    normalized = str(idempotency_key or "").strip()
+    if normalized:
+        return normalized
+    return default_job_idempotency_key(template_id, profile_id, input_payload)
 
 
 def budget_int(budget: dict[str, Any], key: str) -> int:
@@ -371,11 +399,18 @@ def resolve_job_contract(*, template_id: str, profile_id: str, input_payload: di
     return contract
 
 
-def stage12_job_metadata(contract: dict[str, Any]) -> dict[str, Any]:
+def stage12_job_metadata(
+    contract: dict[str, Any],
+    *,
+    input_payload: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
     template = dict(contract["template"])
     profile = dict(contract["profile"])
     packs = [dict(item) for item in contract["packs"]]
-    return {
+    template_id = str(template.get("template_id") or "")
+    profile_id = str(profile.get("profile_id") or "")
+    metadata = {
         "template_id": template.get("template_id"),
         "profile_id": profile.get("profile_id"),
         "provider_id": profile.get("provider_id"),
@@ -395,12 +430,26 @@ def stage12_job_metadata(contract: dict[str, Any]) -> dict[str, Any]:
             for pack in packs
         ],
     }
+    if input_payload is not None:
+        metadata["input_fingerprint"] = job_input_fingerprint(input_payload)
+        metadata["idempotency_key"] = effective_job_idempotency_key(
+            template_id=template_id,
+            profile_id=profile_id,
+            input_payload=input_payload,
+            idempotency_key=idempotency_key,
+        )
+    return metadata
 
 
-def job_runtime_metadata(contract: dict[str, Any], input_payload: dict[str, Any]) -> dict[str, Any]:
+def job_runtime_metadata(
+    contract: dict[str, Any],
+    input_payload: dict[str, Any],
+    *,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
     template = dict(contract["template"])
     template_id = str(template.get("template_id") or "")
-    stage12_job = stage12_job_metadata(contract)
+    stage12_job = stage12_job_metadata(contract, input_payload=input_payload, idempotency_key=idempotency_key)
     stage12_job["budget_enforcement"] = budget_enforcement_summary(contract, input_payload)
     if template_id == "daily_status_digest":
         audience = coerce_string_list(input_payload.get("audience"), fallback=["operator"])
@@ -450,11 +499,14 @@ def job_invocation_summary(
     input_payload: dict[str, Any],
     requested_by: str,
     auto_run: bool,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     template = dict(contract["template"])
     profile = dict(contract["profile"])
     packs = [dict(item) for item in contract["packs"]]
     status_contract = dict(template.get("submit_contract") or {})
+    template_id = str(template.get("template_id") or "")
+    profile_id = str(profile.get("profile_id") or "")
     return {
         "command_surface": "newclaw job run",
         "template_id": template.get("template_id"),
@@ -487,6 +539,13 @@ def job_invocation_summary(
         "provider_policy": dict(template.get("provider_policy") or {}),
         "execution_budget": dict(template.get("execution_budget_override") or profile.get("execution_budget") or {}),
         "budget_enforcement": budget_enforcement_summary(contract, input_payload),
+        "input_fingerprint": job_input_fingerprint(input_payload),
+        "idempotency_key": effective_job_idempotency_key(
+            template_id=template_id,
+            profile_id=profile_id,
+            input_payload=input_payload,
+            idempotency_key=idempotency_key,
+        ),
     }
 
 
@@ -604,14 +663,16 @@ def build_job_submit_payload(
     input_payload: dict[str, Any],
     requested_by: str,
     auto_run: bool = True,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     contract = resolve_job_contract(template_id=template_id, profile_id=profile_id, input_payload=input_payload)
-    metadata = job_runtime_metadata(contract, input_payload)
+    metadata = job_runtime_metadata(contract, input_payload, idempotency_key=idempotency_key)
     invocation = job_invocation_summary(
         contract=contract,
         input_payload=input_payload,
         requested_by=requested_by,
         auto_run=auto_run,
+        idempotency_key=idempotency_key,
     )
     template = dict(contract["template"])
     description = str(template.get("description") or template.get("display_name") or template_id)
@@ -624,6 +685,7 @@ def build_job_submit_payload(
             "title": str(template.get("display_name") or template_id),
             "metadata": metadata,
             "auto_run": auto_run,
+            "idempotency_key": invocation["idempotency_key"],
             "incident_run_mode": "dry-run",
         },
     }
@@ -641,6 +703,7 @@ def run_stage12_job(
     include_handoff: bool = False,
     max_chars: int = 4000,
     auto_run: bool = True,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     built = build_job_submit_payload(
         template_id=template_id,
@@ -648,6 +711,7 @@ def run_stage12_job(
         input_payload=input_payload,
         requested_by=requested_by,
         auto_run=auto_run,
+        idempotency_key=idempotency_key,
     )
     invocation = dict(built["job_invocation"])
     status_payload = orchestration_service.submit_agent(dict(built["submit_payload"]), actor)

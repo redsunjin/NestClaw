@@ -1,0 +1,17 @@
+{
+  "campaign_id": "stage12-scheduler-dedupe-campaign",
+  "goal": "Add idempotency keys and duplicate-run detection for externally scheduled Stage 12 jobs",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-scheduled-job-idempotency",
+      "group": "G1",
+      "title": "Record idempotency evidence and block duplicate scheduler runs",
+      "unit_id": "stage12-w7-001",
+      "goal": "Expose idempotency_key and input_fingerprint through job.run/job.history and let scheduler wrappers run, skip, or fail on duplicates",
+      "status": "completed",
+      "completed_unit_id": "stage12-w7-001",
+      "completed_at": "2026-04-28T11:02:09Z"
+    }
+  ]
+}

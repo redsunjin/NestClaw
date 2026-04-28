@@ -152,11 +152,13 @@
 - Local Job Invocation PoC script: `scripts/run_stage12_local_job_poc.sh`
 - Stage 12 scheduler invocation guide: `NESTCLAW_STAGE12_SCHEDULER_INVOCATION_GUIDE_2026-04-28.md`
 - Stage 12 scheduler invocation script: `scripts/run_stage12_scheduled_job.sh`
+- Stage 12 scheduler dedupe smoke: `scripts/run_stage12_scheduler_dedupe_smoke.sh`
 - Stage 12 scheduler examples: `examples/stage12_scheduler/`
 - Stage 12 work groups: `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
 - Stage 12 job discovery/adapter campaign: `work/priority_campaigns/stage12-job-surface-campaign/campaign.json`
 - Stage 12 agent-facing job API campaign: `work/priority_campaigns/stage12-agent-facing-job-api-campaign/campaign.json`
 - Stage 12 scheduler invocation campaign: `work/priority_campaigns/stage12-scheduler-invocation-campaign/campaign.json`
+- Stage 12 scheduler dedupe campaign: `work/priority_campaigns/stage12-scheduler-dedupe-campaign/campaign.json`
 - Operator dashboard 원칙: `NESTCLAW_OPERATOR_DASHBOARD_PRINCIPLES.md`
 - 제품 포지셔닝: `NESTCLAW_PRODUCT_POSITIONING.md`
 - 거버넌스 가드레일: `NESTCLAW_GOVERNANCE_GUARDRAILS.md`

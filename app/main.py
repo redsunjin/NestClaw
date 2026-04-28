@@ -141,6 +141,7 @@ class JobRunRequest(BaseModel):
     profile_id: str = Field(min_length=1, max_length=120)
     input: dict[str, Any]
     requested_by: str = Field(min_length=1, max_length=100)
+    idempotency_key: str | None = Field(default=None, max_length=240)
     auto_run: bool = True
     include_bundle: bool = False
     include_handoff: bool = False
@@ -1967,6 +1968,7 @@ def run_job(
             include_handoff=req.include_handoff,
             max_chars=req.max_chars,
             auto_run=req.auto_run,
+            idempotency_key=req.idempotency_key,
         )
     except ValueError as exc:
         _error(400, "INVALID_JOB_CONTRACT", str(exc))

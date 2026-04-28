@@ -31,6 +31,7 @@
 | `job_discovery` | `newclaw job list/describe`가 upper agent에게 실행 가능한 template/profile/pack 조합을 알려주는 read-only surface |
 | `job_history` | `newclaw job history`, `job.history`, `/api/v1/jobs/runs`가 실행된 job의 상태/증적을 읽는 audit surface |
 | `scheduled_job_wrapper` | `scripts/run_stage12_scheduled_job.sh`가 외부 스케줄러 호출 후 history 증적을 검증하는 표준 wrapper |
+| `scheduled_job_dedupe` | `idempotency_key`와 `input_fingerprint`로 external scheduler 중복 호출을 run/skip/fail 처리 |
 
 Stage 12 roadmap:
 - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
@@ -43,6 +44,7 @@ Stage 12 roadmap:
 - `scripts/run_stage12_local_job_poc.sh`
 - `NESTCLAW_STAGE12_SCHEDULER_INVOCATION_GUIDE_2026-04-28.md`
 - `scripts/run_stage12_scheduled_job.sh`
+- `scripts/run_stage12_scheduler_dedupe_smoke.sh`
 - `examples/stage12_scheduler/`
 - `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - `NEXT_WORK_GROUPS_2026-04-27_STAGE12.md`
@@ -134,6 +136,7 @@ Stage 12 roadmap:
 - GUI는 operator-first 방향이지만 아직 일부 governance 기능이 같은 화면에 섞여 있다.
 - agent profile, job template, capability pack은 Stage 12 registry와 `newclaw job run` preflight에서 사용되지만, 아직 모든 runtime family에 일반화되지는 않았다.
 - schedule trigger는 현재 core scheduler가 아니라 external scheduler가 HTTP/CLI/MCP, `newclaw job run`, 또는 `scripts/run_stage12_scheduled_job.sh`를 호출하는 방식으로 열려 있다.
+- duplicate detection은 `job.history`에 남은 같은 actor-visible `idempotency_key`를 기준으로 한다. 이는 분산 lock이 아니라 scheduler preflight guardrail이다.
 - `issue_triage`는 dry-run incident adapter로 실행 가능하지만 live external write는 별도 승인/live-mode 경로가 필요하다.
 
 ## 10. Integration Guidance
@@ -165,6 +168,6 @@ Stage 12 roadmap:
 - CLI: `newclaw job describe --template <template_id> --profile <profile_id> --json`
 - CLI: `newclaw job run --template <template_id> --profile <profile_id> --input-file <json> --json`
 - CLI: `newclaw job history --json`
-- Script: `bash scripts/run_stage12_scheduled_job.sh --template <template_id> --profile <profile_id> --input-file <json>`
+- Script: `bash scripts/run_stage12_scheduled_job.sh --template <template_id> --profile <profile_id> --input-file <json> --idempotency-key <key> --duplicate-policy skip`
 - CLI: `newclaw bundle --task-id <task_id> --json`
 - CLI: `newclaw handoff --task-id <task_id> --json`
