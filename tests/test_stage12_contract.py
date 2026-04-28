@@ -79,6 +79,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("stage12-llm-harness-negative-fixtures-campaign", work_groups)
         self.assertIn("stage12-job-idempotency-examples-campaign", work_groups)
         self.assertIn("stage12-local-llm-provider-onboarding-campaign", work_groups)
+        self.assertIn("stage12-dashboard-harness-visibility-campaign", work_groups)
 
     def test_agent_profile_spec_and_sample_registry_exist(self) -> None:
         spec = Path("NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md").read_text(encoding="utf-8")
@@ -652,6 +653,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("@APP.get(\"/api/v1/jobs\")", main_source)
         self.assertIn("@APP.get(\"/api/v1/jobs/runs\")", main_source)
         self.assertIn("@APP.get(\"/api/v1/jobs/{template_id}\")", main_source)
+        self.assertIn("@APP.get(\"/api/v1/llm-harness\")", main_source)
         self.assertIn("@APP.post(\"/api/v1/jobs/run\"", main_source)
         self.assertIn('"job.list"', mcp_source)
         self.assertIn('"job.describe"', mcp_source)
@@ -672,6 +674,10 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("validate_execution_budget_policy", job_source)
         self.assertIn("agent.bundle", cli_source)
         self.assertIn("def job_run_history(", Path("app/services/orchestration_service.py").read_text(encoding="utf-8"))
+        harness_source = Path("app/stage12_harness.py").read_text(encoding="utf-8")
+        self.assertIn("stage12_harness_status_payload", harness_source)
+        self.assertIn("strict_status", harness_source)
+        self.assertIn("local_ollama_ops", harness_source)
 
     def test_governance_guardrails_cover_provider_boundaries(self) -> None:
         source = Path("NESTCLAW_GOVERNANCE_GUARDRAILS.md").read_text(encoding="utf-8")

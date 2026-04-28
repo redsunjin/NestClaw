@@ -37,6 +37,7 @@ from app.stage12_jobs import (
     job_list_payload,
     run_stage12_job,
 )
+from app.stage12_harness import stage12_harness_status_payload
 from app.services import (
     ApprovalService,
     ApprovalServiceDeps,
@@ -1949,6 +1950,14 @@ def describe_job(
         return job_describe_payload(template_id=template_id, profile_id=profile_id)
     except ValueError as exc:
         _error(400, "INVALID_JOB_DISCOVERY", str(exc))
+
+
+@APP.get("/api/v1/llm-harness")
+def llm_harness_status(
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    _authorize(actor.actor_role, {"requester", "reviewer", "approver", "admin"}, "llm_harness_status")
+    return stage12_harness_status_payload()
 
 
 @APP.post("/api/v1/jobs/run", status_code=202)

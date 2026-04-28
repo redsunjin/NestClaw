@@ -601,7 +601,8 @@ textarea {
   overflow: auto;
 }
 
-.job-history-block {
+.job-history-block,
+.harness-block {
   display: grid;
   gap: 14px;
   margin-bottom: 22px;
@@ -622,6 +623,25 @@ textarea {
 .job-run-card {
   background:
     linear-gradient(135deg, rgba(31, 122, 74, 0.07), transparent 44%),
+    var(--panel-strong);
+}
+
+.harness-summary-card {
+  margin-top: 0;
+  background:
+    linear-gradient(135deg, rgba(53, 87, 81, 0.08), transparent 44%),
+    var(--panel-strong);
+}
+
+.harness-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.harness-card {
+  background:
+    linear-gradient(135deg, rgba(192, 79, 51, 0.06), transparent 44%),
     var(--panel-strong);
 }
 

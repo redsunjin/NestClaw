@@ -323,6 +323,22 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
         )
         self.assertEqual(history_item["idempotency_key"], "qa-http-readiness-2026-04-28")
 
+    def test_http_llm_harness_status_is_read_only_and_warning_free(self) -> None:
+        response = self.client.get("/api/v1/llm-harness", headers=self.headers)
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["surface"], "stage12.llm_harness")
+        self.assertEqual(payload["status"], "PASS")
+        self.assertEqual(payload["validation"]["strict_status"], "PASS")
+        self.assertEqual(payload["validation"]["warnings"], [])
+        self.assertEqual(payload["validation"]["errors"], [])
+        self.assertGreaterEqual(payload["counts"]["profiles"], 5)
+        self.assertEqual(payload["onboarding"]["primary_local_profile"], "local_ollama_ops")
+        profiles = {item["profile_id"]: item for item in payload["profiles"]}
+        self.assertEqual(profiles["local_ollama_ops"]["provider_id"], "local_primary")
+        self.assertEqual(profiles["local_ollama_ops"]["provider_class"], "local_llm")
+        self.assertIn("readiness_check", profiles["local_ollama_ops"]["allowed_job_templates"])
+
     def test_job_contract_rejects_disallowed_profile_before_submission(self) -> None:
         payload, exit_code = cli_module._job_run_payload(
             template_id="daily_status_digest",

@@ -20,6 +20,8 @@ const recentTaskList = document.querySelector("#recent-task-list");
 const recentApprovalList = document.querySelector("#recent-approval-list");
 const jobRunList = document.querySelector("#job-run-list");
 const jobHistoryTemplateSelect = document.querySelector("#job-history-template");
+const harnessSummary = document.querySelector("#harness-summary");
+const harnessProfileList = document.querySelector("#harness-profile-list");
 const approvalStatusFilterSelect = document.querySelector("#approval-status-filter");
 const approvalGroupFilterInput = document.querySelector("#approval-group-filter");
 const approvalCommentInput = document.querySelector("#approval-comment");
@@ -549,6 +551,49 @@ function renderJobRuns(items) {
     .join("");
 }
 
+function renderHarness(payload) {
+  const counts = payload.counts || {};
+  const validation = payload.validation || {};
+  const onboarding = payload.onboarding || {};
+  harnessSummary.textContent = [
+    `status: ${payload.status || "-"}`,
+    `validator: ${validation.strict_status || validation.status || "-"}`,
+    `profiles: ${counts.profiles ?? "-"} (${counts.local_profiles ?? "-"} local / ${counts.cloud_profiles ?? "-"} cloud)`,
+    `job_templates: ${counts.job_templates ?? "-"}`,
+    `capability_packs: ${counts.capability_packs ?? "-"}`,
+    `model_providers: ${counts.model_providers ?? "-"}`,
+    `primary_local: ${onboarding.primary_local_profile || "-"} -> ${onboarding.primary_local_provider || "-"}`,
+    `smoke: ${onboarding.smoke_script || "-"}`,
+  ].join("\n");
+
+  const profiles = payload.profiles || [];
+  if (!profiles.length) {
+    harnessProfileList.innerHTML = '<div class="history-card"><p class="tool-meta">등록된 harness profile이 없습니다.</p></div>';
+    return;
+  }
+  harnessProfileList.innerHTML = profiles
+    .map((profile) => {
+      const jobs = (profile.allowed_job_templates || []).join(", ") || "-";
+      const packs = (profile.allowed_capability_packs || []).join(", ") || "-";
+      const sensitivity = (profile.allowed_sensitivity || []).join(", ") || "-";
+      return `
+        <article class="history-card harness-card">
+          <h3>${escapeHtml(profile.profile_id || "-")}</h3>
+          <p class="tool-meta">provider: ${escapeHtml(profile.provider_id || "-")} / ${escapeHtml(profile.provider_class || "-")}</p>
+          <p class="tool-meta">jobs: ${escapeHtml(jobs)}</p>
+          <p class="tool-meta">packs: ${escapeHtml(packs)}</p>
+          <p class="tool-meta">sensitivity: ${escapeHtml(sensitivity)}</p>
+          <div class="signal-strip signal-strip-compact">
+            ${signalChip(profile.enabled ? "enabled" : "disabled", profile.enabled ? "ok" : "warn")}
+            ${signalChip(`external ${profile.external_send_policy || "-"}`, profile.external_send_policy === "deny" ? "ok" : "warn")}
+            ${signalChip(profile.allow_network ? "network allowed" : "network denied", profile.allow_network ? "warn" : "ok")}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function renderRecentApprovals(items) {
   if (!items.length) {
     recentApprovalList.innerHTML = '<div class="history-card"><p class="tool-meta">최근 승인 이력이 없습니다.</p></div>';
@@ -622,6 +667,13 @@ async function loadJobHistory() {
   const payload = await requestJson(`/api/v1/jobs/runs?${params.toString()}`);
   renderJobRuns(payload.items || []);
   printOutput("Stage 12 Job 실행 이력", payload);
+  return payload;
+}
+
+async function loadHarness() {
+  const payload = await requestJson("/api/v1/llm-harness");
+  renderHarness(payload);
+  printOutput("LLM Harness 상태", payload);
   return payload;
 }
 
@@ -970,6 +1022,14 @@ document.querySelector("#refresh-job-history").addEventListener("click", async (
   }
 });
 
+document.querySelector("#refresh-harness").addEventListener("click", async () => {
+  try {
+    await loadHarness();
+  } catch (error) {
+    printOutput("LLM Harness 조회 오류", { error: String(error.message || error) });
+  }
+});
+
 jobHistoryTemplateSelect.addEventListener("change", async () => {
   try {
     await loadJobHistory();
@@ -1141,6 +1201,7 @@ actorRoleSelect.addEventListener("change", async () => {
     await loadCapabilities();
     await loadRecentTasks();
     await loadJobHistory();
+    await loadHarness();
   } catch (error) {
     printOutput("Capability 로딩 오류", { error: String(error.message || error) });
   }
@@ -1154,6 +1215,7 @@ try {
   await loadTools();
   await loadRecentTasks();
   await loadJobHistory();
+  await loadHarness();
   setPlannerSummary("아직 planner 정보가 없습니다.");
   setPlannerRationale("아직 planner rationale이 없습니다.");
   renderSignalStrip({});

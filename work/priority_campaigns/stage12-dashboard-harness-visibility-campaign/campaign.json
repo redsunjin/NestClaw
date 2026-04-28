@@ -1,0 +1,17 @@
+{
+  "campaign_id": "stage12-dashboard-harness-visibility-campaign",
+  "goal": "Expose read-only Stage 12 LLM harness status in the operator dashboard",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-dashboard-harness-readonly",
+      "group": "G1",
+      "title": "Add dashboard harness status panel",
+      "unit_id": "stage12-w11-002",
+      "goal": "Add read-only LLM harness status endpoint and dashboard panel for validator, profile, job, capability, provider, and onboarding state",
+      "status": "completed",
+      "completed_unit_id": "stage12-w11-002",
+      "completed_at": "2026-04-29T00:45:00Z"
+    }
+  ]
+}

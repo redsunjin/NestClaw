@@ -135,6 +135,17 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
   - `daily_status_digest`, `issue_triage`, `readiness_check`가 `local_ollama_ops`와 호환된다.
   - Stage 12 dev-QA cycle이 local LLM onboarding smoke를 포함한다.
 
+### G13. Dashboard Harness Visibility
+- Goal: operator dashboard가 Stage 12 harness 상태를 read-only로 확인할 수 있게 한다.
+- Current artifact:
+  - `GET /api/v1/llm-harness`
+  - `app/static/agent-console.html`
+  - `stage12-dashboard-harness-visibility-campaign`
+- Done when:
+  - dashboard가 strict validator status, profile/job/pack/provider counts, local onboarding profile을 보여준다.
+  - endpoint가 production harness registry를 read-only payload로 반환한다.
+  - web console runtime tests가 HTML/JS/CSS와 endpoint를 검증한다.
+
 ## Recommended Order
 1. G1 Agent Profile Spec
 2. G2 Job Template Spec
@@ -148,6 +159,7 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 10. G10 Job Template Idempotency Examples
 11. G11 LLM Harness Warning Cleanup
 12. G12 Local LLM Provider Onboarding
+13. G13 Dashboard Harness Visibility
 
 ## Operating Track
 - Stage 8 live readiness는 external env handoff가 들어오는 즉시 별도로 재실행한다.
@@ -181,6 +193,8 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - LLM harness warning cleanup goal: require zero-warning production harness validation in Stage 12 QA.
 - Local LLM provider onboarding campaign: `stage12-local-llm-provider-onboarding-campaign`
 - Local LLM provider onboarding goal: promote Ollama as a concrete local provider profile and prove bounded job invocation through the onboarding smoke.
+- Dashboard harness visibility campaign: `stage12-dashboard-harness-visibility-campaign`
+- Dashboard harness visibility goal: expose read-only Stage 12 harness status in the operator dashboard.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
@@ -197,4 +211,5 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Completed job idempotency examples unit: `stage12-w10-002`
 - Completed LLM harness warning cleanup unit: `stage12-w10-003`
 - Completed local LLM provider onboarding unit: `stage12-w11-001`
-- Current focus: next Stage 12 work should consider dashboard harness visibility and final release readiness.
+- Completed dashboard harness visibility unit: `stage12-w11-002`
+- Current focus: final Stage 12 release readiness pass and branch sync.
