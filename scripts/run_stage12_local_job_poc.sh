@@ -13,6 +13,7 @@ READINESS_INPUT_FILE="$WORK_DIR/readiness-input.json"
 READINESS_OUTPUT_FILE="$WORK_DIR/readiness-output.json"
 ISSUE_INPUT_FILE="$WORK_DIR/issue-triage-input.json"
 ISSUE_OUTPUT_FILE="$WORK_DIR/issue-triage-output.json"
+HISTORY_OUTPUT_FILE="$WORK_DIR/job-history-output.json"
 
 cat >"$INPUT_FILE" <<'JSON'
 {
@@ -116,7 +117,13 @@ python3 -m app.cli job run \
   --max-chars 2400 \
   --json >"$ISSUE_OUTPUT_FILE"
 
-python3 - "$OUTPUT_FILE" "$READINESS_OUTPUT_FILE" "$ISSUE_OUTPUT_FILE" "$WORK_DIR/job-list.json" "$WORK_DIR/readiness-describe.json" <<'PY'
+python3 -m app.cli job history \
+  --actor-id stage12_poc \
+  --actor-role requester \
+  --limit 10 \
+  --json >"$HISTORY_OUTPUT_FILE"
+
+python3 - "$OUTPUT_FILE" "$READINESS_OUTPUT_FILE" "$ISSUE_OUTPUT_FILE" "$HISTORY_OUTPUT_FILE" "$WORK_DIR/job-list.json" "$WORK_DIR/readiness-describe.json" <<'PY'
 from __future__ import annotations
 
 import json
@@ -126,8 +133,9 @@ import sys
 daily_payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 readiness_payload = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
 issue_payload = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
-job_list = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
-readiness_describe = json.loads(Path(sys.argv[5]).read_text(encoding="utf-8"))
+history_payload = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
+job_list = json.loads(Path(sys.argv[5]).read_text(encoding="utf-8"))
+readiness_describe = json.loads(Path(sys.argv[6]).read_text(encoding="utf-8"))
 
 listed = {item["template_id"]: item for item in job_list["items"]}
 if not listed["daily_status_digest"]["executable"]:
@@ -162,6 +170,14 @@ if issue_payload["status"]["resolved_kind"] != "incident":
     raise SystemExit("issue_triage should run through the incident workflow")
 if issue_payload["status"]["run_mode"] != "dry-run":
     raise SystemExit("issue_triage should remain dry-run in the PoC")
+expected_task_ids = {
+    daily_payload["status"]["task_id"],
+    readiness_payload["status"]["task_id"],
+    issue_payload["status"]["task_id"],
+}
+history_task_ids = {item["task_id"] for item in history_payload["items"]}
+if not expected_task_ids.issubset(history_task_ids):
+    raise SystemExit("job history should include all PoC job runs")
 
 print(
     "[OK] stage12 local job poc "

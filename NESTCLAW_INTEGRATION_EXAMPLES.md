@@ -111,6 +111,19 @@ For a bounded issue triage job, keep it as a fixed `job.run` call rather than a 
 
 `issue_triage` runs through the incident runtime in dry-run mode. Do not pass `execution_budget_override` from an upper agent; budget expansion needs a separate human approval path.
 
+Tool: `job.history`
+
+```json
+{
+  "template_id": "issue_triage",
+  "actor_id": "claude_user",
+  "actor_role": "requester",
+  "limit": 8
+}
+```
+
+Use `job.history` after `job.run` when the upper agent needs to audit recent runs, report paths, budget evidence, or completion state.
+
 ### 3.3 Submit Freeform Request
 Tool: `agent.submit`
 

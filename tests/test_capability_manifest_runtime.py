@@ -53,6 +53,7 @@ class TestCapabilityManifestRuntime(unittest.TestCase):
         self.assertIn("slack.message.send", tool_ids)
         self.assertIn("agent.handoff", payload["controls"]["safe_for_upper_agents"])
         self.assertIn("job.run", payload["controls"]["safe_for_upper_agents"])
+        self.assertIn("job.history", payload["controls"]["safe_for_upper_agents"])
         self.assertIn("catalog.manifest", payload["controls"]["safe_for_upper_agents"])
 
     def test_cli_capabilities_command_returns_manifest_json(self) -> None:
@@ -67,6 +68,7 @@ class TestCapabilityManifestRuntime(unittest.TestCase):
         self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
         self.assertIn("agent.handoff", payload["controls"]["safe_for_upper_agents"])
         self.assertIn("job.list", payload["controls"]["safe_for_upper_agents"])
+        self.assertIn("job.history", payload["controls"]["safe_for_upper_agents"])
         self.assertIn(
             payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
             {"ready", "env_blocked"},

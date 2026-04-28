@@ -181,6 +181,38 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
         self.assertEqual(payload["bundle"]["bundle_version"], "v1")
         self.assertEqual(payload["handoff"]["packet_type"], "completed")
 
+    def test_job_history_surfaces_list_stage12_runs(self) -> None:
+        run_payload, run_exit_code = cli_module._job_run_payload(
+            template_id="daily_status_digest",
+            profile_id="local_ops_default",
+            input_payload=self._daily_status_input(),
+            requested_by="qa_user",
+            actor_id="qa_user",
+            actor_role="requester",
+            include_bundle=False,
+            include_handoff=False,
+            max_chars=1200,
+        )
+        self.assertEqual(run_exit_code, 0, run_payload)
+        task_id = run_payload["status"]["task_id"]
+
+        history_payload, history_exit_code = cli_module._job_history_payload(
+            limit=10,
+            template_id="daily_status_digest",
+            actor_id="qa_user",
+            actor_role="requester",
+        )
+        self.assertEqual(history_exit_code, 0, history_payload)
+        self.assertEqual(history_payload["surface"], "job.history")
+        self.assertEqual(history_payload["template_filter"], "daily_status_digest")
+        by_task = {item["task_id"]: item for item in history_payload["items"]}
+        self.assertIn(task_id, by_task)
+        item = by_task[task_id]
+        self.assertEqual(item["template_id"], "daily_status_digest")
+        self.assertEqual(item["profile_id"], "local_ops_default")
+        self.assertTrue(item["budget_enforcement"]["enforced"])
+        self.assertEqual(item["state_summary"]["canonical_state"], "done")
+
     def test_issue_triage_job_runs_as_dry_run_incident(self) -> None:
         payload, exit_code = cli_module._job_run_payload(
             template_id="issue_triage",
@@ -266,6 +298,19 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
         self.assertTrue(payload["report"]["available"])
         self.assertEqual(payload["bundle"]["bundle_version"], "v1")
         self.assertEqual(payload["handoff"]["packet_type"], "completed")
+
+        history_response = self.client.get(
+            "/api/v1/jobs/runs?template_id=readiness_check&limit=10",
+            headers=self.headers,
+        )
+        self.assertEqual(history_response.status_code, 200)
+        history_payload = history_response.json()
+        self.assertEqual(history_payload["surface"], "job.history")
+        self.assertEqual(history_payload["template_filter"], "readiness_check")
+        self.assertIn(
+            payload["status"]["task_id"],
+            {item["task_id"] for item in history_payload["items"]},
+        )
 
     def test_job_contract_rejects_disallowed_profile_before_submission(self) -> None:
         payload, exit_code = cli_module._job_run_payload(

@@ -11,14 +11,17 @@ Discovery:
 ```bash
 newclaw job list --json
 newclaw job describe --template readiness_check --profile local_ops_default --json
+newclaw job history --json
 python3 -m app.cli job list --json
 python3 -m app.cli job describe --template readiness_check --profile local_ops_default --json
+python3 -m app.cli job history --json
 ```
 
 HTTP:
 
 ```bash
 GET /api/v1/jobs
+GET /api/v1/jobs/runs
 GET /api/v1/jobs/readiness_check?profile_id=local_ops_default
 POST /api/v1/jobs/run
 ```
@@ -29,6 +32,7 @@ MCP:
 job.list
 job.describe
 job.run
+job.history
 ```
 
 CLI:
@@ -80,6 +84,8 @@ The JSON response includes:
 - `handoff`: optional `agent.handoff` packet when `--include-handoff` is used
 
 This is the shape expected by Claude/Codex/MCP wrappers, cron/launchd jobs, or other upper agents.
+
+After execution, callers can use `job.history` or `GET /api/v1/jobs/runs` to read the run record without replaying the job.
 
 ## Executable Job Adapters
 Current executable adapters:

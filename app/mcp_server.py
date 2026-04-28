@@ -258,6 +258,23 @@ class NewClawMcpServer:
                 },
                 handler=self._handle_job_run,
             ),
+            "job.history": ToolSpec(
+                name="job.history",
+                title="List Stage 12 Job Runs",
+                description="Fetch recent Stage 12 job runs visible to the current actor, optionally filtered by template.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer"},
+                        "template_id": {"type": "string"},
+                        "actor_id": {"type": "string"},
+                        "actor_role": {"type": "string", "enum": sorted(VALID_ROLES)},
+                    },
+                    "required": ["actor_id"],
+                    "additionalProperties": False,
+                },
+                handler=self._handle_job_history,
+            ),
             "approval.list": ToolSpec(
                 name="approval.list",
                 title="List Approvals",
@@ -584,6 +601,15 @@ class NewClawMcpServer:
             include_handoff=bool(arguments.get("include_handoff", False)),
             max_chars=int(arguments.get("max_chars") or 4000),
             auto_run=bool(arguments.get("auto_run", True)),
+        )
+
+    def _handle_job_history(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        actor = self._tool_actor(arguments, default_role="requester")
+        return _invoke(
+            self.orchestration_service.job_run_history,
+            actor,
+            limit=int(arguments.get("limit") or 10),
+            template_id=arguments.get("template_id"),
         )
 
     def _handle_approval_list(self, arguments: dict[str, Any]) -> dict[str, Any]:

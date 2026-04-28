@@ -29,6 +29,7 @@
 | `schedule_trigger` | cron/launchd/CI/external scheduler가 호출할 수 있는 비대화형 실행 계약 |
 | `job_invocation` | `newclaw job run`이 template/profile/pack을 검증하고 기존 agent runtime으로 제출하는 실행 wrapper |
 | `job_discovery` | `newclaw job list/describe`가 upper agent에게 실행 가능한 template/profile/pack 조합을 알려주는 read-only surface |
+| `job_history` | `newclaw job history`, `job.history`, `/api/v1/jobs/runs`가 실행된 job의 상태/증적을 읽는 audit surface |
 
 Stage 12 roadmap:
 - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
@@ -143,6 +144,7 @@ Stage 12 roadmap:
 - HTTP: `GET /api/v1/capabilities`
 - HTTP: `GET /api/v1/jobs`
 - HTTP: `GET /api/v1/jobs/{template_id}`
+- HTTP: `GET /api/v1/jobs/runs`
 - HTTP: `POST /api/v1/jobs/run`
 - HTTP: `GET /api/v1/agent/bundle/{task_id}`
 - HTTP: `GET /api/v1/agent/handoff/{task_id}`
@@ -150,11 +152,13 @@ Stage 12 roadmap:
 - MCP: `job.list`
 - MCP: `job.describe`
 - MCP: `job.run`
+- MCP: `job.history`
 - MCP: `agent.bundle`
 - MCP: `agent.handoff`
 - CLI: `newclaw capabilities --json`
 - CLI: `newclaw job list --json`
 - CLI: `newclaw job describe --template <template_id> --profile <profile_id> --json`
 - CLI: `newclaw job run --template <template_id> --profile <profile_id> --input-file <json> --json`
+- CLI: `newclaw job history --json`
 - CLI: `newclaw bundle --task-id <task_id> --json`
 - CLI: `newclaw handoff --task-id <task_id> --json`

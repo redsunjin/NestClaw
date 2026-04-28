@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>NestClaw Web Console</title>
-    <link rel="stylesheet" href="/static/agent-console.css?v=20260405c">
+    <link rel="stylesheet" href="/static/agent-console.css?v=20260428a">
   </head>
   <body>
     <main class="page-shell">
@@ -207,6 +207,27 @@
                 <button id="refresh-approval-history" class="button subtle" type="button" data-role-scope="approver admin">최근 승인 조회</button>
               </div>
             </div>
+            <div class="job-history-block">
+              <div class="section-head section-head-tight">
+                <div>
+                  <p class="section-kicker">Stage 12 Job Runs</p>
+                  <h3 class="subheading">job 실행 이력</h3>
+                </div>
+                <button id="refresh-job-history" class="button subtle" type="button">Job 이력 조회</button>
+              </div>
+              <div class="form-grid compact job-history-filter">
+                <label>
+                  <span>Template Filter</span>
+                  <select id="job-history-template">
+                    <option value="" selected>ALL</option>
+                    <option value="daily_status_digest">daily_status_digest</option>
+                    <option value="readiness_check">readiness_check</option>
+                    <option value="issue_triage">issue_triage</option>
+                  </select>
+                </label>
+              </div>
+              <div id="job-run-list" class="history-list job-run-list"></div>
+            </div>
             <div class="history-grid">
               <div>
                 <h3 class="subheading">최근 작업</h3>
@@ -344,7 +365,7 @@
         </div>
       </div>
 
-      <script type="module" src="/static/agent-console.js?v=20260405c"></script>
+      <script type="module" src="/static/agent-console.js?v=20260428a"></script>
     </main>
   </body>
 </html>

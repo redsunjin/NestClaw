@@ -95,6 +95,7 @@ class TestToolCliSmoke(unittest.TestCase):
         self.assertEqual(payload["transport"]["mcp"]["baseline"], "stdio")
         self.assertIn("agent.handoff", payload["controls"]["safe_for_upper_agents"])
         self.assertIn("job.run", payload["controls"]["safe_for_upper_agents"])
+        self.assertIn("job.history", payload["controls"]["safe_for_upper_agents"])
         self.assertIn(
             payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
             {"ready", "env_blocked"},

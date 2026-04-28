@@ -35,6 +35,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("stage12-job-surface-campaign", work_groups)
         self.assertIn("stage12-agent-facing-job-api-campaign", work_groups)
         self.assertIn("stage12-job-execution-hardening-campaign", work_groups)
+        self.assertIn("stage12-job-history-dashboard-campaign", work_groups)
 
     def test_agent_profile_spec_and_sample_registry_exist(self) -> None:
         spec = Path("NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md").read_text(encoding="utf-8")
@@ -307,6 +308,23 @@ class TestStage12Contract(unittest.TestCase):
         self.assertEqual(data["items"][0]["unit_id"], "stage12-w4-001")
         self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
 
+    def test_stage12_job_history_dashboard_campaign_exists(self) -> None:
+        data = json.loads(
+            Path("work/priority_campaigns/stage12-job-history-dashboard-campaign/campaign.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(data["campaign_id"], "stage12-job-history-dashboard-campaign")
+        self.assertEqual(data["target_stage"], 12)
+        self.assertEqual(
+            [item["item_id"] for item in data["items"]],
+            [
+                "g1-job-run-history-dashboard",
+            ],
+        )
+        self.assertEqual(data["items"][0]["unit_id"], "stage12-w5-001")
+        self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+
     def test_cycle_scripts_support_stage12(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
@@ -322,6 +340,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("app.cli job list", poc_script)
         self.assertIn("app.cli job describe", poc_script)
         self.assertIn("app.cli job run", poc_script)
+        self.assertIn("app.cli job history", poc_script)
         self.assertIn("--template daily_status_digest", poc_script)
         self.assertIn("--template readiness_check", poc_script)
         self.assertIn("--template issue_triage", poc_script)
@@ -351,16 +370,20 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn('job_subparsers.add_parser("list"', cli_source)
         self.assertIn('job_subparsers.add_parser("describe"', cli_source)
         self.assertIn('job_subparsers.add_parser("run"', cli_source)
+        self.assertIn('job_subparsers.add_parser("history"', cli_source)
         self.assertIn("stage12_job_list_payload", cli_source)
         self.assertIn("stage12_job_describe_payload", cli_source)
         self.assertIn("_job_run_payload", cli_source)
+        self.assertIn("_job_history_payload", cli_source)
         self.assertIn("run_stage12_job", cli_source)
         self.assertIn("@APP.get(\"/api/v1/jobs\")", main_source)
+        self.assertIn("@APP.get(\"/api/v1/jobs/runs\")", main_source)
         self.assertIn("@APP.get(\"/api/v1/jobs/{template_id}\")", main_source)
         self.assertIn("@APP.post(\"/api/v1/jobs/run\"", main_source)
         self.assertIn('"job.list"', mcp_source)
         self.assertIn('"job.describe"', mcp_source)
         self.assertIn('"job.run"', mcp_source)
+        self.assertIn('"job.history"', mcp_source)
         self.assertIn("def run_stage12_job(", job_source)
         self.assertIn("def job_list_payload(", job_source)
         self.assertIn("def job_describe_payload(", job_source)
@@ -370,6 +393,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("budget_enforcement", job_source)
         self.assertIn("validate_execution_budget_policy", job_source)
         self.assertIn("agent.bundle", cli_source)
+        self.assertIn("def job_run_history(", Path("app/services/orchestration_service.py").read_text(encoding="utf-8"))
 
     def test_governance_guardrails_cover_provider_boundaries(self) -> None:
         source = Path("NESTCLAW_GOVERNANCE_GUARDRAILS.md").read_text(encoding="utf-8")

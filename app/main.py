@@ -1928,6 +1928,15 @@ def list_jobs(
         _error(400, "INVALID_JOB_DISCOVERY", str(exc))
 
 
+@APP.get("/api/v1/jobs/runs")
+def job_run_history(
+    limit: int = Query(default=10, ge=1, le=50),
+    template_id: str | None = Query(default=None),
+    actor: ActorContext = Depends(actor_context_dependency),
+) -> dict[str, Any]:
+    return ORCHESTRATION_SERVICE.job_run_history(actor, limit=limit, template_id=template_id)
+
+
 @APP.get("/api/v1/jobs/{template_id}")
 def describe_job(
     template_id: str,

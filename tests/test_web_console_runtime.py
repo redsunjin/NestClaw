@@ -48,6 +48,8 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("planner-signal-strip", console_body)
         self.assertIn("planner-rationale", console_body)
         self.assertIn("execution-detail", console_body)
+        self.assertIn("Stage 12 Job Runs", console_body)
+        self.assertIn("job-run-list", console_body)
         self.assertIn("/static/agent-console.js", console_body)
 
     def test_static_assets_are_served(self) -> None:
@@ -81,6 +83,10 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn("applyRunModeVisibility", js_response.text)
         self.assertIn("/api/v1/agent/submit", js_response.text)
         self.assertIn("/api/v1/agent/recent", js_response.text)
+        self.assertIn("/api/v1/jobs/runs", js_response.text)
+        self.assertIn("loadJobHistory", js_response.text)
+        self.assertIn("renderJobRuns", js_response.text)
+        self.assertIn("data-load-job-task", js_response.text)
         self.assertIn("/api/v1/agent/report/", js_response.text)
         self.assertIn("/api/v1/agent/status/", js_response.text)
         self.assertIn("/api/v1/agent/events/", js_response.text)
@@ -102,6 +108,8 @@ class TestWebConsoleRuntime(unittest.TestCase):
         self.assertIn(".summary-card", css_response.text)
         self.assertIn(".approval-card", css_response.text)
         self.assertIn(".history-card", css_response.text)
+        self.assertIn(".job-run-card", css_response.text)
+        self.assertIn(".job-history-block", css_response.text)
         self.assertIn(".report-preview-card", css_response.text)
         self.assertIn(".approval-history-card", css_response.text)
         self.assertIn(".console-layout", css_response.text)

@@ -130,6 +130,7 @@ class TestMcpServerSmoke(unittest.TestCase):
                 "job.list",
                 "job.describe",
                 "job.run",
+                "job.history",
                 "approval.list",
                 "approval.get",
                 "approval.approve",
@@ -166,6 +167,7 @@ class TestMcpServerSmoke(unittest.TestCase):
         self.assertIn("requester", payload["roles"])
         self.assertIn("agent.handoff", payload["controls"]["safe_for_upper_agents"])
         self.assertIn("job.run", payload["controls"]["safe_for_upper_agents"])
+        self.assertIn("job.history", payload["controls"]["safe_for_upper_agents"])
         self.assertGreaterEqual(int(payload["tool_catalog"]["count"]), 6)
         self.assertIn(
             payload["readiness"]["stage8_live_readiness"]["canonical_reason_code"],
@@ -334,6 +336,25 @@ class TestMcpServerSmoke(unittest.TestCase):
         self.assertTrue(payload["report"]["available"])
         self.assertEqual(payload["bundle"]["bundle_version"], "v1")
         self.assertEqual(payload["handoff"]["packet_type"], "completed")
+
+        history_response = self._request(
+            {
+                "jsonrpc": "2.0",
+                "id": 20_9,
+                "method": "tools/call",
+                "params": {
+                    "name": "job.history",
+                    "arguments": {
+                        "template_id": "readiness_check",
+                        "actor_id": "qa_user",
+                        "limit": 10,
+                    },
+                },
+            }
+        )
+        history_payload = history_response["result"]["structuredContent"]
+        self.assertEqual(history_payload["surface"], "job.history")
+        self.assertIn(payload["status"]["task_id"], {item["task_id"] for item in history_payload["items"]})
 
     def test_catalog_tools_return_registered_capabilities(self) -> None:
         list_response = self._request(

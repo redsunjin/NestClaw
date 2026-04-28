@@ -433,6 +433,66 @@ class OrchestrationService:
             "state_summary": state_summary,
         }
 
+    def _stage12_job_metadata(self, task: dict[str, Any]) -> dict[str, Any]:
+        metadata = dict((task.get("agent_request") or {}).get("metadata") or {})
+        stage12_job = dict(metadata.get("stage12_job") or {})
+        template_id = str(stage12_job.get("template_id") or "").strip()
+        if not template_id:
+            return {}
+        return stage12_job
+
+    def _job_run_history_item(self, task: dict[str, Any]) -> dict[str, Any]:
+        result = dict(task.get("result") or {})
+        planning = dict(task.get("planning_provenance") or {})
+        provider_selection = dict(planning.get("provider_selection") or {})
+        planned_actions = list(task.get("planned_actions") or [])
+        action_results = list(task.get("action_results") or [])
+        stage12_job = self._stage12_job_metadata(task)
+        state_summary = runtime_state_summary(
+            task,
+            ready_status=self._status_value(self.deps.task_status_ready),
+            running_status=self._status_value(self.deps.task_status_running),
+            failed_retryable_status=self._status_value(self.deps.task_status_failed_retryable),
+            needs_human_approval_status=self._status_value(self.deps.task_status_needs_human_approval),
+            done_status=self._status_value(self.deps.task_status_done),
+        )
+        return {
+            "run_id": task["task_id"],
+            "task_id": task["task_id"],
+            "template_id": stage12_job.get("template_id"),
+            "profile_id": stage12_job.get("profile_id"),
+            "provider_id": stage12_job.get("provider_id"),
+            "provider_class": stage12_job.get("provider_class"),
+            "capability_pack_ids": list(stage12_job.get("capability_pack_ids") or []),
+            "budget_enforcement": dict(stage12_job.get("budget_enforcement") or {}),
+            "status": task.get("status"),
+            "resolved_kind": str(task.get("agent_route") or self._resolved_kind_for_task(task)),
+            "title": task.get("title"),
+            "requested_by": task.get("requested_by"),
+            "created_at": task.get("created_at"),
+            "started_at": task.get("started_at"),
+            "completed_at": task.get("completed_at"),
+            "updated_at": task.get("updated_at"),
+            "current_stage": task.get("current_stage"),
+            "next_action": task.get("next_action"),
+            "approval_queue_id": task.get("approval_queue_id"),
+            "approval_reason": task.get("approval_reason"),
+            "report_path": result.get("report_path"),
+            "actions_executed": result.get("actions_executed"),
+            "run_mode": self.deps.incident_runtime_snapshot(dict(task.get("incident_runtime") or {}))["run_mode"]
+            if self.deps.workflow_type(task) == self.deps.incident_workflow
+            else None,
+            "planning_source": planning.get("source"),
+            "planning_provider_id": provider_selection.get("provider_id"),
+            "planning_rationale": planning.get("rationale"),
+            "planning_confidence": planning.get("confidence"),
+            "planning_degraded_mode": planning.get("degraded_mode"),
+            "planning_fallback_reason": planning.get("fallback_reason"),
+            "planned_tool_ids": [str(item.get("tool_id") or "") for item in planned_actions if item.get("tool_id")],
+            "executed_tool_ids": [str(item.get("tool_id") or "") for item in action_results if item.get("tool_id")],
+            "state_summary": state_summary,
+        }
+
     def _report_preview_from_path(self, task: dict[str, Any], report_path: Path | None, *, max_chars: int) -> dict[str, Any]:
         if report_path is None:
             return {
@@ -1088,3 +1148,34 @@ class OrchestrationService:
             items.sort(key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""), reverse=True)
             recent_items = [self._agent_recent_item(item) for item in items[:normalized_limit]]
             return {"items": recent_items, "count": len(recent_items), "limit": normalized_limit}
+
+    def job_run_history(
+        self,
+        actor: ActorContext,
+        *,
+        limit: int = 10,
+        template_id: str | None = None,
+    ) -> dict[str, Any]:
+        normalized_limit = max(1, min(int(limit or 10), 50))
+        template_filter = str(template_id or "").strip()
+        with self.deps.store_lock:
+            items = [item for item in self.deps.tasks.values() if self._stage12_job_metadata(item)]
+            if actor.actor_role == "requester":
+                items = [item for item in items if item.get("requested_by") == actor.actor_id]
+            else:
+                self.deps.authorize(actor.actor_role, {"reviewer", "approver", "admin"}, "job_run_history")
+            if template_filter:
+                items = [
+                    item
+                    for item in items
+                    if str(self._stage12_job_metadata(item).get("template_id") or "") == template_filter
+                ]
+            items.sort(key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""), reverse=True)
+            history_items = [self._job_run_history_item(item) for item in items[:normalized_limit]]
+            return {
+                "surface": "job.history",
+                "items": history_items,
+                "count": len(history_items),
+                "limit": normalized_limit,
+                "template_filter": template_filter or None,
+            }

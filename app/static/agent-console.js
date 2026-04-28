@@ -18,6 +18,8 @@ const executionDetail = document.querySelector("#execution-detail");
 const reportPreview = document.querySelector("#report-preview");
 const recentTaskList = document.querySelector("#recent-task-list");
 const recentApprovalList = document.querySelector("#recent-approval-list");
+const jobRunList = document.querySelector("#job-run-list");
+const jobHistoryTemplateSelect = document.querySelector("#job-history-template");
 const approvalStatusFilterSelect = document.querySelector("#approval-status-filter");
 const approvalGroupFilterInput = document.querySelector("#approval-group-filter");
 const approvalCommentInput = document.querySelector("#approval-comment");
@@ -510,6 +512,43 @@ function renderRecentTasks(items) {
     .join("");
 }
 
+function renderJobRuns(items) {
+  if (!items.length) {
+    jobRunList.innerHTML = '<div class="history-card"><p class="tool-meta">Stage 12 job 실행 이력이 없습니다.</p></div>';
+    return;
+  }
+  jobRunList.innerHTML = items
+    .map((item) => {
+      const state = item.state_summary || {};
+      const budget = item.budget_enforcement || {};
+      const packs = (item.capability_pack_ids || []).join(", ") || "-";
+      return `
+        <article class="history-card job-run-card">
+          <h3>${escapeHtml(item.template_id || "-")}</h3>
+          <p class="tool-meta">task: ${escapeHtml(item.task_id || "-")}</p>
+          <p class="tool-meta">status: ${escapeHtml(item.status || "-")} / ${escapeHtml(state.canonical_state || "-")}</p>
+          <p class="tool-meta">profile/provider: ${escapeHtml(item.profile_id || "-")} / ${escapeHtml(item.provider_id || "-")}</p>
+          <p class="tool-meta">packs: ${escapeHtml(packs)}</p>
+          <p class="tool-meta">budget: ${budget.enforced ? "enforced" : "-"} · context ${budget.input_payload_bytes ?? "-"} / ${budget.max_context_bytes ?? "-"}</p>
+          <div class="signal-strip signal-strip-compact">
+            ${signalChip(item.resolved_kind || "-", item.resolved_kind === "incident" ? "warn" : "muted")}
+            ${item.run_mode ? signalChip(`run ${item.run_mode}`, item.run_mode === "dry-run" ? "muted" : "warn") : ""}
+            ${item.report_path ? signalChip("report ready", "ok") : ""}
+            ${item.approval_queue_id ? signalChip("approval", "warn") : ""}
+          </div>
+          <p class="tool-meta">planned_tools: ${toolFlow(item.planned_tool_ids || [])}</p>
+          <p class="tool-meta">executed_tools: ${toolFlow(item.executed_tool_ids || [])}</p>
+          <p class="tool-meta">updated_at: ${escapeHtml(item.updated_at || "-")}</p>
+          <div class="approval-actions">
+            <button class="button subtle" type="button" data-load-job-task="${escapeHtml(item.task_id || "")}">상태 보기</button>
+            ${item.report_path ? `<button class="button subtle" type="button" data-preview-job-report="${escapeHtml(item.task_id || "")}">보고서</button>` : ""}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function renderRecentApprovals(items) {
   if (!items.length) {
     recentApprovalList.innerHTML = '<div class="history-card"><p class="tool-meta">최근 승인 이력이 없습니다.</p></div>';
@@ -572,6 +611,18 @@ async function loadRecentTasks() {
   const payload = await requestJson("/api/v1/agent/recent?limit=8");
   renderRecentTasks(payload.items || []);
   printOutput("최근 작업", payload);
+}
+
+async function loadJobHistory() {
+  const params = new URLSearchParams();
+  params.set("limit", "8");
+  if (jobHistoryTemplateSelect.value) {
+    params.set("template_id", jobHistoryTemplateSelect.value);
+  }
+  const payload = await requestJson(`/api/v1/jobs/runs?${params.toString()}`);
+  renderJobRuns(payload.items || []);
+  printOutput("Stage 12 Job 실행 이력", payload);
+  return payload;
 }
 
 async function loadReportPreview(taskId = currentTaskId) {
@@ -911,6 +962,22 @@ document.querySelector("#refresh-recent").addEventListener("click", async () => 
   }
 });
 
+document.querySelector("#refresh-job-history").addEventListener("click", async () => {
+  try {
+    await loadJobHistory();
+  } catch (error) {
+    printOutput("Job 실행 이력 오류", { error: String(error.message || error) });
+  }
+});
+
+jobHistoryTemplateSelect.addEventListener("change", async () => {
+  try {
+    await loadJobHistory();
+  } catch (error) {
+    printOutput("Job 실행 이력 오류", { error: String(error.message || error) });
+  }
+});
+
 document.querySelector("#refresh-approval-history").addEventListener("click", async () => {
   try {
     await loadRecentApprovals();
@@ -924,6 +991,38 @@ document.querySelector("#load-approval-detail").addEventListener("click", async 
     await loadApprovalDetail(approvalDetailIdInput.value.trim() || currentApprovalQueueId);
   } catch (error) {
     printOutput("승인 상세 오류", { error: String(error.message || error) });
+  }
+});
+
+jobRunList.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  const taskId = target.dataset.loadJobTask;
+  const previewTaskId = target.dataset.previewJobReport;
+  if (previewTaskId) {
+    currentTaskId = previewTaskId;
+    agentTaskIdInput.value = previewTaskId;
+    try {
+      await loadReportPreview(previewTaskId);
+    } catch (error) {
+      printOutput("Job 보고서 미리보기 오류", { error: String(error.message || error) });
+    }
+    return;
+  }
+  if (!taskId) {
+    return;
+  }
+  currentTaskId = taskId;
+  agentTaskIdInput.value = taskId;
+  try {
+    const payload = await loadAgentStatus(taskId);
+    if (((payload || {}).result || {}).report_path) {
+      await loadReportPreview(taskId);
+    }
+  } catch (error) {
+    printOutput("Job 상태 보기 오류", { error: String(error.message || error) });
   }
 });
 
@@ -1041,6 +1140,7 @@ actorRoleSelect.addEventListener("change", async () => {
   try {
     await loadCapabilities();
     await loadRecentTasks();
+    await loadJobHistory();
   } catch (error) {
     printOutput("Capability 로딩 오류", { error: String(error.message || error) });
   }
@@ -1053,6 +1153,7 @@ try {
   fillAgentExample("task");
   await loadTools();
   await loadRecentTasks();
+  await loadJobHistory();
   setPlannerSummary("아직 planner 정보가 없습니다.");
   setPlannerRationale("아직 planner rationale이 없습니다.");
   renderSignalStrip({});

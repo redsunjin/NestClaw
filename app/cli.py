@@ -451,6 +451,17 @@ def _job_describe_payload(*, template_id: str, profile_id: str | None = None) ->
         return _error_payload("INVALID_JOB_DISCOVERY", str(exc)), 1
 
 
+def _job_history_payload(
+    *,
+    limit: int,
+    template_id: str | None,
+    actor_id: str,
+    actor_role: str,
+) -> tuple[dict[str, Any], int]:
+    actor = _actor_context(actor_id, actor_role)
+    return _invoke(CLI_ORCHESTRATION_SERVICE.job_run_history, actor, limit=limit, template_id=template_id)
+
+
 def _job_invocation_summary(
     *,
     contract: dict[str, Any],
@@ -951,6 +962,28 @@ def _print_job_describe(payload: dict[str, Any]) -> None:
     print()
 
 
+def _print_job_history(payload: dict[str, Any]) -> None:
+    if "error" in payload:
+        _print_status(payload)
+        return
+    print("\n[Stage 12 Job Run History]")
+    for item in payload.get("items", []):
+        state = (item.get("state_summary") or {}).get("canonical_state") or "-"
+        reason = (item.get("state_summary") or {}).get("canonical_reason_code") or "-"
+        packs = ", ".join(item.get("capability_pack_ids") or []) or "-"
+        print(
+            f"- {item.get('task_id', '-')}: {item.get('template_id', '-')} / "
+            f"{item.get('status', '-')} / {state}:{reason}"
+        )
+        print(
+            f"  profile={item.get('profile_id', '-')} provider={item.get('provider_id', '-')} "
+            f"packs={packs}"
+        )
+        if item.get("report_path"):
+            print(f"  report={item.get('report_path')}")
+    print()
+
+
 def _print_tools(payload: dict[str, Any]) -> None:
     if "error" in payload:
         _print_status(payload)
@@ -1040,6 +1073,9 @@ def _emit_payload(payload: dict[str, Any], *, as_json: bool, command: str) -> No
         return
     if command == "job-describe":
         _print_job_describe(payload)
+        return
+    if command == "job-history":
+        _print_job_history(payload)
         return
     if command == "approvals":
         _print_approvals(payload)
@@ -1197,6 +1233,13 @@ def build_parser() -> argparse.ArgumentParser:
     job_describe_parser.add_argument("--template", dest="template_id", required=True)
     job_describe_parser.add_argument("--profile", dest="profile_id")
     job_describe_parser.add_argument("--json", action="store_true")
+
+    job_history_parser = job_subparsers.add_parser("history", help="show Stage 12 job run history")
+    job_history_parser.add_argument("--template", dest="template_id")
+    job_history_parser.add_argument("--limit", type=int, default=10)
+    job_history_parser.add_argument("--actor-id", default=DEFAULT_ACTOR_ID)
+    job_history_parser.add_argument("--actor-role", choices=sorted(VALID_ROLES), default=DEFAULT_ACTOR_ROLE)
+    job_history_parser.add_argument("--json", action="store_true")
 
     job_run_parser = job_subparsers.add_parser("run", help="run one bounded job template")
     job_run_parser.add_argument("--template", dest="template_id", required=True)
@@ -1376,6 +1419,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 profile_id=args.profile_id,
             )
             _emit_payload(payload, as_json=args.json, command="job-describe")
+            return exit_code
+        if args.job_command == "history":
+            payload, exit_code = _job_history_payload(
+                limit=args.limit,
+                template_id=args.template_id,
+                actor_id=args.actor_id,
+                actor_role=args.actor_role,
+            )
+            _emit_payload(payload, as_json=args.json, command="job-history")
             return exit_code
         if args.job_command != "run":
             parser.print_help()

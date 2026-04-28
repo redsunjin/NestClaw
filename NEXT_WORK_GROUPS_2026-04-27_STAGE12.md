@@ -71,10 +71,13 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Agent-facing API goal: expose Stage 12 job discovery and invocation through HTTP and MCP.
 - Execution hardening campaign: `stage12-job-execution-hardening-campaign`
 - Execution hardening goal: promote issue triage to a dry-run executable job and enforce budget guardrails before runtime submission.
+- Job history/dashboard campaign: `stage12-job-history-dashboard-campaign`
+- Job history/dashboard goal: expose Stage 12 job run history to upper agents and the operator dashboard.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
 - Completed third unit: `stage12-w1-003`
 - Completed fourth unit: `stage12-w1-004`
 - Completed agent-facing API units: `stage12-w3-001`, `stage12-w3-002`
-- Current focus: `stage12-w4-001` issue triage executable adapter and budget guardrails.
+- Completed execution hardening unit: `stage12-w4-001`
+- Current focus: `stage12-w5-001` job run history and dashboard read-only view.

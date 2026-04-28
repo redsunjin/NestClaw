@@ -1,0 +1,17 @@
+{
+  "campaign_id": "stage12-job-history-dashboard-campaign",
+  "goal": "Expose Stage 12 job run history and add read-only dashboard visibility for operators and upper agents",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-job-run-history-dashboard",
+      "group": "G1",
+      "title": "Expose job run history and dashboard view",
+      "unit_id": "stage12-w5-001",
+      "goal": "Provide job run history over HTTP, CLI, MCP, and the operator dashboard without adding a separate chat/runtime path",
+      "status": "completed",
+      "completed_unit_id": "stage12-w5-001",
+      "completed_at": "2026-04-28T01:18:38Z"
+    }
+  ]
+}

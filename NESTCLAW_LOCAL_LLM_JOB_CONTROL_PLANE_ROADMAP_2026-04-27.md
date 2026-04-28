@@ -121,6 +121,10 @@
 
 - `stage12-w4-001`: `issue_triage` executable dry-run incident adapter plus budget guardrails before runtime submission.
 
+`stage12-job-history-dashboard-campaign` makes executed jobs observable without adding a separate runtime:
+
+- `stage12-w5-001`: `job.history`, `GET /api/v1/jobs/runs`, `newclaw job history`, and a read-only dashboard job-run panel.
+
 ## UI/UX Position
 - No large UI rewrite is required for Stage 12.
 - Existing console can absorb new data as lists/details:
@@ -160,6 +164,7 @@
 - `readiness_check` is executable through the same local-first job contract.
 - `issue_triage` is executable through the same local-first job contract in incident dry-run mode.
 - `newclaw job run` rejects budget overrides and timeout overruns before `agent.submit`.
+- `newclaw job history`, MCP `job.history`, and HTTP `/api/v1/jobs/runs` expose completed and in-flight job evidence.
 - Stage 12 cycle includes local job invocation smoke coverage.
 - Roadmap is linked from README and capability manifest.
 - Existing Stage 9-11 tests still pass.
