@@ -33,6 +33,7 @@
 | `scheduled_job_wrapper` | `scripts/run_stage12_scheduled_job.sh`가 외부 스케줄러 호출 후 history 증적을 검증하는 표준 wrapper |
 | `scheduled_job_dedupe` | `idempotency_key`와 `input_fingerprint`로 external scheduler 중복 호출을 run/skip/fail 처리 |
 | `llm_harness_configuration` | provider/profile/job/capability/invocation/QA harness를 함께 설정하는 운영 기준 |
+| `llm_harness_validator` | `scripts/validate_stage12_llm_harness.py`가 registry drift와 local/cloud policy 위반을 검출 |
 
 Stage 12 roadmap:
 - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
@@ -42,6 +43,7 @@ Stage 12 roadmap:
 - `NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md`
 - `configs/capability_packs.json`
 - `NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md`
+- `scripts/validate_stage12_llm_harness.py`
 - `NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md`
 - `scripts/run_stage12_local_job_poc.sh`
 - `NESTCLAW_STAGE12_SCHEDULER_INVOCATION_GUIDE_2026-04-28.md`
@@ -94,6 +96,7 @@ Stage 12 roadmap:
 - cloud/API provider는 low sensitivity 또는 general reasoning 작업에서 정책적으로 허용될 수 있다.
 - provider invocation provenance는 status/event/report 계층에 남겨야 한다.
 - LLM harness setup은 `configs/model_registry.yaml` -> `configs/agent_profiles.json` -> `configs/job_templates.json` -> `configs/capability_packs.json` -> invocation surface -> QA gate 순서로 검토한다.
+- Stage 12 QA gate는 `scripts/validate_stage12_llm_harness.py`로 registry policy를 먼저 검증한다.
 
 ## 6. Control Surface by Role
 | Capability | requester | reviewer | approver | admin |

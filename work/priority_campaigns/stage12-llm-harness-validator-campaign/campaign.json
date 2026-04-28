@@ -1,0 +1,17 @@
+{
+  "campaign_id": "stage12-llm-harness-validator-campaign",
+  "goal": "Enforce Stage 12 LLM harness policy across model, profile, job, and capability registries",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-llm-harness-policy-validator",
+      "group": "G1",
+      "title": "Add LLM harness policy validator",
+      "unit_id": "stage12-w9-001",
+      "goal": "Validate provider/profile/job/capability relationships, local/cloud boundaries, scheduler idempotency fields, and Stage 12 QA gate wiring",
+      "status": "completed",
+      "completed_unit_id": "stage12-w9-001",
+      "completed_at": "2026-04-28T12:20:25Z"
+    }
+  ]
+}

@@ -83,6 +83,16 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
   - cloud/API provider 제한과 sensitivity boundary가 명시된다.
   - contract tests가 guide와 campaign을 확인한다.
 
+### G8. LLM Harness Policy Validator
+- Goal: 하네스 설정 기준을 실행 가능한 validator로 만들어 registry drift를 차단한다.
+- Current artifact:
+  - `scripts/validate_stage12_llm_harness.py`
+  - `stage12-llm-harness-validator-campaign`
+- Done when:
+  - validator가 model/profile/job/capability registry를 교차 검증한다.
+  - Stage 12 dev-QA cycle이 validator를 required check로 실행한다.
+  - contract tests가 validator와 campaign을 확인한다.
+
 ## Recommended Order
 1. G1 Agent Profile Spec
 2. G2 Job Template Spec
@@ -91,6 +101,7 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 5. G5 Scheduler Invocation Wrapper
 6. G6 Scheduled Job Dedupe
 7. G7 LLM Harness Configuration
+8. G8 LLM Harness Policy Validator
 
 ## Operating Track
 - Stage 8 live readiness는 external env handoff가 들어오는 즉시 별도로 재실행한다.
@@ -114,6 +125,8 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Scheduler dedupe goal: add idempotency keys, input fingerprints, and duplicate run/skip/fail policy.
 - LLM harness configuration campaign: `stage12-llm-harness-configuration-campaign`
 - LLM harness configuration goal: define how local/cloud LLMs are configured through provider/profile/job/capability/invocation/QA harness layers.
+- LLM harness validator campaign: `stage12-llm-harness-validator-campaign`
+- LLM harness validator goal: enforce harness policy as a required Stage 12 QA gate.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
@@ -125,4 +138,5 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Completed scheduler invocation unit: `stage12-w6-001`
 - Completed scheduler dedupe unit: `stage12-w7-001`
 - Completed LLM harness configuration unit: `stage12-w8-001`
-- Current focus: next Stage 12 work should consider a machine-readable harness policy schema or explicit idempotency key examples per job template.
+- Completed LLM harness validator unit: `stage12-w9-001`
+- Current focus: next Stage 12 work should consider negative validator fixtures or explicit idempotency key examples per job template.

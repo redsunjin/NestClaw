@@ -125,6 +125,16 @@
   - 새 local LLM 추가 순서와 cloud/API provider 제한이 문서화된다.
   - contract tests가 guide와 campaign 존재를 확인한다.
 
+### M9. LLM Harness Policy Validator
+- 목표: 문서화된 하네스 정책을 machine-readable gate로 검증한다.
+- 산출물:
+  - `scripts/validate_stage12_llm_harness.py`
+  - `stage12-llm-harness-validator-campaign`
+- 완료 기준:
+  - model registry, agent profiles, job templates, capability packs를 교차 검증한다.
+  - local/cloud provider boundary, capability allowlist, schedule idempotency 필드를 검사한다.
+  - Stage 12 dev-QA cycle이 validator를 required check로 실행한다.
+
 ## Stage 12 Priority Campaign
 | Group | Item | Unit | Outcome |
 | --- | --- | --- | --- |
@@ -170,6 +180,10 @@
 
 - `stage12-w8-001`: provider/profile/job/capability/invocation/QA harness guide for local and cloud LLM setup.
 
+`stage12-llm-harness-validator-campaign` turns that guide into an executable policy gate:
+
+- `stage12-w9-001`: standalone harness validator and Stage 12 cycle integration.
+
 ## UI/UX Position
 - No large UI rewrite is required for Stage 12.
 - Existing console can absorb new data as lists/details:
@@ -213,6 +227,7 @@
 - `scripts/run_stage12_scheduled_job.sh` lets cron, launchd, CI, and upper agents invoke Stage 12 jobs while preserving job history evidence.
 - Stage 12 job runs expose `idempotency_key` and `input_fingerprint` through run and history surfaces.
 - `NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md` defines how providers, profiles, jobs, capability packs, invocation, and QA gates are configured together.
+- `scripts/validate_stage12_llm_harness.py` validates provider/profile/job/capability policy before Stage 12 runtime smoke checks.
 - Stage 12 cycle includes local job invocation smoke coverage.
 - Stage 12 cycle includes scheduler invocation smoke coverage.
 - Stage 12 cycle includes scheduler duplicate detection smoke coverage.

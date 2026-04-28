@@ -258,6 +258,7 @@ check_stage_11() {
 
 check_stage_12() {
   run_check "stage12 static contract tests" python3 -m unittest tests.test_stage12_contract
+  run_check "stage12 llm harness policy validator" python3 scripts/validate_stage12_llm_harness.py
   run_optional_check "stage12 local job invocation smoke tests (requires fastapi stack)" python3 -m unittest tests.test_stage12_job_invocation_smoke
   run_optional_check "stage12 local job poc script (requires fastapi stack)" bash scripts/run_stage12_local_job_poc.sh
   run_optional_check "stage12 scheduler invocation smoke script (requires fastapi stack)" bash scripts/run_stage12_scheduler_smoke.sh

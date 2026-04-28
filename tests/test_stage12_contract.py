@@ -56,6 +56,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("configs/capability_packs.json", harness)
         self.assertIn("scripts/run_stage12_scheduled_job.sh", harness)
         self.assertIn("scripts/run_dev_qa_cycle.sh", harness)
+        self.assertIn("scripts/validate_stage12_llm_harness.py", harness)
         self.assertIn("Stage 12 Priority Campaign", roadmap)
         self.assertIn("stage12-priority-campaign", work_groups)
         self.assertIn("stage12-job-surface-campaign", work_groups)
@@ -65,6 +66,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("stage12-scheduler-invocation-campaign", work_groups)
         self.assertIn("stage12-scheduler-dedupe-campaign", work_groups)
         self.assertIn("stage12-llm-harness-configuration-campaign", work_groups)
+        self.assertIn("stage12-llm-harness-validator-campaign", work_groups)
 
     def test_agent_profile_spec_and_sample_registry_exist(self) -> None:
         spec = Path("NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md").read_text(encoding="utf-8")
@@ -405,6 +407,23 @@ class TestStage12Contract(unittest.TestCase):
         self.assertEqual(data["items"][0]["unit_id"], "stage12-w8-001")
         self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
 
+    def test_stage12_llm_harness_validator_campaign_exists(self) -> None:
+        data = json.loads(
+            Path("work/priority_campaigns/stage12-llm-harness-validator-campaign/campaign.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(data["campaign_id"], "stage12-llm-harness-validator-campaign")
+        self.assertEqual(data["target_stage"], 12)
+        self.assertEqual(
+            [item["item_id"] for item in data["items"]],
+            [
+                "g1-llm-harness-policy-validator",
+            ],
+        )
+        self.assertEqual(data["items"][0]["unit_id"], "stage12-w9-001")
+        self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+
     def test_cycle_scripts_support_stage12(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
@@ -412,9 +431,11 @@ class TestStage12Contract(unittest.TestCase):
         scheduler_script = Path("scripts/run_stage12_scheduled_job.sh").read_text(encoding="utf-8")
         scheduler_smoke = Path("scripts/run_stage12_scheduler_smoke.sh").read_text(encoding="utf-8")
         scheduler_dedupe = Path("scripts/run_stage12_scheduler_dedupe_smoke.sh").read_text(encoding="utf-8")
+        validator_source = Path("scripts/validate_stage12_llm_harness.py").read_text(encoding="utf-8")
         self.assertIn("target-stage: 1..12", cycle_source)
         self.assertIn("check_stage_12", cycle_source)
         self.assertIn("tests.test_stage12_contract", cycle_source)
+        self.assertIn("validate_stage12_llm_harness.py", cycle_source)
         self.assertIn("tests.test_stage12_job_invocation_smoke", cycle_source)
         self.assertIn("scripts/run_stage12_local_job_poc.sh", cycle_source)
         self.assertIn("scripts/run_stage12_scheduler_smoke.sh", cycle_source)
@@ -441,6 +462,11 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("examples/stage12_scheduler/readiness-input.json", scheduler_smoke)
         self.assertIn("--duplicate-policy skip", scheduler_dedupe)
         self.assertIn("stage12-dedupe-smoke", scheduler_dedupe)
+        self.assertIn("stage12.llm_harness_validator", validator_source)
+        self.assertIn("cloud_api_llm", validator_source)
+        self.assertIn("local_llm", validator_source)
+        self.assertIn("idempotency_key_fields", validator_source)
+        self.assertIn("external_send_policy must be deny", validator_source)
         self.assertTrue(Path("examples/stage12_scheduler/cron.example").is_file())
         self.assertTrue(Path("examples/stage12_scheduler/launchd.local.example.plist").is_file())
         self.assertTrue(Path("examples/stage12_scheduler/github-actions.example.yml").is_file())
@@ -462,7 +488,9 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("scheduled_job_wrapper", source)
         self.assertIn("scheduled_job_dedupe", source)
         self.assertIn("llm_harness_configuration", source)
+        self.assertIn("llm_harness_validator", source)
         self.assertIn("idempotency_key", source)
+        self.assertIn("scripts/validate_stage12_llm_harness.py", source)
         self.assertIn("scripts/run_stage12_scheduled_job.sh", source)
         self.assertIn("NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md", source)
 
