@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -67,6 +69,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("stage12-scheduler-dedupe-campaign", work_groups)
         self.assertIn("stage12-llm-harness-configuration-campaign", work_groups)
         self.assertIn("stage12-llm-harness-validator-campaign", work_groups)
+        self.assertIn("stage12-llm-harness-negative-fixtures-campaign", work_groups)
 
     def test_agent_profile_spec_and_sample_registry_exist(self) -> None:
         spec = Path("NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md").read_text(encoding="utf-8")
@@ -423,6 +426,67 @@ class TestStage12Contract(unittest.TestCase):
         )
         self.assertEqual(data["items"][0]["unit_id"], "stage12-w9-001")
         self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+
+    def test_stage12_llm_harness_negative_fixtures_campaign_exists(self) -> None:
+        data = json.loads(
+            Path(
+                "work/priority_campaigns/stage12-llm-harness-negative-fixtures-campaign/campaign.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(data["campaign_id"], "stage12-llm-harness-negative-fixtures-campaign")
+        self.assertEqual(data["target_stage"], 12)
+        self.assertEqual(
+            [item["item_id"] for item in data["items"]],
+            [
+                "g1-llm-harness-negative-validator-fixtures",
+            ],
+        )
+        self.assertEqual(data["items"][0]["unit_id"], "stage12-w10-001")
+        self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+
+    def test_stage12_llm_harness_validator_rejects_negative_fixtures(self) -> None:
+        fixture_dir = Path("tests/fixtures/stage12_llm_harness_negative")
+        result = subprocess.run(
+            [
+                sys.executable,
+                "scripts/validate_stage12_llm_harness.py",
+                "--agent-profiles",
+                str(fixture_dir / "agent_profiles.json"),
+                "--job-templates",
+                str(fixture_dir / "job_templates.json"),
+                "--capability-packs",
+                str(fixture_dir / "capability_packs.json"),
+                "--model-registry",
+                str(fixture_dir / "model_registry.yaml"),
+                "--json",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertGreaterEqual(payload["counts"]["errors"], 12)
+        errors = "\n".join(payload["errors"])
+        expected_errors = [
+            "profile local_bad_boundary: local_llm provider must use local provider type, got api",
+            "profile local_bad_boundary: local_llm external_send_policy must be deny",
+            "profile local_bad_boundary: local_llm execution_budget.allow_network must be false",
+            "profile cloud_bad_sensitivity: cloud_api_llm provider must use api/cloud provider type, got local",
+            "profile cloud_bad_sensitivity: cloud_api_llm allows unsafe sensitivity sensitive_internal",
+            "job unsafe_scheduled_job: required_fields must include sensitivity field sensitivity",
+            "job unsafe_scheduled_job: freeform_context_allowed must be false unless separately reviewed",
+            "job unsafe_scheduled_job: default_profile_id must be allowed by template",
+            "job unsafe_scheduled_job: provider class cloud_api_llm not allowed by provider_policy",
+            "job unsafe_scheduled_job: scheduled jobs must include template_id in idempotency_key_fields",
+            "pack unsafe_pack: wildcard tool ids are not allowed",
+            "pack unsafe_pack: tools cannot be both allowed and denied",
+            "model_registry: routing rule 0 uses unknown provider missing_provider",
+        ]
+        for expected in expected_errors:
+            self.assertIn(expected, errors)
 
     def test_cycle_scripts_support_stage12(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")

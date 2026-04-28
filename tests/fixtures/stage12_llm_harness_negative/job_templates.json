@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "template_id": "unsafe_scheduled_job",
+      "display_name": "Unsafe scheduled job",
+      "description": "Negative fixture that intentionally violates Stage 12 harness policy.",
+      "enabled": true,
+      "workflow_family": "task",
+      "submit_contract": {
+        "surface": "agent.submit",
+        "task_kind": "task",
+        "default_title": "Unsafe scheduled job",
+        "status_surface": "agent.status",
+        "events_surface": "agent.events",
+        "report_surface": "agent.report"
+      },
+      "input_schema": {
+        "required_fields": [
+          "issue_id"
+        ],
+        "sensitivity_field": "sensitivity",
+        "max_payload_bytes": 12000,
+        "freeform_context_allowed": true
+      },
+      "allowed_profile_ids": [
+        "cloud_bad_sensitivity"
+      ],
+      "required_capability_packs": [
+        "unsafe_pack"
+      ],
+      "provider_policy": {
+        "local_first": false,
+        "default_profile_id": "local_bad_boundary",
+        "allowed_provider_classes": [
+          "local_llm"
+        ],
+        "cloud_api_allowed_when": [],
+        "external_send_policy": "deny",
+        "fallback_profile_id": null
+      },
+      "schedule_trigger": {
+        "supported_triggers": [
+          "cron"
+        ],
+        "invocation_surface": "agent.submit",
+        "idempotency_key_fields": [
+          "issue_id"
+        ],
+        "examples": [
+          "newclaw job run --template unsafe_scheduled_job --profile cloud_bad_sensitivity --input unsafe.json"
+        ]
+      },
+      "execution_budget_override": {
+        "max_tool_calls": 4,
+        "max_retries": 1,
+        "max_elapsed_seconds": 120,
+        "max_provider_tokens": 2000,
+        "max_context_bytes": 16000
+      },
+      "approval_requirements": {
+        "submit": "allow",
+        "tool_write": "blocked",
+        "external_send": "blocked",
+        "budget_override": "approver_required"
+      },
+      "output_evidence": {
+        "status_surface": "agent.status",
+        "events_surface": "agent.events",
+        "report_surface": "agent.report",
+        "handoff_included": true,
+        "audit_fields": [
+          "task_id",
+          "template_id",
+          "profile_id"
+        ]
+      }
+    }
+  ]
+}

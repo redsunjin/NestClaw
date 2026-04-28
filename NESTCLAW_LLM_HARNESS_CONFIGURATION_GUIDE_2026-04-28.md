@@ -24,7 +24,7 @@ The order matters. A new local LLM should not receive tool access until its prof
 | Invocation Harness | `app/cli.py`, `app/main.py`, `app/mcp_server.py`, `scripts/run_stage12_scheduled_job.sh` | Expose non-interactive CLI, HTTP, MCP, and scheduler-safe job execution. |
 | QA Harness | `scripts/run_dev_qa_cycle.sh`, `tests/test_stage12_contract.py`, `tests/test_stage12_job_invocation_smoke.py` | Prove that registry changes and invocation paths do not bypass policy or break runtime evidence. |
 
-The QA harness now includes `scripts/validate_stage12_llm_harness.py`, which checks the machine-readable policy relationships before runtime smoke tests execute.
+The QA harness now includes `scripts/validate_stage12_llm_harness.py`, which checks the machine-readable policy relationships before runtime smoke tests execute. It also includes negative fixtures under `tests/fixtures/stage12_llm_harness_negative/` so validator changes must prove they reject unsafe local/cloud, sensitivity, allowlist, idempotency, and capability-pack configurations.
 
 ## Default Profiles
 Use the existing profiles as the starting policy set:
@@ -178,4 +178,5 @@ Before merging a harness change, verify:
 - Budget limits are explicit and cannot be overridden by job input.
 - Scheduled jobs have explicit idempotency policy.
 - `scripts/validate_stage12_llm_harness.py` returns `PASS`.
+- `tests/fixtures/stage12_llm_harness_negative/` still returns `FAIL` through the validator contract test.
 - Stage 12 contract tests and runtime smoke tests pass.

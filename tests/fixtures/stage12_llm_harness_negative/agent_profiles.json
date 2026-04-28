@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "profiles": [
+    {
+      "profile_id": "local_bad_boundary",
+      "display_name": "Local profile with cloud boundary leaks",
+      "provider_id": "api_general",
+      "provider_class": "local_llm",
+      "enabled": true,
+      "owner_role": "admin",
+      "allowed_job_templates": [
+        "unsafe_scheduled_job"
+      ],
+      "allowed_capability_packs": [
+        "unsafe_pack"
+      ],
+      "execution_budget": {
+        "max_tool_calls": 4,
+        "max_retries": 1,
+        "max_elapsed_seconds": 120,
+        "max_provider_tokens": 2000,
+        "max_context_bytes": 16000,
+        "allow_network": true
+      },
+      "sensitivity_boundary": {
+        "allowed_sensitivity": [
+          "internal",
+          "sensitive_internal"
+        ],
+        "external_send_policy": "approval_required",
+        "redaction_required": false,
+        "data_residency": "policy_routed"
+      },
+      "approval_policy": {
+        "submit": "allow",
+        "tool_write": "approver_required",
+        "external_send": "approver_required",
+        "budget_override": "approver_required",
+        "profile_change": "admin_required"
+      },
+      "audit_level": "full"
+    },
+    {
+      "profile_id": "cloud_bad_sensitivity",
+      "display_name": "Cloud profile with sensitive internal access",
+      "provider_id": "local_lmstudio",
+      "provider_class": "cloud_api_llm",
+      "enabled": true,
+      "owner_role": "admin",
+      "allowed_job_templates": [
+        "unsafe_scheduled_job"
+      ],
+      "allowed_capability_packs": [
+        "unsafe_pack"
+      ],
+      "execution_budget": {
+        "max_tool_calls": 4,
+        "max_retries": 1,
+        "max_elapsed_seconds": 120,
+        "max_provider_tokens": 2000,
+        "max_context_bytes": 16000,
+        "allow_network": true
+      },
+      "sensitivity_boundary": {
+        "allowed_sensitivity": [
+          "public",
+          "sensitive_internal"
+        ],
+        "external_send_policy": "deny",
+        "redaction_required": false,
+        "data_residency": "external_provider_allowed"
+      },
+      "approval_policy": {
+        "submit": "allow",
+        "tool_write": "approver_required",
+        "external_send": "allow",
+        "budget_override": "approver_required",
+        "profile_change": "admin_required"
+      },
+      "audit_level": "full"
+    }
+  ]
+}

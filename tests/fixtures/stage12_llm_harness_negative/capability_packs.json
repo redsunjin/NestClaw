@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "packs": [
+    {
+      "pack_id": "unsafe_pack",
+      "display_name": "Unsafe pack",
+      "description": "Negative fixture that intentionally violates capability-pack policy.",
+      "enabled": true,
+      "pack_type": "tool_allowlist",
+      "risk_level": "critical",
+      "allowed_tool_ids": [
+        "*",
+        "redmine.issue.create"
+      ],
+      "denied_tool_ids": [
+        "redmine.issue.create"
+      ],
+      "runtime_read_surfaces": [],
+      "approval_requirements": {
+        "tool_read": "allow",
+        "tool_write": "allow",
+        "external_send": "allow",
+        "dry_run_required": false,
+        "pack_change": "allow"
+      },
+      "data_boundary": {
+        "allowed_sensitivity": [
+          "sensitive_internal"
+        ],
+        "external_systems": [
+          "redmine"
+        ],
+        "external_send_policy": "allow",
+        "redaction_required": false,
+        "data_residency": "external_system_allowed"
+      },
+      "allowed_profile_ids": [
+        "cloud_bad_sensitivity"
+      ],
+      "allowed_template_ids": [],
+      "audit_fields": [
+        "task_id",
+        "template_id",
+        "profile_id",
+        "pack_id"
+      ]
+    }
+  ]
+}

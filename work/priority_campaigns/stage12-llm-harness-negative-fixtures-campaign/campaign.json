@@ -1,0 +1,17 @@
+{
+  "campaign_id": "stage12-llm-harness-negative-fixtures-campaign",
+  "goal": "Prove the Stage 12 LLM harness validator rejects broken policy registries",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-llm-harness-negative-validator-fixtures",
+      "group": "G1",
+      "title": "Add negative validator fixtures",
+      "unit_id": "stage12-w10-001",
+      "goal": "Add failing fixtures and contract coverage for local/cloud boundary, sensitivity, mutual allowlist, scheduler idempotency, capability pack policy, and provider routing violations",
+      "status": "completed",
+      "completed_unit_id": "stage12-w10-001",
+      "completed_at": "2026-04-28T12:50:00Z"
+    }
+  ]
+}

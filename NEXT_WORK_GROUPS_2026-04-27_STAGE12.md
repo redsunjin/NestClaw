@@ -93,6 +93,16 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
   - Stage 12 dev-QA cycle이 validator를 required check로 실행한다.
   - contract tests가 validator와 campaign을 확인한다.
 
+### G9. LLM Harness Negative Validator Fixtures
+- Goal: validator가 정상 경로뿐 아니라 local/cloud boundary, sensitivity, mutual allowlist, scheduler idempotency, capability pack policy 위반을 실제로 FAIL 처리하는지 고정한다.
+- Current artifact:
+  - `tests/fixtures/stage12_llm_harness_negative/`
+  - `stage12-llm-harness-negative-fixtures-campaign`
+- Done when:
+  - negative fixture가 provider/profile/job/capability/model registry 위반을 포함한다.
+  - contract tests가 validator CLI의 non-zero exit와 FAIL payload를 확인한다.
+  - Stage 12 dev-QA cycle이 negative fixture 회귀를 포함한다.
+
 ## Recommended Order
 1. G1 Agent Profile Spec
 2. G2 Job Template Spec
@@ -102,6 +112,7 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 6. G6 Scheduled Job Dedupe
 7. G7 LLM Harness Configuration
 8. G8 LLM Harness Policy Validator
+9. G9 LLM Harness Negative Validator Fixtures
 
 ## Operating Track
 - Stage 8 live readiness는 external env handoff가 들어오는 즉시 별도로 재실행한다.
@@ -127,6 +138,8 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - LLM harness configuration goal: define how local/cloud LLMs are configured through provider/profile/job/capability/invocation/QA harness layers.
 - LLM harness validator campaign: `stage12-llm-harness-validator-campaign`
 - LLM harness validator goal: enforce harness policy as a required Stage 12 QA gate.
+- LLM harness negative fixtures campaign: `stage12-llm-harness-negative-fixtures-campaign`
+- LLM harness negative fixtures goal: prove the validator rejects broken local/cloud/sensitivity/allowlist/idempotency policy fixtures.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
@@ -139,4 +152,5 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Completed scheduler dedupe unit: `stage12-w7-001`
 - Completed LLM harness configuration unit: `stage12-w8-001`
 - Completed LLM harness validator unit: `stage12-w9-001`
-- Current focus: next Stage 12 work should consider negative validator fixtures or explicit idempotency key examples per job template.
+- Completed LLM harness negative fixture unit: `stage12-w10-001`
+- Current focus: next Stage 12 work should consider explicit idempotency key examples per job template or validator warning cleanup.
