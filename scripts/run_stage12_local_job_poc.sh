@@ -11,6 +11,8 @@ INPUT_FILE="$WORK_DIR/daily-status-input.json"
 OUTPUT_FILE="$WORK_DIR/daily-status-output.json"
 READINESS_INPUT_FILE="$WORK_DIR/readiness-input.json"
 READINESS_OUTPUT_FILE="$WORK_DIR/readiness-output.json"
+ISSUE_INPUT_FILE="$WORK_DIR/issue-triage-input.json"
+ISSUE_OUTPUT_FILE="$WORK_DIR/issue-triage-output.json"
 
 cat >"$INPUT_FILE" <<'JSON'
 {
@@ -50,6 +52,28 @@ cat >"$READINESS_INPUT_FILE" <<'JSON'
 }
 JSON
 
+cat >"$ISSUE_INPUT_FILE" <<'JSON'
+{
+  "issue_id": "ISSUE-123",
+  "summary": "Internal documentation update request needs routing and a safe follow-up ticket draft.",
+  "source_system": "helpdesk",
+  "sensitivity": "internal",
+  "service": "docs-portal",
+  "labels": [
+    "documentation",
+    "low-risk"
+  ],
+  "recent_events": [
+    {
+      "timestamp": "2026-04-28T09:00:00Z",
+      "status": "new",
+      "summary": "Requester attached redacted reproduction notes."
+    }
+  ],
+  "redacted_context": "No customer data included."
+}
+JSON
+
 python3 -m app.cli job list --json >"$WORK_DIR/job-list.json"
 python3 -m app.cli job describe \
   --template readiness_check \
@@ -80,7 +104,19 @@ python3 -m app.cli job run \
   --max-chars 2400 \
   --json >"$READINESS_OUTPUT_FILE"
 
-python3 - "$OUTPUT_FILE" "$READINESS_OUTPUT_FILE" "$WORK_DIR/job-list.json" "$WORK_DIR/readiness-describe.json" <<'PY'
+python3 -m app.cli job run \
+  --template issue_triage \
+  --profile local_ops_default \
+  --input-file "$ISSUE_INPUT_FILE" \
+  --requested-by stage12_poc \
+  --actor-id stage12_poc \
+  --actor-role requester \
+  --include-bundle \
+  --include-handoff \
+  --max-chars 2400 \
+  --json >"$ISSUE_OUTPUT_FILE"
+
+python3 - "$OUTPUT_FILE" "$READINESS_OUTPUT_FILE" "$ISSUE_OUTPUT_FILE" "$WORK_DIR/job-list.json" "$WORK_DIR/readiness-describe.json" <<'PY'
 from __future__ import annotations
 
 import json
@@ -89,20 +125,24 @@ import sys
 
 daily_payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 readiness_payload = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
-job_list = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
-readiness_describe = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
+issue_payload = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+job_list = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
+readiness_describe = json.loads(Path(sys.argv[5]).read_text(encoding="utf-8"))
 
 listed = {item["template_id"]: item for item in job_list["items"]}
 if not listed["daily_status_digest"]["executable"]:
     raise SystemExit("daily_status_digest should be executable")
 if not listed["readiness_check"]["executable"]:
     raise SystemExit("readiness_check should be executable")
+if not listed["issue_triage"]["executable"]:
+    raise SystemExit("issue_triage should be executable")
 if readiness_describe["template"]["required_capability_packs"] != ["readiness_probe_readonly", "core_status_readonly"]:
     raise SystemExit("unexpected readiness capability pack binding")
 
 for expected_template, payload in [
     ("daily_status_digest", daily_payload),
     ("readiness_check", readiness_payload),
+    ("issue_triage", issue_payload),
 ]:
     status = payload["status"]
     invocation = payload["job_invocation"]
@@ -118,10 +158,16 @@ for expected_template, payload in [
     if payload["handoff"]["packet_type"] != "completed":
         raise SystemExit(f"{expected_template}: unexpected handoff packet: {payload['handoff']['packet_type']}")
 
+if issue_payload["status"]["resolved_kind"] != "incident":
+    raise SystemExit("issue_triage should run through the incident workflow")
+if issue_payload["status"]["run_mode"] != "dry-run":
+    raise SystemExit("issue_triage should remain dry-run in the PoC")
+
 print(
     "[OK] stage12 local job poc "
     f"daily_task_id={daily_payload['status']['task_id']} "
     f"readiness_task_id={readiness_payload['status']['task_id']} "
+    f"issue_task_id={issue_payload['status']['task_id']} "
     f"work_dir={Path(sys.argv[1]).parent}"
 )
 PY

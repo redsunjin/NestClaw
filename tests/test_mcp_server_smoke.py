@@ -276,6 +276,7 @@ class TestMcpServerSmoke(unittest.TestCase):
         list_payload = list_response["result"]["structuredContent"]
         by_id = {item["template_id"]: item for item in list_payload["items"]}
         self.assertTrue(by_id["readiness_check"]["executable"])
+        self.assertTrue(by_id["issue_triage"]["executable"])
         self.assertIn("local_ops_default", by_id["readiness_check"]["compatible_profile_ids"])
 
         describe_response = self._request(

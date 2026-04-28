@@ -86,6 +86,31 @@ Tool: `job.run`
 }
 ```
 
+For a bounded issue triage job, keep it as a fixed `job.run` call rather than a freeform ticket instruction:
+
+```json
+{
+  "template_id": "issue_triage",
+  "profile_id": "local_ops_default",
+  "requested_by": "claude_user",
+  "actor_id": "claude_user",
+  "actor_role": "requester",
+  "input": {
+    "issue_id": "ISSUE-123",
+    "summary": "Internal documentation update request needs routing and a safe follow-up ticket draft.",
+    "source_system": "helpdesk",
+    "sensitivity": "internal",
+    "service": "docs-portal",
+    "labels": ["documentation", "low-risk"],
+    "redacted_context": "No customer data included."
+  },
+  "include_bundle": true,
+  "include_handoff": true
+}
+```
+
+`issue_triage` runs through the incident runtime in dry-run mode. Do not pass `execution_budget_override` from an upper agent; budget expansion needs a separate human approval path.
+
 ### 3.3 Submit Freeform Request
 Tool: `agent.submit`
 

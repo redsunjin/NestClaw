@@ -47,6 +47,24 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
             "excluded_topics": ["cloud relay"],
         }
 
+    def _issue_triage_input(self) -> dict[str, object]:
+        return {
+            "issue_id": "ISSUE-123",
+            "summary": "Internal documentation update request needs routing and a safe follow-up ticket draft.",
+            "source_system": "helpdesk",
+            "sensitivity": "internal",
+            "service": "docs-portal",
+            "labels": ["documentation", "low-risk"],
+            "recent_events": [
+                {
+                    "timestamp": "2026-04-28T09:00:00Z",
+                    "status": "new",
+                    "summary": "Requester attached redacted reproduction notes.",
+                }
+            ],
+            "redacted_context": "No customer data included.",
+        }
+
     def test_daily_status_digest_job_runs_and_captures_evidence(self) -> None:
         payload, exit_code = cli_module._job_run_payload(
             template_id="daily_status_digest",
@@ -101,8 +119,9 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
         by_id = {item["template_id"]: item for item in list_payload["items"]}
         self.assertTrue(by_id["daily_status_digest"]["executable"])
         self.assertTrue(by_id["readiness_check"]["executable"])
-        self.assertFalse(by_id["issue_triage"]["executable"])
+        self.assertTrue(by_id["issue_triage"]["executable"])
         self.assertIn("local_ops_default", by_id["readiness_check"]["compatible_profile_ids"])
+        self.assertIn("issue_triage", list_payload["implemented_job_template_ids"])
         self.assertIn("readiness_check", list_payload["implemented_job_template_ids"])
 
         describe_payload, describe_exit_code = cli_module._job_describe_payload(
@@ -157,6 +176,47 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
 
         event_types = {item["event_type"] for item in payload["events"]["items"]}
         self.assertIn("TASK_ACTIONS_PLANNED", event_types)
+        self.assertIn("PLANNED_ACTION_EXECUTED", event_types)
+        self.assertTrue(payload["report"]["available"])
+        self.assertEqual(payload["bundle"]["bundle_version"], "v1")
+        self.assertEqual(payload["handoff"]["packet_type"], "completed")
+
+    def test_issue_triage_job_runs_as_dry_run_incident(self) -> None:
+        payload, exit_code = cli_module._job_run_payload(
+            template_id="issue_triage",
+            profile_id="local_ops_default",
+            input_payload=self._issue_triage_input(),
+            requested_by="qa_user",
+            actor_id="qa_user",
+            actor_role="requester",
+            include_bundle=True,
+            include_handoff=True,
+            max_chars=2400,
+        )
+
+        self.assertEqual(exit_code, 0, payload)
+        invocation = payload["job_invocation"]
+        self.assertEqual(invocation["template_id"], "issue_triage")
+        self.assertEqual(invocation["task_kind"], "incident")
+        self.assertEqual(invocation["profile_id"], "local_ops_default")
+        self.assertEqual(invocation["provider_class"], "local_llm")
+        self.assertEqual(invocation["capability_pack_ids"], ["issue_triage_readonly", "ticket_draft_ops"])
+        self.assertTrue(invocation["budget_enforcement"]["enforced"])
+        self.assertFalse(invocation["budget_enforcement"]["budget_override_allowed"])
+
+        status = payload["status"]
+        self.assertEqual(status["resolved_kind"], "incident")
+        self.assertEqual(status["status"], "DONE")
+        self.assertEqual(status["run_mode"], "dry-run")
+        self.assertEqual(status["result"]["actions_executed"], 1)
+        report_path = Path(str(status["result"]["report_path"]))
+        self.assertTrue(report_path.is_file())
+        report_text = report_path.read_text(encoding="utf-8")
+        self.assertIn("ISSUE-123", report_text)
+        self.assertIn("- run_mode: dry-run", report_text)
+
+        event_types = {item["event_type"] for item in payload["events"]["items"]}
+        self.assertIn("INCIDENT_ACTION_EXECUTED", event_types)
         self.assertIn("PLANNED_ACTION_EXECUTED", event_types)
         self.assertTrue(payload["report"]["available"])
         self.assertEqual(payload["bundle"]["bundle_version"], "v1")
@@ -220,6 +280,39 @@ class TestStage12JobInvocationSmoke(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         self.assertEqual(payload["error"]["code"], "INVALID_JOB_CONTRACT")
         self.assertIn("does not allow profile", payload["error"]["message"])
+
+    def test_job_contract_rejects_budget_override_and_timeout_overrun(self) -> None:
+        override_payload, override_exit_code = cli_module._job_run_payload(
+            template_id="daily_status_digest",
+            profile_id="local_ops_default",
+            input_payload={
+                **self._daily_status_input(),
+                "execution_budget_override": {"max_tool_calls": 99},
+            },
+            requested_by="qa_user",
+            actor_id="qa_user",
+            actor_role="requester",
+        )
+        self.assertEqual(override_exit_code, 1)
+        self.assertEqual(override_payload["error"]["code"], "INVALID_JOB_CONTRACT")
+        self.assertIn("budget override requires an approval flow", override_payload["error"]["message"])
+
+        timeout_payload, timeout_exit_code = cli_module._job_run_payload(
+            template_id="readiness_check",
+            profile_id="local_ops_default",
+            input_payload={
+                "check_set": "stage8-readiness",
+                "target_stage": 8,
+                "sensitivity": "internal",
+                "timeout_seconds": 999,
+            },
+            requested_by="qa_user",
+            actor_id="qa_user",
+            actor_role="requester",
+        )
+        self.assertEqual(timeout_exit_code, 1)
+        self.assertEqual(timeout_payload["error"]["code"], "INVALID_JOB_CONTRACT")
+        self.assertIn("timeout_seconds exceeds max_elapsed_seconds", timeout_payload["error"]["message"])
 
 
 if __name__ == "__main__":

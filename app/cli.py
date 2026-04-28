@@ -34,7 +34,7 @@ VALID_INCIDENT_RUN_MODES = ("dry-run", "mcp-live", "live")
 AGENT_PROFILES_PATH = Path("configs/agent_profiles.json")
 JOB_TEMPLATES_PATH = Path("configs/job_templates.json")
 CAPABILITY_PACKS_PATH = Path("configs/capability_packs.json")
-IMPLEMENTED_JOB_TEMPLATE_IDS = {"daily_status_digest", "readiness_check"}
+IMPLEMENTED_JOB_TEMPLATE_IDS = {"daily_status_digest", "issue_triage", "readiness_check"}
 
 CLI_ORCHESTRATION_SERVICE = build_orchestration_service(sync_execution=True)
 CLI_APPROVAL_SERVICE = build_approval_service(sync_execution=True)

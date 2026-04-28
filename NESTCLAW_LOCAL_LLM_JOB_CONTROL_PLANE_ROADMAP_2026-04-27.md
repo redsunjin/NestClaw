@@ -117,6 +117,10 @@
 - `stage12-w3-001`: HTTP `GET /api/v1/jobs`, `GET /api/v1/jobs/{template_id}`, and `POST /api/v1/jobs/run`.
 - `stage12-w3-002`: MCP `job.list`, `job.describe`, and `job.run`.
 
+`stage12-job-execution-hardening-campaign` turns the service surface into more practical work execution:
+
+- `stage12-w4-001`: `issue_triage` executable dry-run incident adapter plus budget guardrails before runtime submission.
+
 ## UI/UX Position
 - No large UI rewrite is required for Stage 12.
 - Existing console can absorb new data as lists/details:
@@ -154,6 +158,8 @@
 - `newclaw job run` validates template/profile/capability pack boundaries before runtime submission.
 - `newclaw job list/describe` exposes read-only discovery before invocation.
 - `readiness_check` is executable through the same local-first job contract.
+- `issue_triage` is executable through the same local-first job contract in incident dry-run mode.
+- `newclaw job run` rejects budget overrides and timeout overruns before `agent.submit`.
 - Stage 12 cycle includes local job invocation smoke coverage.
 - Roadmap is linked from README and capability manifest.
 - Existing Stage 9-11 tests still pass.

@@ -1,0 +1,17 @@
+{
+  "campaign_id": "stage12-job-execution-hardening-campaign",
+  "goal": "Harden Stage 12 executable job adapters and enforce budget boundaries before runtime submission",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-issue-triage-adapter-budget-guard",
+      "group": "G1",
+      "title": "Make issue triage executable and enforce job budgets",
+      "unit_id": "stage12-w4-001",
+      "goal": "Promote issue_triage to a dry-run executable incident job and reject unsafe budget overrides or timeout overruns before submission",
+      "status": "completed",
+      "completed_unit_id": "stage12-w4-001",
+      "completed_at": "2026-04-27T16:35:57Z"
+    }
+  ]
+}

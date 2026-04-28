@@ -34,6 +34,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("stage12-priority-campaign", work_groups)
         self.assertIn("stage12-job-surface-campaign", work_groups)
         self.assertIn("stage12-agent-facing-job-api-campaign", work_groups)
+        self.assertIn("stage12-job-execution-hardening-campaign", work_groups)
 
     def test_agent_profile_spec_and_sample_registry_exist(self) -> None:
         spec = Path("NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md").read_text(encoding="utf-8")
@@ -289,6 +290,23 @@ class TestStage12Contract(unittest.TestCase):
         self.assertEqual(data["items"][1]["unit_id"], "stage12-w3-002")
         self.assertIn(data["items"][1]["status"], {"pending", "in_progress", "completed"})
 
+    def test_stage12_job_execution_hardening_campaign_exists(self) -> None:
+        data = json.loads(
+            Path("work/priority_campaigns/stage12-job-execution-hardening-campaign/campaign.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(data["campaign_id"], "stage12-job-execution-hardening-campaign")
+        self.assertEqual(data["target_stage"], 12)
+        self.assertEqual(
+            [item["item_id"] for item in data["items"]],
+            [
+                "g1-issue-triage-adapter-budget-guard",
+            ],
+        )
+        self.assertEqual(data["items"][0]["unit_id"], "stage12-w4-001")
+        self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+
     def test_cycle_scripts_support_stage12(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
@@ -306,6 +324,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("app.cli job run", poc_script)
         self.assertIn("--template daily_status_digest", poc_script)
         self.assertIn("--template readiness_check", poc_script)
+        self.assertIn("--template issue_triage", poc_script)
         self.assertIn("--include-handoff", poc_script)
         self.assertIn("target-stage:1..12", auto_source)
         self.assertIn("target-stage must be 1..12", auto_source)
@@ -347,6 +366,9 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("def job_describe_payload(", job_source)
         self.assertIn("daily_status_digest", cli_source)
         self.assertIn("readiness_check", cli_source)
+        self.assertIn("issue_triage", job_source)
+        self.assertIn("budget_enforcement", job_source)
+        self.assertIn("validate_execution_budget_policy", job_source)
         self.assertIn("agent.bundle", cli_source)
 
     def test_governance_guardrails_cover_provider_boundaries(self) -> None:

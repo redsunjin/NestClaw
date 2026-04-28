@@ -9,7 +9,13 @@ from typing import Any
 AGENT_PROFILES_PATH = Path("configs/agent_profiles.json")
 JOB_TEMPLATES_PATH = Path("configs/job_templates.json")
 CAPABILITY_PACKS_PATH = Path("configs/capability_packs.json")
-IMPLEMENTED_JOB_TEMPLATE_IDS = {"daily_status_digest", "readiness_check"}
+IMPLEMENTED_JOB_TEMPLATE_IDS = {"daily_status_digest", "issue_triage", "readiness_check"}
+BUDGET_OVERRIDE_KEYS = {
+    "budget_override",
+    "execution_budget",
+    "execution_budget_override",
+    "provider_budget_override",
+}
 
 
 def load_json_document(path: Path) -> dict[str, Any]:
@@ -60,6 +66,73 @@ def coerce_string_list(value: Any, *, fallback: list[str] | None = None) -> list
     else:
         items = [str(value).strip()]
     return items or list(fallback or [])
+
+
+def payload_size_bytes(payload: dict[str, Any]) -> int:
+    return len(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8"))
+
+
+def budget_int(budget: dict[str, Any], key: str) -> int:
+    try:
+        return int(budget.get(key) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def effective_execution_budget(template: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
+    profile_budget = dict(profile.get("execution_budget") or {})
+    template_budget = dict(template.get("execution_budget_override") or {})
+    return {**profile_budget, **template_budget}
+
+
+def budget_enforcement_summary(contract: dict[str, Any], input_payload: dict[str, Any]) -> dict[str, Any]:
+    template = dict(contract["template"])
+    profile = dict(contract["profile"])
+    budget = effective_execution_budget(template, profile)
+    timeout_seconds = input_payload.get("timeout_seconds")
+    return {
+        "enforced": True,
+        "budget_override_allowed": False,
+        "input_payload_bytes": payload_size_bytes(input_payload),
+        "max_context_bytes": budget_int(budget, "max_context_bytes"),
+        "timeout_seconds": timeout_seconds,
+        "max_elapsed_seconds": budget_int(budget, "max_elapsed_seconds"),
+        "max_tool_calls": budget_int(budget, "max_tool_calls"),
+        "max_retries": budget_int(budget, "max_retries"),
+        "max_provider_tokens": budget_int(budget, "max_provider_tokens"),
+    }
+
+
+def validate_execution_budget_policy(
+    *,
+    template: dict[str, Any],
+    profile: dict[str, Any],
+    input_payload: dict[str, Any],
+) -> None:
+    override_keys = sorted(key for key in BUDGET_OVERRIDE_KEYS if key in input_payload)
+    if override_keys:
+        raise ValueError(
+            "job input budget override requires an approval flow that is not implemented for Stage 12 job.run: "
+            + ", ".join(override_keys)
+        )
+
+    budget = effective_execution_budget(template, profile)
+    max_context_bytes = budget_int(budget, "max_context_bytes")
+    if max_context_bytes > 0:
+        current_bytes = payload_size_bytes(input_payload)
+        if current_bytes > max_context_bytes:
+            raise ValueError(f"job input exceeds max_context_bytes: {current_bytes} > {max_context_bytes}")
+
+    if "timeout_seconds" in input_payload:
+        max_elapsed_seconds = budget_int(budget, "max_elapsed_seconds")
+        try:
+            timeout_seconds = int(input_payload.get("timeout_seconds") or 0)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("timeout_seconds must be an integer when provided") from exc
+        if timeout_seconds < 0:
+            raise ValueError("timeout_seconds must be non-negative")
+        if max_elapsed_seconds > 0 and timeout_seconds > max_elapsed_seconds:
+            raise ValueError(f"timeout_seconds exceeds max_elapsed_seconds: {timeout_seconds} > {max_elapsed_seconds}")
 
 
 def source_line(source: Any) -> str:
@@ -121,6 +194,78 @@ def readiness_check_notes(input_payload: dict[str, Any]) -> str:
             "- Preserve external sandbox/live blockers as explicit readiness state rather than treating them as solved.",
         ]
     )
+
+
+def issue_event_line(item: Any) -> str:
+    if item is None:
+        return ""
+    if isinstance(item, dict):
+        timestamp = str(item.get("timestamp") or item.get("time") or "").strip()
+        status = str(item.get("status") or item.get("type") or "").strip()
+        text = str(item.get("summary") or item.get("message") or item.get("text") or "").strip()
+        parts = [part for part in (timestamp, status, text) if part]
+        return " / ".join(parts)
+    return str(item).strip()
+
+
+def issue_triage_notes(input_payload: dict[str, Any]) -> str:
+    lines = [
+        f"issue_id: {input_payload.get('issue_id')}",
+        f"source_system: {input_payload.get('source_system')}",
+        f"service: {input_payload.get('service', 'unknown-service')}",
+        f"sensitivity: {input_payload.get('sensitivity')}",
+        "summary:",
+        str(input_payload.get("summary") or "").strip(),
+    ]
+    labels = coerce_string_list(input_payload.get("labels"))
+    if labels:
+        lines.append("labels:")
+        lines.extend(f"- {item}" for item in labels)
+
+    recent_events = input_payload.get("recent_events")
+    event_lines = []
+    if isinstance(recent_events, list):
+        event_lines = [line for line in (issue_event_line(item) for item in recent_events) if line]
+    else:
+        line = issue_event_line(recent_events)
+        event_lines = [line] if line else []
+    if event_lines:
+        lines.append("recent events:")
+        lines.extend(f"- {item}" for item in event_lines)
+
+    redacted_context = str(input_payload.get("redacted_context") or "").strip()
+    if redacted_context:
+        lines.extend(["redacted context:", redacted_context])
+
+    lines.extend(
+        [
+            "triage intent:",
+            "- Classify priority and recommend the next safe action.",
+            "- Keep external writes in dry-run unless a separate approval path is used.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def issue_triage_severity(input_payload: dict[str, Any]) -> str:
+    labels = " ".join(coerce_string_list(input_payload.get("labels")))
+    haystack = " ".join(
+        str(item or "")
+        for item in (
+            input_payload.get("summary"),
+            labels,
+            input_payload.get("priority"),
+            input_payload.get("severity"),
+            input_payload.get("redacted_context"),
+        )
+    ).lower()
+    if any(token in haystack for token in ("critical", "sev1", "p0", "outage", "customer-facing")):
+        return "high"
+    if any(token in haystack for token in ("high", "sev2", "p1", "degraded", "urgent")):
+        return "high"
+    if any(token in haystack for token in ("medium", "sev3", "p2", "warning", "latency")):
+        return "medium"
+    return "low"
 
 
 def job_template_task_kind(template: dict[str, Any]) -> str:
@@ -196,7 +341,7 @@ def validate_job_input_against_contract(
 
     max_payload_bytes = int(schema.get("max_payload_bytes") or 0)
     if max_payload_bytes > 0:
-        payload_bytes = len(json.dumps(input_payload, ensure_ascii=False).encode("utf-8"))
+        payload_bytes = payload_size_bytes(input_payload)
         if payload_bytes > max_payload_bytes:
             raise ValueError(f"job input exceeds max_payload_bytes: {payload_bytes} > {max_payload_bytes}")
 
@@ -211,6 +356,8 @@ def validate_job_input_against_contract(
         pack_allowed = {str(item) for item in pack_boundary.get("allowed_sensitivity") or []}
         if sensitivity and pack_allowed and sensitivity not in pack_allowed:
             raise ValueError(f"capability pack {pack.get('pack_id')} does not allow sensitivity: {sensitivity}")
+
+    validate_execution_budget_policy(template=template, profile=profile, input_payload=input_payload)
 
 
 def resolve_job_contract(*, template_id: str, profile_id: str, input_payload: dict[str, Any]) -> dict[str, Any]:
@@ -254,6 +401,7 @@ def job_runtime_metadata(contract: dict[str, Any], input_payload: dict[str, Any]
     template = dict(contract["template"])
     template_id = str(template.get("template_id") or "")
     stage12_job = stage12_job_metadata(contract)
+    stage12_job["budget_enforcement"] = budget_enforcement_summary(contract, input_payload)
     if template_id == "daily_status_digest":
         audience = coerce_string_list(input_payload.get("audience"), fallback=["operator"])
         return {
@@ -265,6 +413,22 @@ def job_runtime_metadata(contract: dict[str, Any], input_payload: dict[str, Any]
             "sensitivity": str(input_payload.get("sensitivity") or ""),
             "stage12_job": stage12_job,
             "stage12_job_input": dict(input_payload),
+        }
+    if template_id == "issue_triage":
+        notes = issue_triage_notes(input_payload)
+        return {
+            "issue_id": str(input_payload.get("issue_id") or ""),
+            "summary": f"{str(input_payload.get('summary') or '').strip()}\n\n{notes}",
+            "service": str(input_payload.get("service") or input_payload.get("source_system") or "unknown-service"),
+            "source": str(input_payload.get("source_system") or "stage12_issue_triage"),
+            "incident_id": str(input_payload.get("issue_id") or ""),
+            "time_window": str(input_payload.get("time_window") or "24h"),
+            "severity": issue_triage_severity(input_payload),
+            "policy_profile": "default",
+            "sensitivity": str(input_payload.get("sensitivity") or ""),
+            "stage12_job": stage12_job,
+            "stage12_job_input": dict(input_payload),
+            "stage12_job_notes": notes,
         }
     if template_id == "readiness_check":
         return {
@@ -322,6 +486,7 @@ def job_invocation_summary(
         "input_keys": sorted(str(key) for key in input_payload.keys()),
         "provider_policy": dict(template.get("provider_policy") or {}),
         "execution_budget": dict(template.get("execution_budget_override") or profile.get("execution_budget") or {}),
+        "budget_enforcement": budget_enforcement_summary(contract, input_payload),
     }
 
 

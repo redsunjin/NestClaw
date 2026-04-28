@@ -64,13 +64,15 @@ Before runtime submission, `newclaw job run` validates:
 - required capability packs
 - pack-to-profile and pack-to-template allowlists
 - sensitivity boundary for the selected profile and packs
+- execution budget guardrails, including rejected budget overrides, context bytes, and `timeout_seconds`
 
-For the PoC, only `daily_status_digest` is implemented as an executable job adapter. It maps to the existing `meeting_summary` task runtime so the current planner/executor/reporter path remains canonical.
+The executable adapters map onto existing canonical runtimes so the current planner/executor/reporter path remains authoritative.
 
 ## Evidence Captured
 The JSON response includes:
 
 - `job_invocation`: selected template, profile, provider, capability packs, runtime surfaces, input keys, and budget policy
+- `job_invocation.budget_enforcement`: enforced budget fields and observed input size
 - `status`: canonical `agent.status` payload
 - `events`: canonical `agent.events` payload
 - `report`: canonical `agent.report` preview payload
@@ -84,16 +86,14 @@ Current executable adapters:
 
 - `daily_status_digest`: internal daily status digest through the existing task runtime.
 - `readiness_check`: bounded readiness summary through the existing task runtime, preserving blocked/skipped external env evidence as report content rather than treating readiness as solved.
-
-Planned but not yet executable:
-
-- `issue_triage`: still requires a separate incident-oriented adapter decision because it may involve ticket draft governance.
+- `issue_triage`: low-risk issue classification through the existing incident runtime in dry-run mode, preserving ticket draft governance and approval semantics.
 
 ## Current Boundary
 - Local-first policy is represented by `local_ops_default` and `internal_digest_basic`.
 - No cloud/API provider is used for the PoC path.
 - Local model server availability is not required; existing provider fallback evidence remains visible in status/events.
-- External sends and tool writes are blocked by the selected template/profile/pack combination.
+- External sends and live tool writes are blocked by the selected template/profile/pack combination unless an existing approval/live-mode path is used separately.
+- Input-level budget override is rejected because Stage 12 does not yet provide a human approval path for budget expansion.
 
 ## Verification
 Primary tests:
@@ -112,4 +112,4 @@ env PATH=../nestclaw-ideation-qa/.venv/bin:$PATH \
 ```
 
 ## Next Step
-The next natural step is to expose the same discovery payload through MCP/HTTP, then decide whether dashboard chat should call this same job surface rather than inventing a separate chat runtime.
+The next natural step is scheduled execution and run-history/dashboard surfacing for these same job contracts, without inventing a separate chat runtime.
