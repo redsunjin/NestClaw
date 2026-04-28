@@ -1,0 +1,17 @@
+{
+  "campaign_id": "stage12-scheduler-invocation-campaign",
+  "goal": "Make Stage 12 jobs safely callable by external schedulers without adding a second runtime",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-scheduler-invocation-wrapper",
+      "group": "G1",
+      "title": "Add scheduler-safe job invocation wrapper and examples",
+      "unit_id": "stage12-w6-001",
+      "goal": "Provide cron, launchd, CI, and upper-agent friendly invocation that runs a bounded job and verifies history evidence",
+      "status": "completed",
+      "completed_unit_id": "stage12-w6-001",
+      "completed_at": "2026-04-28T02:26:17Z"
+    }
+  ]
+}

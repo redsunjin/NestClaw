@@ -1,0 +1,33 @@
+name: Stage 12 Scheduled Job
+
+on:
+  schedule:
+    - cron: "10 0 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install runtime dependencies
+        run: pip install -r requirements.txt
+      - name: Run scheduled Stage 12 job
+        run: |
+          bash scripts/run_stage12_scheduled_job.sh \
+            --template readiness_check \
+            --profile local_ops_default \
+            --input-file examples/stage12_scheduler/readiness-input.json \
+            --requested-by github_actions_stage12 \
+            --actor-id github_actions_stage12 \
+            --actor-role requester \
+            --expect-status DONE \
+            --include-handoff
+      - name: Upload scheduled job evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage12-scheduled-runs
+          path: reports/stage12-scheduled-runs/

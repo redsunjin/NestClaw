@@ -1,0 +1,8 @@
+{
+  "check_set": "stage12-scheduler-smoke",
+  "target_stage": 12,
+  "sensitivity": "internal",
+  "env_profile": "local",
+  "strict_gate": false,
+  "timeout_seconds": 15
+}

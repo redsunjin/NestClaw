@@ -92,6 +92,18 @@
   - cloud/API provider는 low sensitivity 또는 explicit policy에서만 선택된다.
   - job 실행이 bundle/handoff에서 확인 가능하다.
 
+### M6. External Scheduler Invocation
+- 목표: cron, launchd, CI, 상위 agent가 Stage 12 job을 안전하게 반복 호출할 수 있는 표준 wrapper를 제공한다.
+- 산출물:
+  - `NESTCLAW_STAGE12_SCHEDULER_INVOCATION_GUIDE_2026-04-28.md`
+  - `scripts/run_stage12_scheduled_job.sh`
+  - `scripts/run_stage12_scheduler_smoke.sh`
+  - `examples/stage12_scheduler/`
+- 완료 기준:
+  - scheduler wrapper가 `newclaw job run`과 `newclaw job history`를 모두 호출한다.
+  - 실행 결과, history, input, summary 증적이 `reports/stage12-scheduled-runs/`에 남는다.
+  - schedule trigger는 core runtime을 우회하지 않고 Stage 12 job surface를 호출한다.
+
 ## Stage 12 Priority Campaign
 | Group | Item | Unit | Outcome |
 | --- | --- | --- | --- |
@@ -124,6 +136,10 @@
 `stage12-job-history-dashboard-campaign` makes executed jobs observable without adding a separate runtime:
 
 - `stage12-w5-001`: `job.history`, `GET /api/v1/jobs/runs`, `newclaw job history`, and a read-only dashboard job-run panel.
+
+`stage12-scheduler-invocation-campaign` makes those jobs callable by external schedulers without adding a second runtime:
+
+- `stage12-w6-001`: scheduler-safe wrapper, cron/launchd/GitHub Actions examples, and Stage 12 cycle smoke coverage.
 
 ## UI/UX Position
 - No large UI rewrite is required for Stage 12.
@@ -165,6 +181,8 @@
 - `issue_triage` is executable through the same local-first job contract in incident dry-run mode.
 - `newclaw job run` rejects budget overrides and timeout overruns before `agent.submit`.
 - `newclaw job history`, MCP `job.history`, and HTTP `/api/v1/jobs/runs` expose completed and in-flight job evidence.
+- `scripts/run_stage12_scheduled_job.sh` lets cron, launchd, CI, and upper agents invoke Stage 12 jobs while preserving job history evidence.
 - Stage 12 cycle includes local job invocation smoke coverage.
+- Stage 12 cycle includes scheduler invocation smoke coverage.
 - Roadmap is linked from README and capability manifest.
 - Existing Stage 9-11 tests still pass.

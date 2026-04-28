@@ -14,6 +14,9 @@ class TestStage12Contract(unittest.TestCase):
         )
         work_groups = Path("NEXT_WORK_GROUPS_2026-04-27_STAGE12.md").read_text(encoding="utf-8")
         poc = Path("NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md").read_text(encoding="utf-8")
+        scheduler = Path("NESTCLAW_STAGE12_SCHEDULER_INVOCATION_GUIDE_2026-04-28.md").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("local-first LLM job control plane", positioning)
         self.assertIn("cloud/API LLM", positioning)
         self.assertIn("Agent Profile", local_control)
@@ -30,12 +33,18 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("agent.bundle", poc)
         self.assertIn("HTTP", poc)
         self.assertIn("MCP", poc)
+        self.assertIn("Stage 12 Scheduler Invocation Guide", scheduler)
+        self.assertIn("scripts/run_stage12_scheduled_job.sh", scheduler)
+        self.assertIn("cron", scheduler)
+        self.assertIn("launchd", scheduler)
+        self.assertIn("GitHub Actions", scheduler)
         self.assertIn("Stage 12 Priority Campaign", roadmap)
         self.assertIn("stage12-priority-campaign", work_groups)
         self.assertIn("stage12-job-surface-campaign", work_groups)
         self.assertIn("stage12-agent-facing-job-api-campaign", work_groups)
         self.assertIn("stage12-job-execution-hardening-campaign", work_groups)
         self.assertIn("stage12-job-history-dashboard-campaign", work_groups)
+        self.assertIn("stage12-scheduler-invocation-campaign", work_groups)
 
     def test_agent_profile_spec_and_sample_registry_exist(self) -> None:
         spec = Path("NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md").read_text(encoding="utf-8")
@@ -325,15 +334,35 @@ class TestStage12Contract(unittest.TestCase):
         self.assertEqual(data["items"][0]["unit_id"], "stage12-w5-001")
         self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
 
+    def test_stage12_scheduler_invocation_campaign_exists(self) -> None:
+        data = json.loads(
+            Path("work/priority_campaigns/stage12-scheduler-invocation-campaign/campaign.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(data["campaign_id"], "stage12-scheduler-invocation-campaign")
+        self.assertEqual(data["target_stage"], 12)
+        self.assertEqual(
+            [item["item_id"] for item in data["items"]],
+            [
+                "g1-scheduler-invocation-wrapper",
+            ],
+        )
+        self.assertEqual(data["items"][0]["unit_id"], "stage12-w6-001")
+        self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+
     def test_cycle_scripts_support_stage12(self) -> None:
         cycle_source = Path("scripts/run_dev_qa_cycle.sh").read_text(encoding="utf-8")
         auto_source = Path("scripts/run_auto_cycle.sh").read_text(encoding="utf-8")
         poc_script = Path("scripts/run_stage12_local_job_poc.sh").read_text(encoding="utf-8")
+        scheduler_script = Path("scripts/run_stage12_scheduled_job.sh").read_text(encoding="utf-8")
+        scheduler_smoke = Path("scripts/run_stage12_scheduler_smoke.sh").read_text(encoding="utf-8")
         self.assertIn("target-stage: 1..12", cycle_source)
         self.assertIn("check_stage_12", cycle_source)
         self.assertIn("tests.test_stage12_contract", cycle_source)
         self.assertIn("tests.test_stage12_job_invocation_smoke", cycle_source)
         self.assertIn("scripts/run_stage12_local_job_poc.sh", cycle_source)
+        self.assertIn("scripts/run_stage12_scheduler_smoke.sh", cycle_source)
         self.assertIn("NEWCLAW_CYCLE_CHECK_TIMEOUT_SECONDS", cycle_source)
         self.assertIn("run_with_timeout.py", cycle_source)
         self.assertIn("run_check_command", cycle_source)
@@ -345,6 +374,15 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("--template readiness_check", poc_script)
         self.assertIn("--template issue_triage", poc_script)
         self.assertIn("--include-handoff", poc_script)
+        self.assertIn("app.cli job run", scheduler_script)
+        self.assertIn("app.cli job history", scheduler_script)
+        self.assertIn("--expect-status", scheduler_script)
+        self.assertIn("summary.json", scheduler_script)
+        self.assertIn("reports/stage12-scheduled-runs", scheduler_script)
+        self.assertIn("examples/stage12_scheduler/readiness-input.json", scheduler_smoke)
+        self.assertTrue(Path("examples/stage12_scheduler/cron.example").is_file())
+        self.assertTrue(Path("examples/stage12_scheduler/launchd.local.example.plist").is_file())
+        self.assertTrue(Path("examples/stage12_scheduler/github-actions.example.yml").is_file())
         self.assertIn("target-stage:1..12", auto_source)
         self.assertIn("target-stage must be 1..12", auto_source)
 
@@ -360,6 +398,8 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("newclaw job list", source)
         self.assertIn("newclaw job describe", source)
         self.assertIn("newclaw job run", source)
+        self.assertIn("scheduled_job_wrapper", source)
+        self.assertIn("scripts/run_stage12_scheduled_job.sh", source)
 
     def test_stage12_job_run_cli_surface_exists(self) -> None:
         cli_source = Path("app/cli.py").read_text(encoding="utf-8")

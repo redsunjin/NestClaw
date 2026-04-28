@@ -56,6 +56,20 @@ Scripted smoke:
 bash scripts/run_stage12_local_job_poc.sh
 ```
 
+Scheduled invocation:
+
+```bash
+bash scripts/run_stage12_scheduled_job.sh \
+  --template readiness_check \
+  --profile local_ops_default \
+  --input-file examples/stage12_scheduler/readiness-input.json \
+  --requested-by stage12_scheduler \
+  --actor-id stage12_scheduler \
+  --actor-role requester \
+  --expect-status DONE \
+  --include-handoff
+```
+
 ## Contract Resolution
 Before runtime submission, `newclaw job run` validates:
 
@@ -86,6 +100,8 @@ The JSON response includes:
 This is the shape expected by Claude/Codex/MCP wrappers, cron/launchd jobs, or other upper agents.
 
 After execution, callers can use `job.history` or `GET /api/v1/jobs/runs` to read the run record without replaying the job.
+
+External schedulers should use `scripts/run_stage12_scheduled_job.sh` or an equivalent wrapper that runs the job and then verifies the resulting `task_id` through job history.
 
 ## Executable Job Adapters
 Current executable adapters:
@@ -118,4 +134,4 @@ env PATH=../nestclaw-ideation-qa/.venv/bin:$PATH \
 ```
 
 ## Next Step
-The next natural step is scheduled execution and run-history/dashboard surfacing for these same job contracts, without inventing a separate chat runtime.
+The completed scheduled invocation wrapper still leaves one natural follow-up: idempotency keys and duplicate-run detection for repeated external scheduler calls.

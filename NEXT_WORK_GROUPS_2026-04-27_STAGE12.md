@@ -51,11 +51,24 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
   - execution budget과 provider routing이 기록된다.
   - status/events/report/bundle/handoff에 trace가 남는다.
 
+### G5. Scheduler Invocation Wrapper
+- Goal: cron, launchd, CI, 상위 agent가 Stage 12 job을 외부에서 반복 호출하되 core runtime과 job guardrail을 우회하지 않게 한다.
+- Current artifact:
+  - `NESTCLAW_STAGE12_SCHEDULER_INVOCATION_GUIDE_2026-04-28.md`
+  - `scripts/run_stage12_scheduled_job.sh`
+  - `scripts/run_stage12_scheduler_smoke.sh`
+  - `examples/stage12_scheduler/`
+- Done when:
+  - wrapper가 `job run` 이후 `job history`로 실행 흔적을 검증한다.
+  - cron, launchd, GitHub Actions 예제가 같은 wrapper를 호출한다.
+  - Stage 12 dev-QA cycle이 scheduler smoke를 포함한다.
+
 ## Recommended Order
 1. G1 Agent Profile Spec
 2. G2 Job Template Spec
 3. G3 Capability Pack Binding
 4. G4 Local LLM Job Invocation PoC
+5. G5 Scheduler Invocation Wrapper
 
 ## Operating Track
 - Stage 8 live readiness는 external env handoff가 들어오는 즉시 별도로 재실행한다.
@@ -73,6 +86,8 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Execution hardening goal: promote issue triage to a dry-run executable job and enforce budget guardrails before runtime submission.
 - Job history/dashboard campaign: `stage12-job-history-dashboard-campaign`
 - Job history/dashboard goal: expose Stage 12 job run history to upper agents and the operator dashboard.
+- Scheduler invocation campaign: `stage12-scheduler-invocation-campaign`
+- Scheduler invocation goal: let external schedulers invoke bounded Stage 12 jobs and verify run history evidence.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
@@ -80,4 +95,6 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Completed fourth unit: `stage12-w1-004`
 - Completed agent-facing API units: `stage12-w3-001`, `stage12-w3-002`
 - Completed execution hardening unit: `stage12-w4-001`
-- Current focus: `stage12-w5-001` job run history and dashboard read-only view.
+- Completed job history/dashboard unit: `stage12-w5-001`
+- Completed scheduler invocation unit: `stage12-w6-001`
+- Current focus: next Stage 12 work should consider idempotency keys, duplicate-run detection, and scheduled-run policy review.

@@ -1,0 +1,24 @@
+{
+  "date": "2026-04-28",
+  "audience": "ops_team",
+  "sensitivity": "internal",
+  "sources": [
+    {
+      "name": "morning-standup",
+      "status": "on_track",
+      "summary": "Local-first job templates are being exercised through a scheduled wrapper."
+    },
+    {
+      "name": "qa-cycle",
+      "status": "watch",
+      "summary": "Scheduler evidence should include run, history, input, and summary artifacts."
+    }
+  ],
+  "focus_areas": [
+    "scheduled invocation",
+    "audit evidence"
+  ],
+  "excluded_topics": [
+    "external send"
+  ]
+}

@@ -1,0 +1,8 @@
+# Example: run a Stage 12 readiness check every weekday at 09:10 local time.
+# Install manually with `crontab -e` after adjusting REPO and PYTHONPATH if needed.
+
+SHELL=/bin/zsh
+REPO=/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation
+PYTHONPATH=/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation
+
+10 9 * * 1-5 cd "$REPO" && PATH="$REPO/.venv/bin:$PATH" bash scripts/run_stage12_scheduled_job.sh --template readiness_check --profile local_ops_default --input-file examples/stage12_scheduler/readiness-input.json --requested-by cron_stage12 --actor-id cron_stage12 --actor-role requester --expect-status DONE --include-handoff >> reports/stage12-scheduler-cron.log 2>&1
