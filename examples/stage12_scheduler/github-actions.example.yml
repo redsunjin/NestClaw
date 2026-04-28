@@ -17,6 +17,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run scheduled Stage 12 job
         run: |
+          RUN_DATE="$(date -u +%F)"
           bash scripts/run_stage12_scheduled_job.sh \
             --template readiness_check \
             --profile local_ops_default \
@@ -24,6 +25,8 @@ jobs:
             --requested-by github_actions_stage12 \
             --actor-id github_actions_stage12 \
             --actor-role requester \
+            --idempotency-key "stage12:readiness_check:readiness:stage12-scheduler-smoke:stage12:local:${RUN_DATE}" \
+            --duplicate-policy skip \
             --expect-status DONE \
             --include-handoff
       - name: Upload scheduled job evidence

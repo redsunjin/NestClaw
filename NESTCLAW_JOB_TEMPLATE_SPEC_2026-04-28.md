@@ -66,6 +66,7 @@ Required schedule trigger fields:
 - `supported_triggers`
 - `invocation_surface`
 - `idempotency_key_fields`
+- `idempotency_key_policy`
 - `examples`
 
 Allowed `supported_triggers` examples:
@@ -76,6 +77,14 @@ Allowed `supported_triggers` examples:
 - `external_agent`
 
 The trigger must call an existing NestClaw surface such as `agent.submit`, CLI wrapper, HTTP API, or MCP wrapper. It must not call tools directly.
+
+Idempotency policy fields:
+- `format`: canonical scheduled key format using the exact placeholders from `idempotency_key_fields`
+- `examples`: concrete keys that an operator or upper agent can copy into `--idempotency-key`
+- `recommended_duplicate_policy`: one of `run`, `skip`, or `fail`
+- `rerun_guidance`: short operator guidance for when to change the key or override duplicate behavior
+
+Explicit scheduled keys should start with `stage12:` and should not include `profile_id`. Business dedupe should survive an approved provider/profile routing change.
 
 ## Output Evidence
 Required output evidence fields:
@@ -125,6 +134,11 @@ These samples intentionally cover three patterns:
 - local-first internal summarization;
 - low-sensitivity cloud/API-optional review with approval;
 - deterministic fallback-friendly readiness checking.
+
+Baseline idempotency examples:
+- `daily_status_digest`: `stage12:daily_status_digest:daily:2026-04-28:ops_team`
+- `issue_triage`: `stage12:issue_triage:issue:redmine:NC-1024:2026-04-28T09`
+- `readiness_check`: `stage12:readiness_check:readiness:stage12-scheduler-smoke:stage12:local:2026-04-28`
 
 ## Planned Agent-Facing Surfaces
 These are planned surfaces, not Stage 12 runtime commitments yet.

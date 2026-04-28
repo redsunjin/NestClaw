@@ -103,6 +103,17 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
   - contract tests가 validator CLI의 non-zero exit와 FAIL payload를 확인한다.
   - Stage 12 dev-QA cycle이 negative fixture 회귀를 포함한다.
 
+### G10. Job Template Idempotency Examples
+- Goal: job template마다 external scheduler와 upper agent가 복사해서 쓸 수 있는 concrete idempotency key format, example, duplicate policy를 고정한다.
+- Current artifact:
+  - `configs/job_templates.json`
+  - `examples/stage12_scheduler/idempotency-policy.md`
+  - `stage12-job-idempotency-examples-campaign`
+- Done when:
+  - `daily_status_digest`, `issue_triage`, `readiness_check` 모두 `idempotency_key_policy`를 가진다.
+  - validator가 scheduled job의 key format, examples, recommended duplicate policy를 검증한다.
+  - scheduler examples가 concrete `stage12:` key와 duplicate policy를 사용한다.
+
 ## Recommended Order
 1. G1 Agent Profile Spec
 2. G2 Job Template Spec
@@ -113,6 +124,7 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 7. G7 LLM Harness Configuration
 8. G8 LLM Harness Policy Validator
 9. G9 LLM Harness Negative Validator Fixtures
+10. G10 Job Template Idempotency Examples
 
 ## Operating Track
 - Stage 8 live readiness는 external env handoff가 들어오는 즉시 별도로 재실행한다.
@@ -140,6 +152,8 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - LLM harness validator goal: enforce harness policy as a required Stage 12 QA gate.
 - LLM harness negative fixtures campaign: `stage12-llm-harness-negative-fixtures-campaign`
 - LLM harness negative fixtures goal: prove the validator rejects broken local/cloud/sensitivity/allowlist/idempotency policy fixtures.
+- Job idempotency examples campaign: `stage12-job-idempotency-examples-campaign`
+- Job idempotency examples goal: pin concrete template-level idempotency keys and duplicate policies for scheduler and upper-agent callers.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
@@ -153,4 +167,5 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Completed LLM harness configuration unit: `stage12-w8-001`
 - Completed LLM harness validator unit: `stage12-w9-001`
 - Completed LLM harness negative fixture unit: `stage12-w10-001`
-- Current focus: next Stage 12 work should consider explicit idempotency key examples per job template or validator warning cleanup.
+- Completed job idempotency examples unit: `stage12-w10-002`
+- Current focus: next Stage 12 work should consider validator warning cleanup or first real local LLM provider onboarding.

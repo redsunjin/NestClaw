@@ -3,6 +3,7 @@
   "target_stage": 12,
   "sensitivity": "internal",
   "env_profile": "local",
+  "schedule_bucket": "2026-04-28",
   "strict_gate": false,
   "timeout_seconds": 15
 }

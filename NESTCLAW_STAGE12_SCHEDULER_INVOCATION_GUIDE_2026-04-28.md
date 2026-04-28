@@ -16,7 +16,7 @@ bash scripts/run_stage12_scheduled_job.sh \
   --requested-by stage12_scheduler \
   --actor-id stage12_scheduler \
   --actor-role requester \
-  --idempotency-key readiness-2026-04-28 \
+  --idempotency-key stage12:readiness_check:readiness:stage12-scheduler-smoke:stage12:local:2026-04-28 \
   --duplicate-policy skip \
   --expect-status DONE \
   --include-handoff
@@ -38,7 +38,16 @@ The wrapper supports three duplicate policies:
 - `skip`: check `job.history` first; if the same `idempotency_key` already exists, write `summary.json` with `SKIPPED_DUPLICATE` and exit successfully.
 - `fail`: check `job.history` first; if the same `idempotency_key` already exists, fail the scheduler command.
 
-If `--idempotency-key` is omitted, the wrapper derives one from template, profile, and canonical input JSON. For real business schedules, prefer an explicit key such as `daily-status-2026-04-28` or `readiness-stage12-2026-04-28`.
+If `--idempotency-key` is omitted, the wrapper derives one from template, profile, and canonical input JSON. For real business schedules, prefer an explicit key from the template's `schedule_trigger.idempotency_key_policy`.
+
+## Template Idempotency Policy
+| Template | Explicit Key Example | Recommended Duplicate Policy |
+| --- | --- | --- |
+| `daily_status_digest` | `stage12:daily_status_digest:daily:2026-04-28:ops_team` | `skip` |
+| `issue_triage` | `stage12:issue_triage:issue:redmine:NC-1024:2026-04-28T09` | `fail` |
+| `readiness_check` | `stage12:readiness_check:readiness:stage12-scheduler-smoke:stage12:local:2026-04-28` | `skip` |
+
+Do not include `profile_id` in explicit scheduled keys. A scheduled business run should dedupe across approved profile/provider routing changes. Use a new date, event batch, or schedule bucket when the business run is actually new.
 
 ## Supported External Schedulers
 Examples for cron, launchd, and GitHub Actions live in `examples/stage12_scheduler/`:
@@ -47,7 +56,9 @@ Examples for cron, launchd, and GitHub Actions live in `examples/stage12_schedul
 - `launchd.local.example.plist`
 - `github-actions.example.yml`
 - `daily-status-input.json`
+- `issue-triage-input.json`
 - `readiness-input.json`
+- `idempotency-policy.md`
 
 These examples are integration templates, not active project automation. Copying one into a real scheduler should be treated as an environment handoff decision.
 

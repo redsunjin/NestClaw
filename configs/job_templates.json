@@ -58,8 +58,16 @@
           "date",
           "audience"
         ],
+        "idempotency_key_policy": {
+          "format": "stage12:{template_id}:daily:{date}:{audience}",
+          "examples": [
+            "stage12:daily_status_digest:daily:2026-04-28:ops_team"
+          ],
+          "recommended_duplicate_policy": "skip",
+          "rerun_guidance": "Use a new date or audience for a new scheduled digest; use duplicate-policy run only for manual replay evidence."
+        },
         "examples": [
-          "newclaw job run --template daily_status_digest --profile local_ops_default --input daily-status.json"
+          "newclaw job run --template daily_status_digest --profile local_ops_default --input daily-status.json --idempotency-key stage12:daily_status_digest:daily:2026-04-28:ops_team"
         ]
       },
       "execution_budget_override": {
@@ -116,7 +124,8 @@
           "labels",
           "service",
           "recent_events",
-          "redacted_context"
+          "redacted_context",
+          "event_batch"
         ],
         "sensitivity_field": "sensitivity",
         "max_payload_bytes": 24000,
@@ -154,10 +163,20 @@
         "invocation_surface": "agent.submit",
         "idempotency_key_fields": [
           "template_id",
-          "issue_id"
+          "source_system",
+          "issue_id",
+          "event_batch"
         ],
+        "idempotency_key_policy": {
+          "format": "stage12:{template_id}:issue:{source_system}:{issue_id}:{event_batch}",
+          "examples": [
+            "stage12:issue_triage:issue:redmine:NC-1024:2026-04-28T09"
+          ],
+          "recommended_duplicate_policy": "fail",
+          "rerun_guidance": "Use a new event_batch when the same issue receives new evidence; duplicate-policy fail is recommended for CI/webhook callers so duplicate source events are visible."
+        },
         "examples": [
-          "newclaw job run --template issue_triage --profile local_ops_default --input issue.json"
+          "newclaw job run --template issue_triage --profile local_ops_default --input issue.json --idempotency-key stage12:issue_triage:issue:redmine:NC-1024:2026-04-28T09"
         ]
       },
       "execution_budget_override": {
@@ -213,7 +232,8 @@
         "optional_fields": [
           "env_profile",
           "strict_gate",
-          "timeout_seconds"
+          "timeout_seconds",
+          "schedule_bucket"
         ],
         "sensitivity_field": "sensitivity",
         "max_payload_bytes": 12000,
@@ -251,10 +271,20 @@
         "idempotency_key_fields": [
           "template_id",
           "check_set",
-          "target_stage"
+          "target_stage",
+          "env_profile",
+          "schedule_bucket"
         ],
+        "idempotency_key_policy": {
+          "format": "stage12:{template_id}:readiness:{check_set}:stage{target_stage}:{env_profile}:{schedule_bucket}",
+          "examples": [
+            "stage12:readiness_check:readiness:stage12-scheduler-smoke:stage12:local:2026-04-28"
+          ],
+          "recommended_duplicate_policy": "skip",
+          "rerun_guidance": "Use one schedule_bucket per planned run window, usually an ISO date or CI run bucket; use duplicate-policy fail for strict one-shot release gates."
+        },
         "examples": [
-          "newclaw job run --template readiness_check --profile local_ops_default --input readiness.json"
+          "newclaw job run --template readiness_check --profile local_ops_default --input readiness.json --idempotency-key stage12:readiness_check:readiness:stage12-scheduler-smoke:stage12:local:2026-04-28"
         ]
       },
       "execution_budget_override": {

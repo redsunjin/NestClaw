@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any
 
@@ -393,6 +394,41 @@ class HarnessValidator:
                     self.error(f"job {template_id}: scheduled jobs must include template_id in idempotency_key_fields")
                 if len(idempotency_fields) < 2:
                     self.error(f"job {template_id}: scheduled jobs need at least one business idempotency field")
+                policy_raw = schedule.get("idempotency_key_policy")
+                if not isinstance(policy_raw, dict):
+                    self.error(f"job {template_id}: scheduled jobs must define idempotency_key_policy")
+                    policy: dict[str, Any] = {}
+                else:
+                    policy = dict(policy_raw)
+                key_format = str(policy.get("format") or "").strip()
+                if not key_format:
+                    self.error(f"job {template_id}: scheduled jobs must define idempotency_key_policy.format")
+                else:
+                    placeholders = {item.strip() for item in re.findall(r"\{([^{}]+)\}", key_format) if item.strip()}
+                    if placeholders != idempotency_fields:
+                        self.error(
+                            f"job {template_id}: idempotency_key_policy.format placeholders must match idempotency_key_fields"
+                        )
+                    if not key_format.startswith("stage12:"):
+                        self.error(f"job {template_id}: idempotency_key_policy.format must start with stage12:")
+                examples = policy.get("examples")
+                if not isinstance(examples, list) or not examples:
+                    self.error(f"job {template_id}: idempotency_key_policy.examples must not be empty")
+                else:
+                    for example in examples:
+                        normalized = str(example or "").strip()
+                        if not normalized:
+                            self.error(f"job {template_id}: idempotency_key_policy.examples cannot include blank values")
+                            continue
+                        if "{" in normalized or "}" in normalized:
+                            self.error(f"job {template_id}: idempotency_key_policy.examples must be concrete keys")
+                        if not normalized.startswith("stage12:"):
+                            self.error(f"job {template_id}: idempotency_key_policy.examples must start with stage12:")
+                duplicate_policy = str(policy.get("recommended_duplicate_policy") or "").strip()
+                if duplicate_policy not in {"run", "skip", "fail"}:
+                    self.error(
+                        f"job {template_id}: idempotency_key_policy.recommended_duplicate_policy must be run, skip, or fail"
+                    )
 
     def validate_packs(
         self,

@@ -1,0 +1,17 @@
+{
+  "campaign_id": "stage12-job-idempotency-examples-campaign",
+  "goal": "Pin explicit idempotency key examples and duplicate policy per Stage 12 job template",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-job-template-idempotency-examples",
+      "group": "G1",
+      "title": "Add template-level idempotency examples",
+      "unit_id": "stage12-w10-002",
+      "goal": "Add concrete idempotency key format, examples, duplicate policy, scheduler docs, and validator enforcement for each implemented Stage 12 job template",
+      "status": "completed",
+      "completed_unit_id": "stage12-w10-002",
+      "completed_at": "2026-04-28T13:30:00Z"
+    }
+  ]
+}

@@ -86,7 +86,7 @@ Every job template must be a bounded work contract:
 - It must bind explicit profile IDs.
 - It must bind explicit capability pack IDs.
 - It must define output evidence through status, events, report, and handoff/bundle surfaces.
-- Scheduled jobs must define idempotency key fields or provide an explicit key at invocation time.
+- Scheduled jobs must define idempotency key fields, concrete idempotency key examples, and a recommended duplicate policy.
 
 If a task cannot be expressed as a job template, it is not ready for local LLM automation.
 
@@ -121,7 +121,7 @@ bash scripts/run_stage12_scheduled_job.sh \
   --template readiness_check \
   --profile local_ops_default \
   --input-file examples/stage12_scheduler/readiness-input.json \
-  --idempotency-key readiness-stage12-2026-04-28 \
+  --idempotency-key stage12:readiness_check:readiness:stage12-scheduler-smoke:stage12:local:2026-04-28 \
   --duplicate-policy skip
 ```
 
@@ -177,6 +177,7 @@ Before merging a harness change, verify:
 - Tool writes and external sends have correct approval policy.
 - Budget limits are explicit and cannot be overridden by job input.
 - Scheduled jobs have explicit idempotency policy.
+- Scheduled job examples use concrete `stage12:` idempotency keys.
 - `scripts/validate_stage12_llm_harness.py` returns `PASS`.
 - `tests/fixtures/stage12_llm_harness_negative/` still returns `FAIL` through the validator contract test.
 - Stage 12 contract tests and runtime smoke tests pass.

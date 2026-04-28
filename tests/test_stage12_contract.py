@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 import sys
 import unittest
@@ -44,6 +45,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("launchd", scheduler)
         self.assertIn("GitHub Actions", scheduler)
         self.assertIn("idempotency_key", scheduler)
+        self.assertIn("Template Idempotency Policy", scheduler)
         self.assertIn("duplicate-policy", scheduler)
         self.assertIn("LLM Harness Configuration Guide", harness)
         self.assertIn("Provider Harness", harness)
@@ -70,6 +72,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("stage12-llm-harness-configuration-campaign", work_groups)
         self.assertIn("stage12-llm-harness-validator-campaign", work_groups)
         self.assertIn("stage12-llm-harness-negative-fixtures-campaign", work_groups)
+        self.assertIn("stage12-job-idempotency-examples-campaign", work_groups)
 
     def test_agent_profile_spec_and_sample_registry_exist(self) -> None:
         spec = Path("NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md").read_text(encoding="utf-8")
@@ -128,6 +131,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("input_schema", spec)
         self.assertIn("provider_policy", spec)
         self.assertIn("schedule_trigger", spec)
+        self.assertIn("idempotency_key_policy", spec)
         self.assertIn("output_evidence", spec)
         self.assertEqual(jobs["version"], 1)
 
@@ -163,6 +167,24 @@ class TestStage12Contract(unittest.TestCase):
             self.assertTrue(template["required_capability_packs"])
             self.assertNotIn("*", template["required_capability_packs"])
             self.assertEqual(template["schedule_trigger"]["invocation_surface"], "agent.submit")
+            schedule = template["schedule_trigger"]
+            idempotency_fields = set(schedule["idempotency_key_fields"])
+            self.assertIn("template_id", idempotency_fields)
+            self.assertIn("idempotency_key_policy", schedule)
+            idempotency_policy = schedule["idempotency_key_policy"]
+            self.assertEqual(
+                set(re.findall(r"\{([^{}]+)\}", idempotency_policy["format"])),
+                idempotency_fields,
+            )
+            self.assertTrue(idempotency_policy["format"].startswith("stage12:"))
+            self.assertTrue(idempotency_policy["examples"])
+            self.assertIn(idempotency_policy["recommended_duplicate_policy"], {"run", "skip", "fail"})
+            self.assertIn("rerun_guidance", idempotency_policy)
+            for key_example in idempotency_policy["examples"]:
+                self.assertTrue(key_example.startswith("stage12:"))
+                self.assertNotIn("{", key_example)
+                self.assertNotIn("}", key_example)
+                self.assertNotIn("local_ops_default", key_example)
             self.assertIn("task_id", template["output_evidence"]["audit_fields"])
             self.assertIn("template_id", template["output_evidence"]["audit_fields"])
             self.assertIn("profile_id", template["output_evidence"]["audit_fields"])
@@ -179,6 +201,21 @@ class TestStage12Contract(unittest.TestCase):
         readiness = next(template for template in templates if template["template_id"] == "readiness_check")
         self.assertEqual(readiness["provider_policy"]["fallback_profile_id"], "deterministic_fallback_default")
         self.assertIn("deterministic_fallback", readiness["provider_policy"]["allowed_provider_classes"])
+
+        expected_examples = {
+            "daily_status_digest": "stage12:daily_status_digest:daily:2026-04-28:ops_team",
+            "issue_triage": "stage12:issue_triage:issue:redmine:NC-1024:2026-04-28T09",
+            "readiness_check": "stage12:readiness_check:readiness:stage12-scheduler-smoke:stage12:local:2026-04-28",
+        }
+        expected_duplicate_policies = {
+            "daily_status_digest": "skip",
+            "issue_triage": "fail",
+            "readiness_check": "skip",
+        }
+        for template in templates:
+            policy = template["schedule_trigger"]["idempotency_key_policy"]
+            self.assertIn(expected_examples[template["template_id"]], policy["examples"])
+            self.assertEqual(policy["recommended_duplicate_policy"], expected_duplicate_policies[template["template_id"]])
 
     def test_capability_pack_spec_and_registry_bind_profiles_jobs_and_tools(self) -> None:
         spec = Path("NESTCLAW_CAPABILITY_PACK_SPEC_2026-04-28.md").read_text(encoding="utf-8")
@@ -444,6 +481,23 @@ class TestStage12Contract(unittest.TestCase):
         self.assertEqual(data["items"][0]["unit_id"], "stage12-w10-001")
         self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
 
+    def test_stage12_job_idempotency_examples_campaign_exists(self) -> None:
+        data = json.loads(
+            Path(
+                "work/priority_campaigns/stage12-job-idempotency-examples-campaign/campaign.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(data["campaign_id"], "stage12-job-idempotency-examples-campaign")
+        self.assertEqual(data["target_stage"], 12)
+        self.assertEqual(
+            [item["item_id"] for item in data["items"]],
+            [
+                "g1-job-template-idempotency-examples",
+            ],
+        )
+        self.assertEqual(data["items"][0]["unit_id"], "stage12-w10-002")
+        self.assertIn(data["items"][0]["status"], {"in_progress", "completed"})
+
     def test_stage12_llm_harness_validator_rejects_negative_fixtures(self) -> None:
         fixture_dir = Path("tests/fixtures/stage12_llm_harness_negative")
         result = subprocess.run(
@@ -524,16 +578,20 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("--duplicate-policy", scheduler_script)
         self.assertIn("SKIPPED_DUPLICATE", scheduler_script)
         self.assertIn("examples/stage12_scheduler/readiness-input.json", scheduler_smoke)
+        self.assertIn("stage12:readiness_check:readiness:stage12-scheduler-smoke", scheduler_smoke)
         self.assertIn("--duplicate-policy skip", scheduler_dedupe)
         self.assertIn("stage12-dedupe-smoke", scheduler_dedupe)
         self.assertIn("stage12.llm_harness_validator", validator_source)
         self.assertIn("cloud_api_llm", validator_source)
         self.assertIn("local_llm", validator_source)
         self.assertIn("idempotency_key_fields", validator_source)
+        self.assertIn("idempotency_key_policy", validator_source)
         self.assertIn("external_send_policy must be deny", validator_source)
         self.assertTrue(Path("examples/stage12_scheduler/cron.example").is_file())
         self.assertTrue(Path("examples/stage12_scheduler/launchd.local.example.plist").is_file())
         self.assertTrue(Path("examples/stage12_scheduler/github-actions.example.yml").is_file())
+        self.assertTrue(Path("examples/stage12_scheduler/issue-triage-input.json").is_file())
+        self.assertTrue(Path("examples/stage12_scheduler/idempotency-policy.md").is_file())
         self.assertIn("target-stage:1..12", auto_source)
         self.assertIn("target-stage must be 1..12", auto_source)
 
@@ -551,6 +609,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("newclaw job run", source)
         self.assertIn("scheduled_job_wrapper", source)
         self.assertIn("scheduled_job_dedupe", source)
+        self.assertIn("scheduled_job_idempotency_policy", source)
         self.assertIn("llm_harness_configuration", source)
         self.assertIn("llm_harness_validator", source)
         self.assertIn("idempotency_key", source)

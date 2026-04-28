@@ -2,7 +2,7 @@
 set -euo pipefail
 
 STAMP="$(date -u +"%Y%m%dT%H%M%SZ")"
-KEY="stage12-dedupe-smoke-${STAMP}-$$"
+KEY="stage12:readiness_check:readiness:stage12-dedupe-smoke:stage12:local:${STAMP}-$$"
 BASE_WORK_DIR="${NEWCLAW_STAGE12_SCHEDULER_DEDUPE_WORK_DIR:-reports/stage12-scheduler-dedupe-smoke/${STAMP}-$$}"
 
 mkdir -p "$BASE_WORK_DIR"

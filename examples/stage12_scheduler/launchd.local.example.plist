@@ -9,23 +9,9 @@
   <string>/Users/Agent/ps-workspace/NestClaw_works/worktrees/nestclaw-ideation</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/bash</string>
-    <string>scripts/run_stage12_scheduled_job.sh</string>
-    <string>--template</string>
-    <string>readiness_check</string>
-    <string>--profile</string>
-    <string>local_ops_default</string>
-    <string>--input-file</string>
-    <string>examples/stage12_scheduler/readiness-input.json</string>
-    <string>--requested-by</string>
-    <string>launchd_stage12</string>
-    <string>--actor-id</string>
-    <string>launchd_stage12</string>
-    <string>--actor-role</string>
-    <string>requester</string>
-    <string>--expect-status</string>
-    <string>DONE</string>
-    <string>--include-handoff</string>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>bash scripts/run_stage12_scheduled_job.sh --template readiness_check --profile local_ops_default --input-file examples/stage12_scheduler/readiness-input.json --requested-by launchd_stage12 --actor-id launchd_stage12 --actor-role requester --idempotency-key "stage12:readiness_check:readiness:stage12-scheduler-smoke:stage12:local:$(date -u +%F)" --duplicate-policy skip --expect-status DONE --include-handoff</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>

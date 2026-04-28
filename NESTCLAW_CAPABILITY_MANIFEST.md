@@ -32,6 +32,7 @@
 | `job_history` | `newclaw job history`, `job.history`, `/api/v1/jobs/runs`가 실행된 job의 상태/증적을 읽는 audit surface |
 | `scheduled_job_wrapper` | `scripts/run_stage12_scheduled_job.sh`가 외부 스케줄러 호출 후 history 증적을 검증하는 표준 wrapper |
 | `scheduled_job_dedupe` | `idempotency_key`와 `input_fingerprint`로 external scheduler 중복 호출을 run/skip/fail 처리 |
+| `scheduled_job_idempotency_policy` | job template별 concrete `stage12:` key format, examples, recommended duplicate policy 정의 |
 | `llm_harness_configuration` | provider/profile/job/capability/invocation/QA harness를 함께 설정하는 운영 기준 |
 | `llm_harness_validator` | `scripts/validate_stage12_llm_harness.py`가 registry drift와 local/cloud policy 위반을 검출 |
 

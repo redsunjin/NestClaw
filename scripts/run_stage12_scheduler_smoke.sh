@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+STAMP="$(date -u +"%Y%m%dT%H%M%SZ")"
+
 ARGS=(
   --template readiness_check
   --profile local_ops_default
@@ -8,6 +10,8 @@ ARGS=(
   --requested-by stage12_scheduler_smoke
   --actor-id stage12_scheduler_smoke
   --actor-role requester
+  --idempotency-key "stage12:readiness_check:readiness:stage12-scheduler-smoke:stage12:local:${STAMP}"
+  --duplicate-policy run
   --expect-status DONE
   --max-chars 2400
   --include-bundle

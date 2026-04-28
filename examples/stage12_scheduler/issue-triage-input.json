@@ -1,0 +1,21 @@
+{
+  "issue_id": "NC-1024",
+  "summary": "The local scheduler wrapper reported duplicate readiness invocations for the same run bucket.",
+  "source_system": "redmine",
+  "sensitivity": "low",
+  "service": "stage12-scheduler",
+  "event_batch": "2026-04-28T09",
+  "labels": [
+    "stage12",
+    "scheduler",
+    "dedupe"
+  ],
+  "recent_events": [
+    {
+      "timestamp": "2026-04-28T09:10:00Z",
+      "status": "detected",
+      "summary": "Duplicate scheduler invocation was detected by idempotency policy."
+    }
+  ],
+  "redacted_context": "No sensitive payload included; example is suitable for cloud/API optional review after approval."
+}
