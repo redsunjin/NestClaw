@@ -40,7 +40,8 @@
         "data_residency": "local_only"
       },
       "allowed_profile_ids": [
-        "local_ops_default"
+        "local_ops_default",
+        "local_ollama_ops"
       ],
       "allowed_template_ids": [
         "daily_status_digest"
@@ -96,6 +97,7 @@
       },
       "allowed_profile_ids": [
         "local_ops_default",
+        "local_ollama_ops",
         "upper_agent_control_readonly",
         "deterministic_fallback_default"
       ],
@@ -257,6 +259,7 @@
       },
       "allowed_profile_ids": [
         "local_ops_default",
+        "local_ollama_ops",
         "upper_agent_control_readonly",
         "deterministic_fallback_default"
       ],
@@ -315,6 +318,7 @@
       },
       "allowed_profile_ids": [
         "local_ops_default",
+        "local_ollama_ops",
         "cloud_review_optional"
       ],
       "allowed_template_ids": [
@@ -375,6 +379,7 @@
       },
       "allowed_profile_ids": [
         "local_ops_default",
+        "local_ollama_ops",
         "cloud_review_optional"
       ],
       "allowed_template_ids": [

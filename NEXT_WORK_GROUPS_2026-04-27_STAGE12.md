@@ -124,6 +124,17 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
   - Stage 12 dev-QA cycle이 validator를 `--strict-warnings`로 실행한다.
   - 미래 job/pack 후보는 production allowlist가 아니라 별도 roadmap으로만 남긴다.
 
+### G12. Local LLM Provider Onboarding
+- Goal: 실제 local provider를 production profile로 승격하고, upper agent/scheduler가 같은 job 계약으로 호출할 수 있는 onboarding smoke를 제공한다.
+- Current artifact:
+  - `NESTCLAW_LOCAL_LLM_PROVIDER_ONBOARDING_GUIDE_2026-04-29.md`
+  - `scripts/run_stage12_local_llm_onboarding_smoke.sh`
+  - `stage12-local-llm-provider-onboarding-campaign`
+- Done when:
+  - `local_ollama_ops` profile이 `local_primary` Ollama provider에 연결된다.
+  - `daily_status_digest`, `issue_triage`, `readiness_check`가 `local_ollama_ops`와 호환된다.
+  - Stage 12 dev-QA cycle이 local LLM onboarding smoke를 포함한다.
+
 ## Recommended Order
 1. G1 Agent Profile Spec
 2. G2 Job Template Spec
@@ -136,6 +147,7 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 9. G9 LLM Harness Negative Validator Fixtures
 10. G10 Job Template Idempotency Examples
 11. G11 LLM Harness Warning Cleanup
+12. G12 Local LLM Provider Onboarding
 
 ## Operating Track
 - Stage 8 live readiness는 external env handoff가 들어오는 즉시 별도로 재실행한다.
@@ -167,6 +179,8 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Job idempotency examples goal: pin concrete template-level idempotency keys and duplicate policies for scheduler and upper-agent callers.
 - LLM harness warning cleanup campaign: `stage12-llm-harness-warning-cleanup-campaign`
 - LLM harness warning cleanup goal: require zero-warning production harness validation in Stage 12 QA.
+- Local LLM provider onboarding campaign: `stage12-local-llm-provider-onboarding-campaign`
+- Local LLM provider onboarding goal: promote Ollama as a concrete local provider profile and prove bounded job invocation through the onboarding smoke.
 - Roadmap reference: `NESTCLAW_LOCAL_LLM_JOB_CONTROL_PLANE_ROADMAP_2026-04-27.md`
 - Completed first unit: `stage12-w1-001`
 - Completed second unit: `stage12-w1-002`
@@ -182,4 +196,5 @@ Stage 11 campaign이 pilot operationalization을 닫은 뒤, NestClaw의 다음 
 - Completed LLM harness negative fixture unit: `stage12-w10-001`
 - Completed job idempotency examples unit: `stage12-w10-002`
 - Completed LLM harness warning cleanup unit: `stage12-w10-003`
-- Current focus: next Stage 12 work should consider first real local LLM provider onboarding or dashboard harness visibility.
+- Completed local LLM provider onboarding unit: `stage12-w11-001`
+- Current focus: next Stage 12 work should consider dashboard harness visibility and final release readiness.

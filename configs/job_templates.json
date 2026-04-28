@@ -31,7 +31,8 @@
         "freeform_context_allowed": false
       },
       "allowed_profile_ids": [
-        "local_ops_default"
+        "local_ops_default",
+        "local_ollama_ops"
       ],
       "required_capability_packs": [
         "internal_digest_basic"
@@ -133,6 +134,7 @@
       },
       "allowed_profile_ids": [
         "local_ops_default",
+        "local_ollama_ops",
         "cloud_review_optional"
       ],
       "required_capability_packs": [
@@ -241,6 +243,7 @@
       },
       "allowed_profile_ids": [
         "local_ops_default",
+        "local_ollama_ops",
         "upper_agent_control_readonly",
         "deterministic_fallback_default"
       ],

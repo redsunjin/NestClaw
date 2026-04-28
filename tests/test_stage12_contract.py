@@ -23,6 +23,9 @@ class TestStage12Contract(unittest.TestCase):
         harness = Path("NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md").read_text(
             encoding="utf-8"
         )
+        local_llm_onboarding = Path("NESTCLAW_LOCAL_LLM_PROVIDER_ONBOARDING_GUIDE_2026-04-29.md").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("local-first LLM job control plane", positioning)
         self.assertIn("cloud/API LLM", positioning)
         self.assertIn("Agent Profile", local_control)
@@ -61,6 +64,8 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("scripts/run_stage12_scheduled_job.sh", harness)
         self.assertIn("scripts/run_dev_qa_cycle.sh", harness)
         self.assertIn("scripts/validate_stage12_llm_harness.py", harness)
+        self.assertIn("local_ollama_ops", local_llm_onboarding)
+        self.assertIn("scripts/run_stage12_local_llm_onboarding_smoke.sh", local_llm_onboarding)
         self.assertIn("Stage 12 Priority Campaign", roadmap)
         self.assertIn("stage12-priority-campaign", work_groups)
         self.assertIn("stage12-job-surface-campaign", work_groups)
@@ -73,6 +78,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("stage12-llm-harness-validator-campaign", work_groups)
         self.assertIn("stage12-llm-harness-negative-fixtures-campaign", work_groups)
         self.assertIn("stage12-job-idempotency-examples-campaign", work_groups)
+        self.assertIn("stage12-local-llm-provider-onboarding-campaign", work_groups)
 
     def test_agent_profile_spec_and_sample_registry_exist(self) -> None:
         spec = Path("NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md").read_text(encoding="utf-8")
@@ -111,6 +117,13 @@ class TestStage12Contract(unittest.TestCase):
         self.assertTrue(
             {"local_llm", "cloud_api_llm", "upper_agent_wrapper", "deterministic_fallback"}.issubset(classes)
         )
+        profile_ids = {profile["profile_id"] for profile in profiles}
+        self.assertIn("local_ollama_ops", profile_ids)
+        ollama_profile = next(profile for profile in profiles if profile["profile_id"] == "local_ollama_ops")
+        self.assertEqual(ollama_profile["provider_id"], "local_primary")
+        self.assertEqual(ollama_profile["provider_class"], "local_llm")
+        self.assertEqual(ollama_profile["sensitivity_boundary"]["external_send_policy"], "deny")
+        self.assertFalse(ollama_profile["execution_budget"]["allow_network"])
 
         local_profile = next(profile for profile in profiles if profile["provider_class"] == "local_llm")
         self.assertIn("sensitive_internal", local_profile["sensitivity_boundary"]["allowed_sensitivity"])
@@ -559,6 +572,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("scripts/run_stage12_local_job_poc.sh", cycle_source)
         self.assertIn("scripts/run_stage12_scheduler_smoke.sh", cycle_source)
         self.assertIn("scripts/run_stage12_scheduler_dedupe_smoke.sh", cycle_source)
+        self.assertIn("scripts/run_stage12_local_llm_onboarding_smoke.sh", cycle_source)
         self.assertIn("NEWCLAW_CYCLE_CHECK_TIMEOUT_SECONDS", cycle_source)
         self.assertIn("run_with_timeout.py", cycle_source)
         self.assertIn("run_check_command", cycle_source)
@@ -616,6 +630,7 @@ class TestStage12Contract(unittest.TestCase):
         self.assertIn("idempotency_key", source)
         self.assertIn("scripts/validate_stage12_llm_harness.py", source)
         self.assertIn("scripts/run_stage12_scheduled_job.sh", source)
+        self.assertIn("scripts/run_stage12_local_llm_onboarding_smoke.sh", source)
         self.assertIn("NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md", source)
 
     def test_stage12_job_run_cli_surface_exists(self) -> None:

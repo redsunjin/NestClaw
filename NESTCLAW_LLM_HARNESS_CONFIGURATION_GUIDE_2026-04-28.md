@@ -30,6 +30,7 @@ The QA harness now includes `scripts/validate_stage12_llm_harness.py`, which che
 Use the existing profiles as the starting policy set:
 
 - `local_ops_default`: default for internal and sensitive internal work. It is local-first and denies external send.
+- `local_ollama_ops`: first promoted Ollama profile for local job execution using `local_primary`.
 - `cloud_review_optional`: allowed only for public, low, or redacted metadata where external send is approved.
 - `upper_agent_control_readonly`: for Claude/Codex/MCP wrappers that inspect or orchestrate NestClaw without tool writes.
 - `deterministic_fallback_default`: for readiness and degraded-mode checks when LLM providers are unavailable.
@@ -54,6 +55,8 @@ Minimum validation:
 
 ```bash
 python3 scripts/validate_stage12_llm_harness.py
+env PATH=../nestclaw-ideation-qa/.venv/bin:$PATH \
+  bash scripts/run_stage12_local_llm_onboarding_smoke.sh
 python3 -m unittest tests.test_stage12_contract
 env PATH=../nestclaw-ideation-qa/.venv/bin:$PATH \
   python3 -m unittest tests.test_stage12_job_invocation_smoke

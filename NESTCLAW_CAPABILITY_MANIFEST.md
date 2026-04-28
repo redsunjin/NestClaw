@@ -35,6 +35,7 @@
 | `scheduled_job_idempotency_policy` | job template별 concrete `stage12:` key format, examples, recommended duplicate policy 정의 |
 | `llm_harness_configuration` | provider/profile/job/capability/invocation/QA harness를 함께 설정하는 운영 기준 |
 | `llm_harness_validator` | `scripts/validate_stage12_llm_harness.py`가 registry drift와 local/cloud policy 위반을 검출 |
+| `local_llm_provider_onboarding` | `local_ollama_ops`와 `scripts/run_stage12_local_llm_onboarding_smoke.sh`로 실제 local provider 연결 절차를 검증 |
 
 Stage 12 roadmap:
 - `NESTCLAW_AGENT_PROFILE_SPEC_2026-04-27.md`
@@ -45,6 +46,8 @@ Stage 12 roadmap:
 - `configs/capability_packs.json`
 - `NESTCLAW_LLM_HARNESS_CONFIGURATION_GUIDE_2026-04-28.md`
 - `scripts/validate_stage12_llm_harness.py`
+- `NESTCLAW_LOCAL_LLM_PROVIDER_ONBOARDING_GUIDE_2026-04-29.md`
+- `scripts/run_stage12_local_llm_onboarding_smoke.sh`
 - `NESTCLAW_LOCAL_JOB_INVOCATION_POC_2026-04-28.md`
 - `scripts/run_stage12_local_job_poc.sh`
 - `NESTCLAW_STAGE12_SCHEDULER_INVOCATION_GUIDE_2026-04-28.md`

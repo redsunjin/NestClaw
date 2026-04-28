@@ -1,0 +1,17 @@
+{
+  "campaign_id": "stage12-local-llm-provider-onboarding-campaign",
+  "goal": "Promote a concrete local LLM provider profile and prove bounded Stage 12 job invocation",
+  "target_stage": 12,
+  "items": [
+    {
+      "item_id": "g1-local-ollama-provider-onboarding",
+      "group": "G1",
+      "title": "Onboard Ollama local provider",
+      "unit_id": "stage12-w11-001",
+      "goal": "Add local_ollama_ops profile, onboarding guide, smoke script, and Stage 12 QA wiring for local Ollama job execution",
+      "status": "completed",
+      "completed_unit_id": "stage12-w11-001",
+      "completed_at": "2026-04-29T00:25:00Z"
+    }
+  ]
+}
