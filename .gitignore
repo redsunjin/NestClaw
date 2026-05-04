@@ -8,3 +8,5 @@ output/playwright/
 .codex/
 .playwright-cli/
 work/micro_units/*/reports/
+work/tool_drafts/tooldraft_*.yaml
+work/tool_registry_history/
